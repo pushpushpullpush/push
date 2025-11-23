@@ -1940,10 +1940,12 @@
   saved = [];
   if(!authUser || !currentUser) return;
   try{
+    // Pulls inkl. created_at holen und nach neuestem Pull sortieren
     const { data: pullRows, error } = await supabaseClient
       .from(SUPABASE_PULLS_TABLE)
-      .select('image_id')
-      .eq('user_id', authUser.id);
+      .select('image_id, created_at')
+      .eq('user_id', authUser.id)
+      .order('created_at', { ascending: false });
 
     if(error){
       console.error('load pulls error:', error);
@@ -1952,6 +1954,7 @@
     if(!pullRows || pullRows.length === 0) return;
 
     const ids = pullRows.map(r => r.image_id);
+
     const { data: imgRows, error: imgError } = await supabaseClient
       .from(SUPABASE_TABLE)
       .select('*')
@@ -1969,10 +1972,12 @@
       .map(row => ({
         src: row.url,
         imageId: row.id,
-        pulledAt: null
+        // falls du später sortieren willst, haben wir das schon dabei:
+        pulledAt: pullRows.find(p => p.image_id === row.id)?.created_at || null
       }));
 
-    // eigenen User in pullers-Liste der Bilder eintragen
+    // eigenen User in pullers-Liste der Bilder eintragen,
+    // damit der Name beim Hover wieder auftaucht
     if(currentUser && images && Array.isArray(images)){
       const bySrc = new Map(images.map(img => [img.src, img]));
       saved.forEach(s => {
@@ -1989,6 +1994,7 @@
     console.error('loadPullsForCurrentUser exception:', err);
   }
 }
+
 
 
     // Pull setzen/entfernen

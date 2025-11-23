@@ -99,6 +99,67 @@
       color:#666;
     }
 
+    /* AUTH OVERLAY */
+    #authOverlay{
+      position:fixed;
+      inset:0;
+      background:#ffffffee;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:270;
+    }
+    #authBox{
+      position:relative;
+      padding:18px 22px;
+      border:1px solid #eee;
+      border-radius:12px;
+      min-width:220px;
+      text-align:left;
+      background:#fff;
+    }
+    #authBox input{
+      border:none;
+      border-bottom:1px solid #ddd;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:13px;
+      padding:4px 0;
+      outline:none;
+      width:180px;
+      background:transparent;
+      display:block;
+    }
+    #authBox input + input{
+      margin-top:10px;
+    }
+    #authHint{
+      margin-top:10px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:10px;
+      color:#aaa;
+      max-width:220px;
+      line-height:1.4;
+    }
+    #authEnter{
+      margin-top:14px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:13px;
+      cursor:pointer;
+      color:#444;
+    }
+    #authCancel{
+      position:absolute;
+      top:6px;
+      right:8px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:14px;
+      color:#999;
+      cursor:pointer;
+    }
+    #authCancel:hover{
+      color:#666;
+    }
+
     /* TOP BAR */
     #topBar{
       position:fixed;
@@ -509,6 +570,17 @@
     </div>
   </div>
 
+  <!-- AUTH OVERLAY -->
+  <div id="authOverlay">
+    <div id="authBox">
+      <input id="authName" type="text" placeholder="name" autocomplete="username" />
+      <input id="authKey" type="password" placeholder="key" autocomplete="current-password" />
+      <div id="authHint">name + key keep your pulls across browsers. keep them simple.</div>
+      <div id="authEnter">enter</div>
+      <div id="authCancel">✕</div>
+    </div>
+  </div>
+
   <div id="topBar">
     <div id="logo">push</div>
 
@@ -562,12 +634,12 @@
 
     const SUPABASE_URL    = 'https://wsftiujnfywdxmzrvgqv.supabase.co';   // HIER dein Projekt-URL
     const SUPABASE_KEY    = 'sb_publishable_o1e3kkJkw4ofmi_lFI0Q8g_Mr0GL_k8';    // HIER dein anon/publishable Key
-    const SUPABASE_BUCKET = 'images';                            // HIER dein Bucket-Name
-    const SUPABASE_TABLE  = 'images';                            // HIER dein Tabellenname
+    const SUPABASE_BUCKET = 'images';                            // Storage-Bucket
+    const SUPABASE_TABLE  = 'images';                            // Bild-Metadaten
+    const SUPABASE_PULLS_TABLE = 'pulls';                        // Pulls-Tabelle
 
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Helper: dataURL -> Blob
     function dataURLToBlob(dataURL){
       const parts = dataURL.split(',');
       const mimeMatch = parts[0].match(/:(.*?);/);
@@ -583,10 +655,10 @@
 
     const REPORT_THRESHOLD = 5;
 
-    // Demo-Images als Fallback,
-    // werden von Supabase-Daten überschrieben, wenn welche existieren
+    // Demo-Fallback-Bilder (falls DB leer ist)
     let images = [
       {
+        id: null,
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#111'/><circle cx='400' cy='300' r='160' fill='#444'/><text x='50%' y='50%' fill='#fafafa' font-size='36' font-family='Helvetica' text-anchor='middle' dy='12'>luna 01</text></svg>",
         tags: ["luna","demo","dark"],
         pullers: ["luna"],
@@ -594,6 +666,7 @@
         reportHidden: false
       },
       {
+        id: null,
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#f5f5f5'/><rect x='80' y='60' width='640' height='480' fill='#ddd'/><text x='50%' y='50%' fill='#444' font-size='32' font-family='Helvetica' text-anchor='middle' dy='10'>ghost 01</text></svg>",
         tags: ["ghost","demo","gray"],
         pullers: ["ghost"],
@@ -601,6 +674,7 @@
         reportHidden: false
       },
       {
+        id: null,
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#002b36'/><rect x='120' y='120' width='560' height='360' fill='#268bd2'/><text x='50%' y='50%' fill='#fdf6e3' font-size='30' font-family='Helvetica' text-anchor='middle' dy='10'>luna & ghost</text></svg>",
         tags: ["luna","ghost","demo"],
         pullers: ["luna","ghost"],
@@ -609,18 +683,19 @@
       }
     ];
 
-    let saved  = [];
+    let saved  = [];             // Pulls der aktuellen Session / Users
     let pendingImage = null;
     let pendingTags = [];
-    let area = 'public';   // 'public' | 'private'
-    let viewOwner = null;  // null oder username, wenn auf fremder Wall
+    let area = 'public';         // 'public' | 'private'
+    let viewOwner = null;        // null oder username, wenn auf fremder Wall
     let uploadConfirmStep = 0;
     let searchTerm = '';
 
     let currentSingleList = null;
     let currentSingleIndex = null;
 
-    let currentUser = null;
+    let currentUser = null;      // { username, userId, wallPulls }
+    let authUser = null;         // Supabase user object
     let ownerMenuOpen = false;
 
     const scrollState = {
@@ -640,27 +715,6 @@
       try{
         localStorage.setItem('push_wall_pulls', JSON.stringify(wallPullsByUser));
       }catch(e){}
-    }
-
-    try{
-      saved = JSON.parse(localStorage.getItem('push_saved') || '[]');
-    }catch(e){
-      saved = [];
-    }
-    try{
-      const u = localStorage.getItem('push_user');
-      if(u) currentUser = JSON.parse(u);
-    }catch(e){
-      currentUser = null;
-    }
-    if(currentUser){
-      if(!wallPullsByUser[currentUser.username]){
-        wallPullsByUser[currentUser.username] = currentUser.wallPulls && Array.isArray(currentUser.wallPulls)
-          ? currentUser.wallPulls
-          : [];
-        saveWallPulls();
-      }
-      currentUser.wallPulls = wallPullsByUser[currentUser.username];
     }
 
     const gallery           = document.getElementById('gallery');
@@ -693,6 +747,15 @@
     const contactOverlay    = document.getElementById('contactOverlay');
     const contactClose      = document.getElementById('contactClose');
 
+    const authOverlay       = document.getElementById('authOverlay');
+    const authName          = document.getElementById('authName');
+    const authKey           = document.getElementById('authKey');
+    const authEnter         = document.getElementById('authEnter');
+    const authCancel        = document.getElementById('authCancel');
+
+    let authResolve = null;
+    let authInProgress = false;
+
     const isSaved = src => saved.some(s => s.src === src);
 
     function isAdmin(){
@@ -700,28 +763,9 @@
     }
 
     function saveCurrentUser(){
-      if(!currentUser) return;
-      try{
-        localStorage.setItem('push_user', JSON.stringify(currentUser));
-      }catch(e){}
+      // Supabase Auth hält die Session; hier müssen wir nichts extra tun
     }
 
-    function ensureUser(){
-      if(currentUser) return true;
-      const name = prompt('username');
-      if(!name) return false;
-      const uname = name.trim();
-      currentUser = { username: uname, wallPulls: [] };
-      if(!wallPullsByUser[uname]){
-        wallPullsByUser[uname] = [];
-        saveWallPulls();
-      }
-      currentUser.wallPulls = wallPullsByUser[uname];
-      saveCurrentUser();
-      return true;
-    }
-
-    // Tags aus Input parsen
     function parseTagsInput(raw){
       if(!raw) return [];
       return raw
@@ -1018,9 +1062,10 @@
           leaveInfluences.appendChild(s);
         });
 
-        leaveOwner.onclick = ev => {
+        leaveOwner.onclick = async ev => {
           ev.stopPropagation();
-          if(!ensureUser()) return;
+          const ok = await ensureAuth();
+          if(!ok) return;
           const uName = viewOwner;
           if(!wallPullsByUser[currentUser.username]){
             wallPullsByUser[currentUser.username] = [];
@@ -1040,7 +1085,6 @@
             flash = 'push';
           }
           currentUser.wallPulls = pulls;
-          saveCurrentUser();
           saveWallPulls();
 
           const original = leaveOwner.textContent;
@@ -1249,45 +1293,22 @@
         act.textContent = (effectiveArea==='public')
           ? (isSaved(img.src) ? 'push' : 'pull')
           : 'push';
-        act.onclick=e=>{
+        act.onclick = async e=>{
           e.stopPropagation();
           if(effectiveArea==='public'){
-            if(!isSaved(base.src)){
-              if(!ensureUser()) return;
-            }
-            if(isSaved(base.src)){
-              saved = saved.filter(s => s.src !== base.src);
-              if(base.pullers && currentUser){
-                base.pullers = base.pullers.filter(u => u !== currentUser.username);
-              }
-            } else {
-              if(!base.pullers) base.pullers = [];
-              if(currentUser && !base.pullers.includes(currentUser.username)){
-                base.pullers.push(currentUser.username);
-              }
-              saved.unshift({
-                src: base.src,
-                pulledAt: Date.now()
-              });
-            }
-            try{
-              localStorage.setItem('push_saved', JSON.stringify(saved));
-            }catch(e){}
+            const wasSaved = isSaved(base.src);
+            const ok = await ensureAuth();
+            if(!ok) return;
+            const shouldPull = !wasSaved;
+            await setPullForImage(base, shouldPull);
             updateActions();
             renderUsersList();
           } else {
             const iSaved = saved.findIndex(s=>s.src===base.src);
             if(iSaved!==-1){
-              const removed = saved.splice(iSaved,1)[0];
-              try{
-                localStorage.setItem('push_saved', JSON.stringify(saved));
-              }catch(e){}
-              if(currentUser){
-                const pub = images.find(x=>x.src===removed.src);
-                if(pub && pub.pullers){
-                  pub.pullers = pub.pullers.filter(u => u !== currentUser.username);
-                }
-              }
+              const removed = saved[iSaved];
+              const pub = images.find(x=>x.src===removed.src) || base;
+              await setPullForImage(pub, false);
               if(saved.length===0){
                 closeScroll(null);
               } else {
@@ -1314,9 +1335,10 @@
       profileBtn.textContent = 'pull';
     }
 
-    profileBtn.onclick = () => {
+    profileBtn.onclick = async () => {
       blinkWord(profileBtn);
-      if(!ensureUser()) return;
+      const ok = await ensureAuth();
+      if(!ok) return;
       area = 'private';
       viewOwner = null;
       ownerMenuOpen = false;
@@ -1329,14 +1351,18 @@
       window.scrollTo({ top: y, behavior: 'auto' });
     };
 
-    function doLogout(){
-      if(!currentUser) return;
+    async function doLogout(){
+      if(!currentUser && !authUser) return;
+      try{
+        await supabaseClient.auth.signOut();
+      }catch(e){}
+      authUser = null;
       currentUser = null;
+      saved = [];
       try{
         localStorage.removeItem('push_user');
         localStorage.removeItem('push_saved');
       }catch(e){}
-      saved = [];
       area = 'public';
       viewOwner = null;
       ownerMenuOpen = false;
@@ -1663,6 +1689,14 @@
           closeScroll(null);
         } else if(contactOverlay.style.display === 'flex'){
           contactOverlay.style.display='none';
+        } else if(authOverlay.style.display === 'flex'){
+          authOverlay.style.display='none';
+          authName.value='';
+          authKey.value='';
+          if(authResolve){
+            authResolve(false);
+            authResolve = null;
+          }
         }
       } else if(singleScrollView.style.display === 'block'){
         if(e.key === 'ArrowRight'){
@@ -1734,6 +1768,144 @@
       }
     });
 
+    // AUTH-Funktionen
+    function openAuthOverlay(){
+      authOverlay.style.display = 'flex';
+      authName.focus();
+    }
+    function closeAuthOverlay(){
+      authOverlay.style.display = 'none';
+      authName.value = '';
+      authKey.value = '';
+    }
+
+    async function handleAuthSubmit(){
+      if(authInProgress) return;
+      const name = (authName.value || '').trim();
+      const key = authKey.value || '';
+      if(!name || !key) return;
+
+      authInProgress = true;
+      const email = name.toLowerCase() + '@push.local';
+      try{
+        let { data, error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password: key
+        });
+        if(error){
+          const msg = (error.message || '').toLowerCase();
+          if(msg.includes('invalid login credentials')){
+            const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+              email,
+              password: key,
+              options: {
+                data: { username: name }
+              }
+            });
+            if(signUpError){
+              console.error('signUp error', signUpError);
+              alert('login failed');
+              authInProgress = false;
+              return;
+            }
+            data = signUpData;
+          } else {
+            console.error('signIn error', error);
+            alert('login failed');
+            authInProgress = false;
+            return;
+          }
+        }
+        const user = data.user;
+        authUser = user;
+        const uname = user.user_metadata && user.user_metadata.username
+          ? user.user_metadata.username
+          : name;
+        if(!wallPullsByUser[uname]){
+          wallPullsByUser[uname] = wallPullsByUser[uname] || [];
+          saveWallPulls();
+        }
+        currentUser = {
+          username: uname,
+          userId: user.id,
+          wallPulls: wallPullsByUser[uname] || []
+        };
+        saveCurrentUser();
+        await loadPullsForCurrentUser();
+        renderGallery();
+        updateProfile();
+        closeAuthOverlay();
+        if(authResolve){
+          authResolve(true);
+          authResolve = null;
+        }
+      }catch(err){
+        console.error('auth exception', err);
+        alert('login failed');
+        if(authResolve){
+          authResolve(false);
+          authResolve = null;
+        }
+      }finally{
+        authInProgress = false;
+      }
+    }
+
+    async function ensureAuth(){
+      if(authUser && currentUser) return true;
+      // Versuche Session aus Supabase zu holen
+      try{
+        const { data, error } = await supabaseClient.auth.getUser();
+        if(!error && data && data.user){
+          authUser = data.user;
+          const uname = data.user.user_metadata && data.user.user_metadata.username
+            ? data.user.user_metadata.username
+            : 'user';
+          if(!wallPullsByUser[uname]){
+            wallPullsByUser[uname] = wallPullsByUser[uname] || [];
+            saveWallPulls();
+          }
+          currentUser = {
+            username: uname,
+            userId: data.user.id,
+            wallPulls: wallPullsByUser[uname] || []
+          };
+          saveCurrentUser();
+          await loadPullsForCurrentUser();
+          renderGallery();
+          updateProfile();
+          return true;
+        }
+      }catch(e){
+        console.error('ensureAuth getUser error', e);
+      }
+      return new Promise(resolve=>{
+        authResolve = resolve;
+        openAuthOverlay();
+      });
+    }
+
+    authEnter.addEventListener('click', handleAuthSubmit);
+    authKey.addEventListener('keydown', e=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        handleAuthSubmit();
+      }
+    });
+    authName.addEventListener('keydown', e=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        authKey.focus();
+      }
+    });
+    authCancel.addEventListener('click', ()=>{
+      closeAuthOverlay();
+      if(authResolve){
+        authResolve(false);
+        authResolve = null;
+      }
+    });
+
     // Bilder aus Supabase laden (globaler Feed)
     async function loadImagesFromSupabase(){
       try{
@@ -1747,8 +1919,7 @@
           return;
         }
         if(!data || data.length === 0){
-          // kein Eintrag → Demo-Bilder bleiben
-          return;
+          return; // Demo-Fallback bleibt
         }
 
         images = data.map(row => ({
@@ -1764,8 +1935,134 @@
       }
     }
 
+    // Pulls des aktuellen Users laden
+    async function loadPullsForCurrentUser(){
+      saved = [];
+      if(!authUser || !currentUser) return;
+      try{
+        const { data: pullRows, error } = await supabaseClient
+          .from(SUPABASE_PULLS_TABLE)
+          .select('image_id')
+          .eq('user_id', authUser.id);
+
+        if(error){
+          console.error('load pulls error:', error);
+          return;
+        }
+        if(!pullRows || pullRows.length === 0) return;
+
+        const ids = pullRows.map(r => r.image_id);
+        const { data: imgRows, error: imgError } = await supabaseClient
+          .from(SUPABASE_TABLE)
+          .select('*')
+          .in('id', ids);
+
+        if(imgError){
+          console.error('load pulls images error:', imgError);
+          return;
+        }
+
+        const byId = new Map(imgRows.map(row => [row.id, row]));
+        saved = ids
+          .map(id => byId.get(id))
+          .filter(Boolean)
+          .map(row => ({
+            src: row.url,
+            imageId: row.id,
+            pulledAt: null
+          }));
+      }catch(err){
+        console.error('loadPullsForCurrentUser exception:', err);
+      }
+    }
+
+    // Pull setzen/entfernen
+    async function setPullForImage(base, shouldPull){
+      if(!authUser || !currentUser || !base || !base.id) return;
+
+      if(shouldPull){
+        try{
+          const { error } = await supabaseClient
+            .from(SUPABASE_PULLS_TABLE)
+            .insert({
+              user_id: authUser.id,
+              image_id: base.id
+            });
+          if(error){
+            const msg = (error.message || '').toLowerCase();
+            if(msg.includes('duplicate')){
+              // schon vorhanden → egal
+            } else {
+              console.error('insert pull error:', error);
+            }
+          }
+        }catch(err){
+          console.error('insert pull exception:', err);
+        }
+      } else {
+        try{
+          const { error } = await supabaseClient
+            .from(SUPABASE_PULLS_TABLE)
+            .delete()
+            .eq('user_id', authUser.id)
+            .eq('image_id', base.id);
+          if(error){
+            console.error('delete pull error:', error);
+          }
+        }catch(err){
+          console.error('delete pull exception:', err);
+        }
+      }
+
+      if(shouldPull){
+        if(!isSaved(base.src)){
+          saved.unshift({
+            src: base.src,
+            imageId: base.id,
+            pulledAt: Date.now()
+          });
+        }
+        if(currentUser){
+          if(!base.pullers) base.pullers = [];
+          if(!base.pullers.includes(currentUser.username)){
+            base.pullers.push(currentUser.username);
+          }
+        }
+      } else {
+        saved = saved.filter(s => s.src !== base.src);
+        if(currentUser && base.pullers){
+          base.pullers = base.pullers.filter(u => u !== currentUser.username);
+        }
+      }
+    }
+
+    async function initAuth(){
+      try{
+        const { data, error } = await supabaseClient.auth.getUser();
+        if(!error && data && data.user){
+          authUser = data.user;
+          const uname = data.user.user_metadata && data.user.user_metadata.username
+            ? data.user.user_metadata.username
+            : 'user';
+          if(!wallPullsByUser[uname]){
+            wallPullsByUser[uname] = wallPullsByUser[uname] || [];
+            saveWallPulls();
+          }
+          currentUser = {
+            username: uname,
+            userId: data.user.id,
+            wallPulls: wallPullsByUser[uname] || []
+          };
+        }
+      }catch(e){
+        console.error('initAuth error', e);
+      }
+    }
+
     async function initApp(){
+      await initAuth();
       await loadImagesFromSupabase();
+      await loadPullsForCurrentUser();
       renderGallery();
       updateProfile();
       updateSearchLabel();

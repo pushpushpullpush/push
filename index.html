@@ -126,13 +126,13 @@
       align-items:center;
     }
     #leftCenter{
-      margin-left:32px;   /* Abstand von push zur Suche */
+      margin-left:32px;
     }
     #rightCenter{
-      margin-right:32px;  /* Abstand vom Regler zu pull */
+      margin-right:32px;
     }
 
-    /* Suche: unsichtbares Feld, nur "search" als Wort */
+    /* Suche */
     #searchInput{
       margin-left:0;
       padding:0;
@@ -166,7 +166,7 @@
       font-family:Helvetica,Arial,sans-serif;
     }
 
-    /* Slider: nur Linie, kleiner */
+    /* Slider */
     #columnsRange{
       width:120px;
       appearance:none;
@@ -553,9 +553,38 @@
     <div id="uploadCancel">✕</div>
   </div>
 
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script>
+    // === Supabase Setup ===
+    const { createClient } = supabase;
+
+    const SUPABASE_URL    = 'https://wsftiujnfywdxmzrvgqv.supabase.co';   // HIER dein Projekt-URL
+    const SUPABASE_KEY    = 'sb_publishable_o1e3kkJkw4ofmi_lFI0Q8g_Mr0GL_k8';    // HIER dein anon/publishable Key
+    const SUPABASE_BUCKET = 'images';                            // HIER dein Bucket-Name
+    const SUPABASE_TABLE  = 'images';                            // HIER dein Tabellenname
+
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Helper: dataURL -> Blob
+    function dataURLToBlob(dataURL){
+      const parts = dataURL.split(',');
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const binary = atob(parts[1]);
+      const len = binary.length;
+      const u8 = new Uint8Array(len);
+      for(let i=0;i<len;i++){
+        u8[i] = binary.charCodeAt(i);
+      }
+      return new Blob([u8], { type: mime });
+    }
+
     const REPORT_THRESHOLD = 5;
 
+    // Demo-Images als Fallback,
+    // werden von Supabase-Daten überschrieben, wenn welche existieren
     let images = [
       {
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#111'/><circle cx='400' cy='300' r='160' fill='#444'/><text x='50%' y='50%' fill='#fafafa' font-size='36' font-family='Helvetica' text-anchor='middle' dy='12'>luna 01</text></svg>",
@@ -592,7 +621,7 @@
     let currentSingleIndex = null;
 
     let currentUser = null;
-    let ownerMenuOpen = false; // eigener Name unten: menu open/close
+    let ownerMenuOpen = false;
 
     const scrollState = {
       public: 0,
@@ -692,6 +721,7 @@
       return true;
     }
 
+    // Tags aus Input parsen
     function parseTagsInput(raw){
       if(!raw) return [];
       return raw
@@ -718,7 +748,6 @@
       if(e.key === 'Enter' || e.key === ' ' || e.key === ',' || e.key === 'Tab'){
         const raw = tagInput.value;
         if(!raw.trim() && e.key === 'Tab'){
-          // nichts eingegeben → Tab normal weiterreichen
           return;
         }
         e.preventDefault();
@@ -738,7 +767,6 @@
 
       const raw = searchTerm.trim();
 
-      // TAG-SUCHE: wenn mit '#' beginnt → nur Tags
       if(raw.startsWith('#')){
         const q = raw.slice(1).toLowerCase().trim();
         if(!q) return true;
@@ -746,7 +774,6 @@
         return tagsArr.some(t => (t || '').toLowerCase().includes(q));
       }
 
-      // normale Suche: Tags, Puller
       const q       = raw.toLowerCase();
       const tagsStr = (img.tags || []).join(' ').toLowerCase();
       const pullers = (img.pullers || []).join(' ').toLowerCase();
@@ -825,7 +852,7 @@
 
     function updateColumns(){
       const v = Number(columnsRange.value);
-      const cols = 9 - v; // 2→7, 7→2
+      const cols = 9 - v;
       gallery.style.gridTemplateColumns = `repeat(${cols},1fr)`;
 
       const min = Number(columnsRange.min);
@@ -920,7 +947,6 @@
       const isForeignPullGallery  = !!viewOwner;
       const isPullGallery         = isOwnPullGallery || isForeignPullGallery;
 
-      // PUBLIC / ADMIN VIEW
       if(!isPullGallery){
         ownerMenuOpen = false;
         leaveBar.style.display = 'none';
@@ -945,11 +971,10 @@
         return;
       }
 
-      // PULL-GALERIEN (eigene oder fremde Wall)
+      // Pull-Galerien
       leaveBar.style.display = 'block';
 
       if(isOwnPullGallery){
-        // eigene Pull-Wall
         leaveOwner.textContent = currentUser.username;
 
         const ownPulls = wallPullsByUser[currentUser.username] || [];
@@ -977,7 +1002,6 @@
         };
 
       } else {
-        // fremde Wall
         ownerMenuOpen = false;
 
         leaveOwner.textContent = viewOwner;
@@ -1027,7 +1051,6 @@
         };
       }
 
-      // "push" als Username am Ende der Reihe
       const allOwners = getAllWallOwners();
       if(allOwners.length){
         const pushSpan = document.createElement('span');
@@ -1071,7 +1094,6 @@
         return;
       }
 
-      // Hero halb breit, rechts
       const heroWrap = document.createElement('div');
       heroWrap.className = 'heroWrap';
 
@@ -1083,10 +1105,8 @@
       heroWrap.appendChild(heroImg);
       gallery.appendChild(heroWrap);
 
-      // Username-/Influence-Balken
       gallery.appendChild(leaveBar);
 
-      // Restliche Bilder
       for(let i = 1; i < list.length; i++){
         const el = document.createElement('img');
         el.src = list[i].src;
@@ -1439,7 +1459,67 @@
       if(file) startUploadFromFile(file);
     });
 
-    uploadPush.onclick = () => {
+    // Upload zu Supabase + Tabelle
+    async function uploadImageToSupabase(dataUrl, tags){
+      try{
+        const blob = dataURLToBlob(dataUrl);
+        const fileExt = 'jpg';
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+        const filePath = `uploads/${fileName}`;
+
+        const { data, error } = await supabaseClient
+          .storage
+          .from(SUPABASE_BUCKET)
+          .upload(filePath, blob, {
+            contentType: 'image/jpeg',
+            cacheControl: '3600'
+          });
+
+        if(error){
+          console.error('Supabase upload error:', error);
+          alert('upload failed');
+          return null;
+        }
+
+        const { data: publicData } = supabaseClient
+          .storage
+          .from(SUPABASE_BUCKET)
+          .getPublicUrl(filePath);
+
+        const publicUrl = publicData && publicData.publicUrl;
+        if(!publicUrl){
+          alert('could not get public url');
+          return null;
+        }
+
+        const { data: inserted, error: insertError } = await supabaseClient
+          .from(SUPABASE_TABLE)
+          .insert({ url: publicUrl, tags })
+          .select()
+          .single();
+
+        if(insertError){
+          console.error('Supabase insert error:', insertError);
+          alert('saving metadata failed');
+          return null;
+        }
+
+        return {
+          id: inserted.id,
+          src: inserted.url,
+          tags: inserted.tags || [],
+          pullers: [],
+          reportBy: [],
+          reportHidden: false
+        };
+      }catch(err){
+        console.error('Supabase upload exception:', err);
+        alert('upload failed (exception)');
+        return null;
+      }
+    }
+
+    uploadPush.onclick = async () => {
       if(!pendingImage) return;
 
       if(uploadConfirmStep === 0){
@@ -1448,13 +1528,12 @@
         return;
       }
 
-      const imgObj = {
-        src:   pendingImage,
-        tags:  pendingTags.slice(0, 7),
-        pullers: [],
-        reportBy: [],
-        reportHidden: false
-      };
+      const tags = pendingTags.slice(0,7);
+
+      const imgObj = await uploadImageToSupabase(pendingImage, tags);
+      if(!imgObj){
+        return;
+      }
 
       images.unshift(imgObj);
       pendingImage = null;
@@ -1497,7 +1576,6 @@
       }
     });
 
-    // Landing state + helper
     let landingHintShown = false;
 
     function showLanding(fromShortcut){
@@ -1520,7 +1598,6 @@
       const isTyping = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
 
       if(!isTyping){
-        // y = kleinere Kacheln (mehr Spalten)
         if(e.key === 'y' || e.key === 'Y'){
           let v = Number(columnsRange.value);
           const min = Number(columnsRange.min);
@@ -1531,7 +1608,6 @@
           return;
         }
 
-        // x = größere Kacheln (weniger Spalten)
         if(e.key === 'x' || e.key === 'X'){
           let v = Number(columnsRange.value);
           const max = Number(columnsRange.max);
@@ -1542,7 +1618,6 @@
           return;
         }
 
-        // z = random Bild in Einzelansicht + kleines visuelles „Blink“ am Logo
         if(e.key === 'z' || e.key === 'Z'){
           const baseList = getCurrentList();
           const q = (searchTerm || '').toLowerCase();
@@ -1554,13 +1629,12 @@
           }
           if(list.length > 0){
             const idx = Math.floor(Math.random() * list.length);
-            blinkWord(logo);        // kleiner visueller Sprung
+            blinkWord(logo);
             openSingle(idx, list);
           }
           return;
         }
 
-        // p = in der Einzelansicht pull/push für das aktuelle Bild auslösen
         if(e.key === 'p' || e.key === 'P'){
           if(singleScrollView.style.display === 'block' && currentSingleList && currentSingleIndex != null){
             const btns = singleScrollView.querySelectorAll('.actionBtn');
@@ -1570,7 +1644,6 @@
           return;
         }
 
-        // i = Intro/Landing erneut anzeigen
         if(e.key === 'i' || e.key === 'I'){
           showLanding(true);
           return;
@@ -1616,7 +1689,6 @@
       }
     });
 
-    // LANDING LOGIK (pro Browser-Session, mit Fade-Out)
     (function initLanding(){
       if(!landingOverlay || !landingLogo || !landingMessage) return;
       const ack = sessionStorage.getItem('push_landing_ack') === '1';
@@ -1651,7 +1723,6 @@
       }
     })();
 
-    // CONTACT OVERLAY CLOSE
     if(contactClose){
       contactClose.addEventListener('click', ()=>{
         contactOverlay.style.display = 'none';
@@ -1663,10 +1734,45 @@
       }
     });
 
-    renderGallery();
-    updateProfile();
-    updateSearchLabel();
-    setGridUIVisible(true);
+    // Bilder aus Supabase laden (globaler Feed)
+    async function loadImagesFromSupabase(){
+      try{
+        const { data, error } = await supabaseClient
+          .from(SUPABASE_TABLE)
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if(error){
+          console.error('Supabase load error:', error);
+          return;
+        }
+        if(!data || data.length === 0){
+          // kein Eintrag → Demo-Bilder bleiben
+          return;
+        }
+
+        images = data.map(row => ({
+          id: row.id,
+          src: row.url,
+          tags: row.tags || [],
+          pullers: [],
+          reportBy: [],
+          reportHidden: false
+        }));
+      }catch(err){
+        console.error('Supabase load exception:', err);
+      }
+    }
+
+    async function initApp(){
+      await loadImagesFromSupabase();
+      renderGallery();
+      updateProfile();
+      updateSearchLabel();
+      setGridUIVisible(true);
+    }
+
+    initApp();
   </script>
 </body>
 </html>

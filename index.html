@@ -13,6 +13,92 @@
       overflow-x:hidden;
     }
 
+    /* LANDING OVERLAY */
+    #landingOverlay{
+      position:fixed;
+      inset:0;
+      background:#fff;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      z-index:250;
+      opacity:1;
+      transition:opacity 0.25s ease-out;
+    }
+    #landingOverlay.hidden{
+      opacity:0;
+      pointer-events:none;
+    }
+    #landingLogo{
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:20px;
+      cursor:pointer;
+    }
+    #landingMessage{
+      margin-top:12px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:12px;
+      color:#777;
+      opacity:0;
+      transition:opacity 0.15s ease-out;
+    }
+    #landingContact{
+      position:absolute;
+      bottom:40px;
+      left:50%;
+      transform:translateX(-50%);
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:11px;
+      color:#ccc;
+      letter-spacing:0.02em;
+      cursor:pointer;
+    }
+
+    /* CONTACT OVERLAY (minimal) */
+    #contactOverlay{
+      position:fixed;
+      inset:0;
+      background:#ffffff;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:260;
+    }
+    #contactBox{
+      position:relative;
+      padding:18px 22px;
+      border:1px solid #eee;
+      border-radius:12px;
+      min-width:220px;
+      text-align:center;
+    }
+    #contactTitle{
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:12px;
+      letter-spacing:0.08em;
+      text-transform:lowercase;
+      color:#444;
+    }
+    #contactSub{
+      margin-top:8px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:11px;
+      color:#bbb;
+    }
+    #contactClose{
+      position:absolute;
+      top:8px;
+      right:10px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:14px;
+      color:#999;
+      cursor:pointer;
+    }
+    #contactClose:hover{
+      color:#666;
+    }
+
     /* TOP BAR */
     #topBar{
       position:fixed;
@@ -298,33 +384,6 @@
       display:block;
     }
 
-    /* Hover-Zone rechts (credits) */
-    .hoverRight{
-      position:absolute;
-      top:0;
-      bottom:0;
-      right:5vw;
-      width:12vw;
-      cursor:default;
-    }
-    .singleMeta{
-      position:absolute;
-      right:5vw;
-      top:50%;
-      transform:translateY(-50%);
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:13px;
-      color:#444;
-      max-width:12vw;
-      line-height:1.4;
-      text-align:left;
-      white-space:pre-line;
-      display:none;
-    }
-    .hoverRight:hover + .singleMeta{
-      display:block;
-    }
-
     /* upload overlay */
     #uploadOverlay{
       position:fixed;
@@ -361,6 +420,30 @@
       width:260px;
       background:transparent;
     }
+    #tagInput::placeholder{
+      color:#555;
+      opacity:1;
+    }
+    .tagChips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
+      margin-top:4px;
+    }
+    .tagChip{
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid #ddd;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:11px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .tagChip:hover{
+      border-color:#aaa;
+      background:#f5f5f5;
+    }
+
     #uploadHint{
       position:absolute;
       right:5vw;
@@ -410,6 +493,22 @@
   </style>
 </head>
 <body>
+  <!-- LANDING PAGE -->
+  <div id="landingOverlay">
+    <div id="landingLogo">push</div>
+    <div id="landingMessage">All images published will be online forever.</div>
+    <div id="landingContact">contact</div>
+  </div>
+
+  <!-- CONTACT OVERLAY -->
+  <div id="contactOverlay">
+    <div id="contactBox">
+      <div id="contactTitle">contact</div>
+      <div id="contactSub">form coming soon</div>
+      <div id="contactClose">✕</div>
+    </div>
+  </div>
+
   <div id="topBar">
     <div id="logo">push</div>
 
@@ -443,9 +542,8 @@
   <div id="uploadOverlay">
     <img id="uploadPreview" alt="preview" />
     <div class="uploadMeta">
-      <input id="metaTitle" type="text" placeholder="title" maxlength="80" />
-      <input id="metaName" type="text" placeholder="name" maxlength="80" />
-      <input id="metaTags" type="text" placeholder="tags (comma, max 10)" maxlength="220" />
+      <input id="tagInput" type="text" placeholder="tags" />
+      <div id="tagChips" class="tagChips"></div>
     </div>
     <div id="uploadHint">
       I understand the image will be published forever and cannot be deleted.
@@ -461,8 +559,6 @@
     let images = [
       {
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#111'/><circle cx='400' cy='300' r='160' fill='#444'/><text x='50%' y='50%' fill='#fafafa' font-size='36' font-family='Helvetica' text-anchor='middle' dy='12'>luna 01</text></svg>",
-        title: "night orbit",
-        name: "unknown",
         tags: ["luna","demo","dark"],
         pullers: ["luna"],
         reportBy: [],
@@ -470,8 +566,6 @@
       },
       {
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#f5f5f5'/><rect x='80' y='60' width='640' height='480' fill='#ddd'/><text x='50%' y='50%' fill='#444' font-size='32' font-family='Helvetica' text-anchor='middle' dy='10'>ghost 01</text></svg>",
-        title: "flat plain",
-        name: "unknown",
         tags: ["ghost","demo","gray"],
         pullers: ["ghost"],
         reportBy: [],
@@ -479,8 +573,6 @@
       },
       {
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#002b36'/><rect x='120' y='120' width='560' height='360' fill='#268bd2'/><text x='50%' y='50%' fill='#fdf6e3' font-size='30' font-family='Helvetica' text-anchor='middle' dy='10'>luna & ghost</text></svg>",
-        title: "shared field",
-        name: "unknown",
         tags: ["luna","ghost","demo"],
         pullers: ["luna","ghost"],
         reportBy: [],
@@ -490,6 +582,7 @@
 
     let saved  = [];
     let pendingImage = null;
+    let pendingTags = [];
     let area = 'public';   // 'public' | 'private'
     let viewOwner = null;  // null oder username, wenn auf fremder Wall
     let uploadConfirmStep = 0;
@@ -559,10 +652,17 @@
     const leaveLogout       = document.getElementById('leaveLogout');
     const dropZone          = document.getElementById('dropZone');
 
-    const metaTitle         = document.getElementById('metaTitle');
-    const metaName          = document.getElementById('metaName');
-    const metaTags          = document.getElementById('metaTags');
+    const tagInput          = document.getElementById('tagInput');
+    const tagChips          = document.getElementById('tagChips');
     const uploadHint        = document.getElementById('uploadHint');
+
+    const landingOverlay    = document.getElementById('landingOverlay');
+    const landingLogo       = document.getElementById('landingLogo');
+    const landingMessage    = document.getElementById('landingMessage');
+    const landingContact    = document.getElementById('landingContact');
+
+    const contactOverlay    = document.getElementById('contactOverlay');
+    const contactClose      = document.getElementById('contactClose');
 
     const isSaved = src => saved.some(s => s.src === src);
 
@@ -575,15 +675,6 @@
       try{
         localStorage.setItem('push_user', JSON.stringify(currentUser));
       }catch(e){}
-    }
-
-    function parseTags(raw){
-      if(!raw) return [];
-      return raw
-        .split(',')
-        .map(t => t.trim().toLowerCase())
-        .filter(t => t.length > 0 && /^[a-z0-9]+$/.test(t))
-        .slice(0, 10);
     }
 
     function ensureUser(){
@@ -601,6 +692,47 @@
       return true;
     }
 
+    function parseTagsInput(raw){
+      if(!raw) return [];
+      return raw
+        .split(/[, \t]+/)
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 0 && t.length <= 21 && /^[a-z0-9]+$/.test(t));
+    }
+
+    function renderTagChips(){
+      tagChips.innerHTML = '';
+      pendingTags.forEach((t, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'tagChip';
+        chip.textContent = t;
+        chip.onclick = () => {
+          pendingTags.splice(i, 1);
+          renderTagChips();
+        };
+        tagChips.appendChild(chip);
+      });
+    }
+
+    tagInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' ' || e.key === ',' || e.key === 'Tab'){
+        const raw = tagInput.value;
+        if(!raw.trim() && e.key === 'Tab'){
+          // nichts eingegeben → Tab normal weiterreichen
+          return;
+        }
+        e.preventDefault();
+        const list = parseTagsInput(raw);
+        list.forEach(tag => {
+          if(pendingTags.length < 7 && !pendingTags.includes(tag)){
+            pendingTags.push(tag);
+          }
+        });
+        tagInput.value = '';
+        renderTagChips();
+      }
+    });
+
     function matchesSearch(img){
       if(!searchTerm) return true;
 
@@ -614,16 +746,12 @@
         return tagsArr.some(t => (t || '').toLowerCase().includes(q));
       }
 
-      // normale Suche: Titel, Name, Tags, Puller
-      const q        = raw.toLowerCase();
-      const title    = (img.title || '').toLowerCase();
-      const name     = (img.name  || '').toLowerCase();
-      const tagsStr  = (img.tags  || []).join(' ').toLowerCase();
-      const pullers  = (img.pullers || []).join(' ').toLowerCase();
+      // normale Suche: Tags, Puller
+      const q       = raw.toLowerCase();
+      const tagsStr = (img.tags || []).join(' ').toLowerCase();
+      const pullers = (img.pullers || []).join(' ').toLowerCase();
 
       return (
-        title.includes(q)   ||
-        name.includes(q)    ||
         tagsStr.includes(q) ||
         pullers.includes(q)
       );
@@ -1096,20 +1224,6 @@
         renderUsersList();
         wrap.appendChild(usersDiv);
 
-        const hoverRight = document.createElement('div');
-        hoverRight.className = 'hoverRight';
-        wrap.appendChild(hoverRight);
-
-        const lines=[];
-        if(base.title) lines.push(base.title);
-        if(base.name)  lines.push(base.name);
-        if(lines.length){
-          const metaDiv=document.createElement('div');
-          metaDiv.className='singleMeta';
-          metaDiv.textContent = lines.join('\n');
-          wrap.appendChild(metaDiv);
-        }
-
         const act=document.createElement('div');
         act.className='actionBtn';
         act.textContent = (effectiveArea==='public')
@@ -1294,9 +1408,9 @@
 
           uploadHint.style.display='none';
           uploadConfirmStep=0;
-          metaTitle.value='';
-          metaName.value='';
-          metaTags.value='';
+          pendingTags = [];
+          tagInput.value = '';
+          renderTagChips();
 
           uploadOverlay.style.display='flex';
         };
@@ -1336,9 +1450,7 @@
 
       const imgObj = {
         src:   pendingImage,
-        title: metaTitle.value.trim(),
-        name:  metaName.value.trim(),
-        tags:  parseTags(metaTags.value),
+        tags:  pendingTags.slice(0, 7),
         pullers: [],
         reportBy: [],
         reportHidden: false
@@ -1346,13 +1458,12 @@
 
       images.unshift(imgObj);
       pendingImage = null;
+      pendingTags = [];
+      tagInput.value = '';
+      renderTagChips();
       uploadOverlay.style.display='none';
       uploadConfirmStep=0;
       uploadHint.style.display='none';
-
-      metaTitle.value='';
-      metaName.value='';
-      metaTags.value='';
 
       area='public';
       viewOwner=null;
@@ -1365,6 +1476,9 @@
 
     uploadCancel.onclick = () => {
       pendingImage=null;
+      pendingTags = [];
+      tagInput.value = '';
+      renderTagChips();
       uploadOverlay.style.display='none';
       uploadConfirmStep=0;
       uploadHint.style.display='none';
@@ -1383,23 +1497,169 @@
       }
     });
 
+    // Landing state + helper
+    let landingHintShown = false;
+
+    function showLanding(fromShortcut){
+      if(!landingOverlay) return;
+      landingOverlay.style.display = 'flex';
+      landingOverlay.classList.remove('hidden');
+      if(landingMessage){
+        if(fromShortcut){
+          landingHintShown = true;
+          landingMessage.style.opacity = 1;
+        } else {
+          landingHintShown = false;
+          landingMessage.style.opacity = 0;
+        }
+      }
+    }
+
     document.addEventListener('keydown', e => {
       const ae = document.activeElement;
       const isTyping = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
 
       if(!isTyping){
-        // shortcuts (y/x/z/p) könntest du hier wieder einbauen, wenn du magst
+        // y = kleinere Kacheln (mehr Spalten)
+        if(e.key === 'y' || e.key === 'Y'){
+          let v = Number(columnsRange.value);
+          const min = Number(columnsRange.min);
+          if(v > min){
+            columnsRange.value = String(v - 1);
+            updateColumns();
+          }
+          return;
+        }
+
+        // x = größere Kacheln (weniger Spalten)
+        if(e.key === 'x' || e.key === 'X'){
+          let v = Number(columnsRange.value);
+          const max = Number(columnsRange.max);
+          if(v < max){
+            columnsRange.value = String(v + 1);
+            updateColumns();
+          }
+          return;
+        }
+
+        // z = random Bild in Einzelansicht + kleines visuelles „Blink“ am Logo
+        if(e.key === 'z' || e.key === 'Z'){
+          const baseList = getCurrentList();
+          const q = (searchTerm || '').toLowerCase();
+          let list;
+          if(isAdmin() && (q === 'reported' || q === 'hidden')){
+            list = baseList;
+          } else {
+            list = baseList.filter(matchesSearch);
+          }
+          if(list.length > 0){
+            const idx = Math.floor(Math.random() * list.length);
+            blinkWord(logo);        // kleiner visueller Sprung
+            openSingle(idx, list);
+          }
+          return;
+        }
+
+        // p = in der Einzelansicht pull/push für das aktuelle Bild auslösen
+        if(e.key === 'p' || e.key === 'P'){
+          if(singleScrollView.style.display === 'block' && currentSingleList && currentSingleIndex != null){
+            const btns = singleScrollView.querySelectorAll('.actionBtn');
+            const btn  = btns[currentSingleIndex];
+            if(btn) btn.click();
+          }
+          return;
+        }
+
+        // i = Intro/Landing erneut anzeigen
+        if(e.key === 'i' || e.key === 'I'){
+          showLanding(true);
+          return;
+        }
       }
 
       if(e.key === 'Escape'){
         if(uploadOverlay.style.display === 'flex'){
           pendingImage=null;
+          pendingTags = [];
+          tagInput.value = '';
+          renderTagChips();
           uploadOverlay.style.display='none';
           uploadConfirmStep=0;
           uploadHint.style.display='none';
         } else if(singleScrollView.style.display === 'block'){
           closeScroll(null);
+        } else if(contactOverlay.style.display === 'flex'){
+          contactOverlay.style.display='none';
         }
+      } else if(singleScrollView.style.display === 'block'){
+        if(e.key === 'ArrowRight'){
+          e.preventDefault();
+          if(currentSingleList && currentSingleIndex != null){
+            const newIndex = currentSingleIndex + 1;
+            if(newIndex >= 0 && newIndex < currentSingleList.length){
+              currentSingleIndex = newIndex;
+              const target = singleScrollView.children[newIndex];
+              if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
+            }
+          }
+        } else if(e.key === 'ArrowLeft'){
+          e.preventDefault();
+          if(currentSingleList && currentSingleIndex != null){
+            const newIndex = currentSingleIndex - 1;
+            if(newIndex >= 0 && newIndex < currentSingleList.length){
+              currentSingleIndex = newIndex;
+              const target = singleScrollView.children[newIndex];
+              if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
+            }
+          }
+        }
+      }
+    });
+
+    // LANDING LOGIK (pro Browser-Session, mit Fade-Out)
+    (function initLanding(){
+      if(!landingOverlay || !landingLogo || !landingMessage) return;
+      const ack = sessionStorage.getItem('push_landing_ack') === '1';
+
+      landingLogo.addEventListener('click', () => {
+        if(!landingHintShown){
+          landingHintShown = true;
+          landingMessage.style.opacity = 1;
+        } else {
+          sessionStorage.setItem('push_landing_ack','1');
+          landingOverlay.classList.add('hidden');
+          landingOverlay.addEventListener('transitionend', function handler(){
+            landingOverlay.removeEventListener('transitionend', handler);
+            landingOverlay.style.display = 'none';
+          });
+        }
+      });
+
+      if(landingContact){
+        landingContact.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          contactOverlay.style.display = 'flex';
+        });
+      }
+
+      if(!ack){
+        showLanding(false);
+      } else {
+        landingOverlay.style.display = 'none';
+        landingOverlay.classList.remove('hidden');
+        landingMessage.style.opacity = 0;
+      }
+    })();
+
+    // CONTACT OVERLAY CLOSE
+    if(contactClose){
+      contactClose.addEventListener('click', ()=>{
+        contactOverlay.style.display = 'none';
+      });
+    }
+    contactOverlay.addEventListener('click', (e)=>{
+      if(e.target === contactOverlay){
+        contactOverlay.style.display = 'none';
       }
     });
 

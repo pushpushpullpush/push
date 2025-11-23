@@ -1908,32 +1908,33 @@
 
     // Bilder aus Supabase laden (globaler Feed)
     async function loadImagesFromSupabase(){
-      try{
-        const { data, error } = await supabaseClient
-          .from(SUPABASE_TABLE)
-          .select('*')
-          .order('created_at', { ascending: false });
+  try{
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_TABLE)
+      .select('*')
+      .order('created_at', { ascending: false });
 
-        if(error){
-          console.error('Supabase load error:', error);
-          return;
-        }
-        if(!data || data.length === 0){
-          return; // Demo-Fallback bleibt
-        }
-
-        images = data.map(row => ({
-          id: row.id,
-          src: row.url,
-          tags: row.tags || [],
-          pullers: [],
-          reportBy: [],
-          reportHidden: false
-        }));
-      }catch(err){
-        console.error('Supabase load exception:', err);
-      }
+    if(error){
+      console.error('Supabase load error:', error);
+      return;
     }
+    if(!data || data.length === 0){
+      return; // Demo-Fallback bleibt
+    }
+
+    images = data.map(row => ({
+      id: row.id,
+      src: row.url,
+      tags: row.tags || [],
+      pullers: row.pullers || [],   // <— WICHTIG: aus DB holen
+      reportBy: [],
+      reportHidden: false
+    }));
+  }catch(err){
+    console.error('Supabase load exception:', err);
+  }
+}
+
 
     // Pulls des aktuellen Users laden
    async function loadPullsForCurrentUser(){
@@ -1998,64 +1999,80 @@
 
 
     // Pull setzen/entfernen
-    async function setPullForImage(base, shouldPull){
-      if(!authUser || !currentUser || !base || !base.id) return;
+   async function setPullForImage(base, shouldPull){
+  if(!authUser || !currentUser || !base || !base.id) return;
 
-      if(shouldPull){
-        try{
-          const { error } = await supabaseClient
-            .from(SUPABASE_PULLS_TABLE)
-            .insert({
-              user_id: authUser.id,
-              image_id: base.id
-            });
-          if(error){
-            const msg = (error.message || '').toLowerCase();
-            if(msg.includes('duplicate')){
-              // schon vorhanden → egal
-            } else {
-              console.error('insert pull error:', error);
-            }
-          }
-        }catch(err){
-          console.error('insert pull exception:', err);
-        }
-      } else {
-        try{
-          const { error } = await supabaseClient
-            .from(SUPABASE_PULLS_TABLE)
-            .delete()
-            .eq('user_id', authUser.id)
-            .eq('image_id', base.id);
-          if(error){
-            console.error('delete pull error:', error);
-          }
-        }catch(err){
-          console.error('delete pull exception:', err);
+  // 1) pulls-Tabelle für private Wall pflegen
+  if(shouldPull){
+    try{
+      const { error } = await supabaseClient
+        .from(SUPABASE_PULLS_TABLE)
+        .insert({
+          user_id: authUser.id,
+          image_id: base.id
+        });
+      if(error){
+        const msg = (error.message || '').toLowerCase();
+        if(msg.includes('duplicate')){
+          // schon vorhanden → egal
+        } else {
+          console.error('insert pull error:', error);
         }
       }
+    }catch(err){
+      console.error('insert pull exception:', err);
+    }
+  } else {
+    try{
+      const { error } = await supabaseClient
+        .from(SUPABASE_PULLS_TABLE)
+        .delete()
+        .eq('user_id', authUser.id)
+        .eq('image_id', base.id);
+      if(error){
+        console.error('delete pull error:', error);
+      }
+    }catch(err){
+      console.error('delete pull exception:', err);
+    }
+  }
 
-      if(shouldPull){
-        if(!isSaved(base.src)){
-          saved.unshift({
-            src: base.src,
-            imageId: base.id,
-            pulledAt: Date.now()
-          });
-        }
-        if(currentUser){
-          if(!base.pullers) base.pullers = [];
-          if(!base.pullers.includes(currentUser.username)){
-            base.pullers.push(currentUser.username);
-          }
-        }
-      } else {
-        saved = saved.filter(s => s.src !== base.src);
-        if(currentUser && base.pullers){
-          base.pullers = base.pullers.filter(u => u !== currentUser.username);
-        }
+  // 2) lokale saved-Liste + pullers-Array aktualisieren
+  if(shouldPull){
+    if(!isSaved(base.src)){
+      saved.unshift({
+        src: base.src,
+        imageId: base.id,
+        pulledAt: Date.now()
+      });
+    }
+    if(currentUser){
+      if(!base.pullers) base.pullers = [];
+      if(!base.pullers.includes(currentUser.username)){
+        base.pullers.push(currentUser.username);
       }
     }
+  } else {
+    saved = saved.filter(s => s.src !== base.src);
+    if(currentUser && base.pullers){
+      base.pullers = base.pullers.filter(u => u !== currentUser.username);
+    }
+  }
+
+  // 3) pullers auch in der images-Tabelle speichern
+  try{
+    const { error: updError } = await supabaseClient
+      .from(SUPABASE_TABLE)
+      .update({ pullers: base.pullers || [] })
+      .eq('id', base.id);
+    if(updError){
+      console.error('update pullers error:', updError);
+    }
+  }catch(err){
+    console.error('update pullers exception:', err);
+  }
+}
+
 
     async function initAuth(){
       try{

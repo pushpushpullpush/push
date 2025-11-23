@@ -1936,45 +1936,60 @@
     }
 
     // Pulls des aktuellen Users laden
-    async function loadPullsForCurrentUser(){
-      saved = [];
-      if(!authUser || !currentUser) return;
-      try{
-        const { data: pullRows, error } = await supabaseClient
-          .from(SUPABASE_PULLS_TABLE)
-          .select('image_id')
-          .eq('user_id', authUser.id);
+   async function loadPullsForCurrentUser(){
+  saved = [];
+  if(!authUser || !currentUser) return;
+  try{
+    const { data: pullRows, error } = await supabaseClient
+      .from(SUPABASE_PULLS_TABLE)
+      .select('image_id')
+      .eq('user_id', authUser.id);
 
-        if(error){
-          console.error('load pulls error:', error);
-          return;
-        }
-        if(!pullRows || pullRows.length === 0) return;
-
-        const ids = pullRows.map(r => r.image_id);
-        const { data: imgRows, error: imgError } = await supabaseClient
-          .from(SUPABASE_TABLE)
-          .select('*')
-          .in('id', ids);
-
-        if(imgError){
-          console.error('load pulls images error:', imgError);
-          return;
-        }
-
-        const byId = new Map(imgRows.map(row => [row.id, row]));
-        saved = ids
-          .map(id => byId.get(id))
-          .filter(Boolean)
-          .map(row => ({
-            src: row.url,
-            imageId: row.id,
-            pulledAt: null
-          }));
-      }catch(err){
-        console.error('loadPullsForCurrentUser exception:', err);
-      }
+    if(error){
+      console.error('load pulls error:', error);
+      return;
     }
+    if(!pullRows || pullRows.length === 0) return;
+
+    const ids = pullRows.map(r => r.image_id);
+    const { data: imgRows, error: imgError } = await supabaseClient
+      .from(SUPABASE_TABLE)
+      .select('*')
+      .in('id', ids);
+
+    if(imgError){
+      console.error('load pulls images error:', imgError);
+      return;
+    }
+
+    const byId = new Map(imgRows.map(row => [row.id, row]));
+    saved = ids
+      .map(id => byId.get(id))
+      .filter(Boolean)
+      .map(row => ({
+        src: row.url,
+        imageId: row.id,
+        pulledAt: null
+      }));
+
+    // eigenen User in pullers-Liste der Bilder eintragen
+    if(currentUser && images && Array.isArray(images)){
+      const bySrc = new Map(images.map(img => [img.src, img]));
+      saved.forEach(s => {
+        const base = bySrc.get(s.src);
+        if(base){
+          if(!base.pullers) base.pullers = [];
+          if(!base.pullers.includes(currentUser.username)){
+            base.pullers.push(currentUser.username);
+          }
+        }
+      });
+    }
+  }catch(err){
+    console.error('loadPullsForCurrentUser exception:', err);
+  }
+}
+
 
     // Pull setzen/entfernen
     async function setPullForImage(base, shouldPull){

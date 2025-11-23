@@ -704,6 +704,9 @@
       walls: {}
     };
 
+    let wallOrders = {}; // username -> array von image_ids in Pull-Reihenfolge
+
+
     // Map: username -> array von usernames, die er als Wall gepullt hat
     let wallPullsByUser = {};
     try{
@@ -965,13 +968,31 @@
         return res;
       }
 
-      let base;
+            let base;
       if(viewOwner){
-        base = images.filter(img => img.pullers && img.pullers.includes(viewOwner));
+        // Bilder, die dieser User irgendwann gepullt hat
+        const baseAll = images.filter(img => img.pullers && img.pullers.includes(viewOwner));
+        const order = wallOrders[viewOwner];
+
+        if(order && order.length){
+          const byId = new Map(baseAll.map(img => [img.id, img]));
+          // nach Pull-Reihenfolge sortieren (neuester Pull zuerst)
+          base = order
+            .map(id => byId.get(id))
+            .filter(Boolean);
+
+          // falls es Bilder gibt, die keinen Pull-Eintrag mehr haben (alte Daten),
+          // hängen wir sie hinten an, damit nichts „verschwindet“
+          const rest = baseAll.filter(img => !base.includes(img));
+          base = base.concat(rest);
+        } else {
+          base = baseAll;
+        }
       } else {
         base = images;
       }
       return base.filter(img => !isHiddenGlobal(img));
+
     }
 
     function renderGallery(){
@@ -1174,17 +1195,44 @@
       currentSingleIndex = null;
     }
 
-    function openUserWall(username){
-      viewOwner = username;
-      area = 'public';
-      singleScrollView.style.display = 'none';
-      singleScrollView.style.opacity = 0;
-      document.body.classList.remove('hideRange');
-      setGridUIVisible(true);
-      renderGallery();
-      const y = scrollState.walls[username] || 0;
-      window.scrollTo({ top: y, behavior: 'auto' });
+    async function openUserWall(username){
+  viewOwner = username;
+  area = 'public';
+  singleScrollView.style.display = 'none';
+  singleScrollView.style.opacity = 0;
+  document.body.classList.remove('hideRange');
+  setGridUIVisible(true);
+
+  // Reihenfolge der Pulls für diesen User laden
+  await loadWallOrderForUser(username);
+
+  renderGallery();
+  const y = scrollState.walls[username] || 0;
+  window.scrollTo({ top: y, behavior: 'auto' });
+}
+async function loadWallOrderForUser(username){
+  if(!username) return;
+  if(wallOrders[username]) return; // schon geladen
+
+  try{
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_PULLS_TABLE)
+      .select('image_id, created_at')
+      .eq('username', username)
+      .order('created_at', { ascending: false });
+
+    if(error){
+      console.error('load wall order error:', error);
+      wallOrders[username] = [];
+      return;
     }
+
+    wallOrders[username] = (data || []).map(r => r.image_id);
+  }catch(err){
+    console.error('load wall order exception:', err);
+  }
+}
+
 
     function openSingle(startIndex, listOverride=null){
       setGridUIVisible(false);
@@ -2028,12 +2076,14 @@
   // 1) pulls-Tabelle für private Wall pflegen
   if(shouldPull){
     try{
-      const { error } = await supabaseClient
+        const { error } = await supabaseClient
         .from(SUPABASE_PULLS_TABLE)
         .insert({
           user_id: authUser.id,
-          image_id: base.id
+          image_id: base.id,
+          username: currentUser.username
         });
+
       if(error){
         const msg = (error.message || '').toLowerCase();
         if(msg.includes('duplicate')){

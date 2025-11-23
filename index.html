@@ -1937,7 +1937,7 @@
 
 
     // Pulls des aktuellen Users laden
-   async function loadPullsForCurrentUser(){
+  async function loadPullsForCurrentUser(){
   saved = [];
   if(!authUser || !currentUser) return;
   try{
@@ -1967,34 +1967,57 @@
     }
 
     const byId = new Map(imgRows.map(row => [row.id, row]));
-    saved = ids
-      .map(id => byId.get(id))
-      .filter(Boolean)
-      .map(row => ({
-        src: row.url,
-        imageId: row.id,
-        // falls du später sortieren willst, haben wir das schon dabei:
-        pulledAt: pullRows.find(p => p.image_id === row.id)?.created_at || null
-      }));
 
-    // eigenen User in pullers-Liste der Bilder eintragen,
-    // damit der Name beim Hover wieder auftaucht
+    // saved in der Reihenfolge der Pull-Zeit (neueste zuerst)
+    saved = pullRows
+      .map(pr => {
+        const row = byId.get(pr.image_id);
+        if(!row) return null;
+        return {
+          src: row.url,
+          imageId: row.id,
+          pulledAt: pr.created_at || null
+        };
+      })
+      .filter(Boolean);
+
+    // eigenen User sowohl lokal als auch in der DB in pullers eintragen
     if(currentUser && images && Array.isArray(images)){
       const bySrc = new Map(images.map(img => [img.src, img]));
+      const updates = [];
+
       saved.forEach(s => {
         const base = bySrc.get(s.src);
-        if(base){
-          if(!base.pullers) base.pullers = [];
-          if(!base.pullers.includes(currentUser.username)){
-            base.pullers.push(currentUser.username);
+        if(base && base.id){
+          let arr = Array.isArray(base.pullers) ? base.pullers.slice() : [];
+          if(!arr.includes(currentUser.username)){
+            arr.push(currentUser.username);
+            base.pullers = arr; // lokal aktualisieren
+            updates.push({ id: base.id, pullers: arr }); // später in DB schreiben
           }
         }
       });
+
+      // Änderungen in die images-Tabelle zurückschreiben
+      for(const u of updates){
+        try{
+          const { error: updError } = await supabaseClient
+            .from(SUPABASE_TABLE)
+            .update({ pullers: u.pullers })
+            .eq('id', u.id);
+          if(updError){
+            console.error('loadPullsForCurrentUser update pullers error:', updError);
+          }
+        }catch(e){
+          console.error('loadPullsForCurrentUser update pullers exception:', e);
+        }
+      }
     }
   }catch(err){
     console.error('loadPullsForCurrentUser exception:', err);
   }
 }
+
 
 
 

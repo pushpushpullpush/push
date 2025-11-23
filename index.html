@@ -3,18 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>push — Gallery</title>
+  <title>push — Gallery Prototype</title>
   <style>
-    :root{
-      --gap:4px;
-      --topbar:60px;
-    }
+    :root{--gap:4px;--topbar:60px}
     body{
       margin:0;
       background:#fff;
       font-family:Helvetica,Arial,sans-serif;
       overflow-x:hidden;
-      color:#222;
     }
 
     /* TOP BAR */
@@ -44,13 +40,13 @@
       align-items:center;
     }
     #leftCenter{
-      margin-left:32px;
+      margin-left:32px;   /* Abstand von push zur Suche */
     }
     #rightCenter{
-      margin-right:32px;
+      margin-right:32px;  /* Abstand vom Regler zu pull */
     }
 
-    /* Suche: nur Wort "search" */
+    /* Suche: unsichtbares Feld, nur "search" als Wort */
     #searchInput{
       margin-left:0;
       padding:0;
@@ -59,7 +55,7 @@
       font-family:Helvetica,Arial,sans-serif;
       font-size:14px;
       outline:none;
-      width:90px;
+      width:70px;
       color:#222;
       cursor:text;
     }
@@ -84,14 +80,13 @@
       font-family:Helvetica,Arial,sans-serif;
     }
 
-    /* Slider: nur Linie, ohne Griff */
+    /* Slider: nur Linie, kleiner */
     #columnsRange{
       width:120px;
       appearance:none;
       background:transparent;
       height:14px;
       border-radius:2px;
-      cursor:pointer;
     }
     #columnsRange:focus{ outline:none; }
     #columnsRange::-webkit-slider-runnable-track{
@@ -134,7 +129,7 @@
       object-fit:cover;
     }
 
-    /* Hero: halb breit, rechtsbündig für Pull-Walls */
+    /* Hero: halb breit, rechtsbündig */
     .heroWrap{
       grid-column:1 / -1;
       display:flex;
@@ -161,7 +156,7 @@
     #leaveBar{
       display:none;
       grid-column:1 / -1;
-      padding:50px 18px;
+      padding:80px 18px;
       background:#fff;
       box-sizing:border-box;
     }
@@ -194,7 +189,7 @@
       color:#444;
     }
     #leaveLogout{
-      margin-top:20px;
+      margin-top:12px;
       font-family:Helvetica,Arial,sans-serif;
       font-size:16px;
       text-align:right;
@@ -288,7 +283,7 @@
       max-width:12vw;
       max-height:60vh;
       line-height:1.4;
-      text-align:right; /* rechtsbündig */
+      text-align:left;
       white-space:pre-line;
       display:none;
       overflow-y:auto;
@@ -302,18 +297,8 @@
     .hoverLeft:hover + .singleUsers{
       display:block;
     }
-    /* vertikale Linie zwischen Usern und Bild */
-    .singleUsers::before{
-      content:'';
-      position:absolute;
-      right:-18px;
-      top:10%;
-      bottom:10%;
-      width:1px;
-      background:#ddd;
-    }
 
-    /* Hover-Zone rechts (keine Credits mehr) */
+    /* Hover-Zone rechts (credits) */
     .hoverRight{
       position:absolute;
       top:0;
@@ -321,6 +306,23 @@
       right:5vw;
       width:12vw;
       cursor:default;
+    }
+    .singleMeta{
+      position:absolute;
+      right:5vw;
+      top:50%;
+      transform:translateY(-50%);
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:13px;
+      color:#444;
+      max-width:12vw;
+      line-height:1.4;
+      text-align:left;
+      white-space:pre-line;
+      display:none;
+    }
+    .hoverRight:hover + .singleMeta{
+      display:block;
     }
 
     /* upload overlay */
@@ -359,39 +361,6 @@
       width:260px;
       background:transparent;
     }
-
-    /* Tag-Chips */
-    #metaTags{
-      border:none;
-      border-bottom:1px solid #ddd;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:14px;
-      padding:2px 0;
-      outline:none;
-      width:260px;
-      background:transparent;
-    }
-    #tagChips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      margin-top:4px;
-      max-width:260px;
-    }
-    .tagChip{
-      font-size:11px;
-      padding:2px 6px;
-      border-radius:999px;
-      border:1px solid #ddd;
-      color:#444;
-      cursor:pointer;
-      user-select:none;
-      white-space:nowrap;
-    }
-    .tagChip:hover{
-      border-color:#aaa;
-    }
-
     #uploadHint{
       position:absolute;
       right:5vw;
@@ -402,7 +371,6 @@
       max-width:260px;
       line-height:1.4;
       display:none;
-      text-align:right;
     }
     #uploadPush{
       position:absolute;
@@ -475,40 +443,26 @@
   <div id="uploadOverlay">
     <img id="uploadPreview" alt="preview" />
     <div class="uploadMeta">
-      <!-- nur Tags, keine Titel/Name -->
-      <input id="metaTags" type="text" placeholder="tag" />
-      <div id="tagChips"></div>
+      <input id="metaTitle" type="text" placeholder="title" maxlength="80" />
+      <input id="metaName" type="text" placeholder="name" maxlength="80" />
+      <input id="metaTags" type="text" placeholder="tags (comma, max 10)" maxlength="220" />
     </div>
     <div id="uploadHint">
-      I understand the image will be published forever and cannot be deleted.<br/>
+      I understand the image will be published forever and cannot be deleted.
       I own the rights of this image.
     </div>
     <div id="uploadPush">push</div>
     <div id="uploadCancel">✕</div>
   </div>
 
-  <!-- Supabase JS -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    /***********************
-     * Supabase Setup
-     ***********************/
-    const SUPABASE_URL = 'https://wsftiujnfywdxmzrvgqv.supabase.co'; 
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzZnRpdWpuZnl3ZHhtenJ2Z3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NTg0ODksImV4cCI6MjA3OTQzNDQ4OX0.h8NxTr-3MrdBN7mFxFPVweux1FduI9qI58UyPCxRcmE';  
-    const { createClient } = supabase;
-    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     const REPORT_THRESHOLD = 5;
 
-    /***********************
-     * State
-     ***********************/
     let images = [
-      // Demo-Bilder (ohne Titel/Name, nur Tags), werden von Supabase-Daten überschrieben
       {
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#111'/><circle cx='400' cy='300' r='160' fill='#444'/><text x='50%' y='50%' fill='#fafafa' font-size='36' font-family='Helvetica' text-anchor='middle' dy='12'>luna 01</text></svg>",
-        title: "",
-        name: "",
+        title: "night orbit",
+        name: "unknown",
         tags: ["luna","demo","dark"],
         pullers: ["luna"],
         reportBy: [],
@@ -516,8 +470,8 @@
       },
       {
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#f5f5f5'/><rect x='80' y='60' width='640' height='480' fill='#ddd'/><text x='50%' y='50%' fill='#444' font-size='32' font-family='Helvetica' text-anchor='middle' dy='10'>ghost 01</text></svg>",
-        title: "",
-        name: "",
+        title: "flat plain",
+        name: "unknown",
         tags: ["ghost","demo","gray"],
         pullers: ["ghost"],
         reportBy: [],
@@ -525,8 +479,8 @@
       },
       {
         src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#002b36'/><rect x='120' y='120' width='560' height='360' fill='#268bd2'/><text x='50%' y='50%' fill='#fdf6e3' font-size='30' font-family='Helvetica' text-anchor='middle' dy='10'>luna & ghost</text></svg>",
-        title: "",
-        name: "",
+        title: "shared field",
+        name: "unknown",
         tags: ["luna","ghost","demo"],
         pullers: ["luna","ghost"],
         reportBy: [],
@@ -587,9 +541,6 @@
       currentUser.wallPulls = wallPullsByUser[currentUser.username];
     }
 
-    /***********************
-     * DOM
-     ***********************/
     const gallery           = document.getElementById('gallery');
     const singleScrollView  = document.getElementById('singleScrollView');
     const columnsRange      = document.getElementById('columnsRange');
@@ -608,8 +559,9 @@
     const leaveLogout       = document.getElementById('leaveLogout');
     const dropZone          = document.getElementById('dropZone');
 
+    const metaTitle         = document.getElementById('metaTitle');
+    const metaName          = document.getElementById('metaName');
     const metaTags          = document.getElementById('metaTags');
-    const tagChips          = document.getElementById('tagChips');
     const uploadHint        = document.getElementById('uploadHint');
 
     const isSaved = src => saved.some(s => s.src === src);
@@ -625,69 +577,30 @@
       }catch(e){}
     }
 
-    /***********************
-     * Tag-Chip-Logik
-     ***********************/
-    let currentUploadTags = [];
-
-    function renderTagChips(){
-      tagChips.innerHTML = '';
-      currentUploadTags.forEach(tag => {
-        const chip = document.createElement('span');
-        chip.className = 'tagChip';
-        chip.textContent = tag;
-        chip.onclick = () => {
-          currentUploadTags = currentUploadTags.filter(t => t !== tag);
-          renderTagChips();
-        };
-        tagChips.appendChild(chip);
-      });
+    function parseTags(raw){
+      if(!raw) return [];
+      return raw
+        .split(',')
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 0 && /^[a-z0-9]+$/.test(t))
+        .slice(0, 10);
     }
 
-    function tryAddTagFromInput(){
-      let raw = metaTags.value.trim().toLowerCase();
-      if(!raw) return;
-
-      const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
-      for(const part of parts){
-        if(currentUploadTags.length >= 7) break;
-        if(part.length === 0) continue;
-        if(part.length > 21) continue;
-        if(!/^[a-z0-9]+$/.test(part)) continue;
-        if(!currentUploadTags.includes(part)){
-          currentUploadTags.push(part);
-        }
+    function ensureUser(){
+      if(currentUser) return true;
+      const name = prompt('username');
+      if(!name) return false;
+      const uname = name.trim();
+      currentUser = { username: uname, wallPulls: [] };
+      if(!wallPullsByUser[uname]){
+        wallPullsByUser[uname] = [];
+        saveWallPulls();
       }
-      metaTags.value = '';
-      renderTagChips();
+      currentUser.wallPulls = wallPullsByUser[uname];
+      saveCurrentUser();
+      return true;
     }
 
-    function collectTagValues(){
-      return currentUploadTags.slice();
-    }
-
-    function resetTagInputUI(){
-      currentUploadTags = [];
-      metaTags.value = '';
-      renderTagChips();
-    }
-
-    metaTags.addEventListener('keydown', e => {
-      if(e.key === 'Enter' || e.key === ','){
-        e.preventDefault();
-        tryAddTagFromInput();
-      } else if(e.key === 'Backspace' && !metaTags.value){
-        currentUploadTags.pop();
-        renderTagChips();
-      }
-    });
-    metaTags.addEventListener('blur', () => {
-      tryAddTagFromInput();
-    });
-
-    /***********************
-     * Search & Matches
-     ***********************/
     function matchesSearch(img){
       if(!searchTerm) return true;
 
@@ -701,7 +614,7 @@
         return tagsArr.some(t => (t || '').toLowerCase().includes(q));
       }
 
-      // normale Suche (Titel/Name leer, aber Tags & Puller bleiben)
+      // normale Suche: Titel, Name, Tags, Puller
       const q        = raw.toLowerCase();
       const title    = (img.title || '').toLowerCase();
       const name     = (img.name  || '').toLowerCase();
@@ -737,7 +650,7 @@
       });
 
       if(currentUser && currentUser.username &&
-        currentUser.username.toLowerCase() === q){
+         currentUser.username.toLowerCase() === q){
         found.add(currentUser.username);
       }
 
@@ -771,9 +684,6 @@
       return [...set];
     }
 
-    /***********************
-     * Reporting
-     ***********************/
     function isHiddenGlobal(img){
       if(isAdmin()) return false;
       const base = images.find(i => i.src === img.src);
@@ -785,9 +695,6 @@
       base.reportHidden = count >= REPORT_THRESHOLD;
     }
 
-    /***********************
-     * Layout / Slider
-     ***********************/
     function updateColumns(){
       const v = Number(columnsRange.value);
       const cols = 9 - v; // 2→7, 7→2
@@ -836,25 +743,6 @@
       }
     }
 
-    /***********************
-     * User / Auth
-     ***********************/
-    function ensureUser(){
-      if(currentUser) return true;
-      const name = prompt('username');
-      if(!name) return false;
-      const uname = name.trim();
-      if(!uname) return false;
-      currentUser = { username: uname, wallPulls: [] };
-      if(!wallPullsByUser[uname]){
-        wallPullsByUser[uname] = [];
-        saveWallPulls();
-      }
-      currentUser.wallPulls = wallPullsByUser[uname];
-      saveCurrentUser();
-      return true;
-    }
-
     function getCurrentList(){
       const q = (searchTerm || '').toLowerCase();
 
@@ -887,9 +775,6 @@
       return base.filter(img => !isHiddenGlobal(img));
     }
 
-    /***********************
-     * Gallery Render
-     ***********************/
     function renderGallery(){
       gallery.innerHTML = '';
       leaveInfluences.innerHTML = '';
@@ -1014,7 +899,7 @@
         };
       }
 
-      // "push" als Username am Ende der Reihe (random Wall)
+      // "push" als Username am Ende der Reihe
       const allOwners = getAllWallOwners();
       if(allOwners.length){
         const pushSpan = document.createElement('span');
@@ -1215,7 +1100,15 @@
         hoverRight.className = 'hoverRight';
         wrap.appendChild(hoverRight);
 
-        // keine Credits mehr auf der rechten Seite
+        const lines=[];
+        if(base.title) lines.push(base.title);
+        if(base.name)  lines.push(base.name);
+        if(lines.length){
+          const metaDiv=document.createElement('div');
+          metaDiv.className='singleMeta';
+          metaDiv.textContent = lines.join('\n');
+          wrap.appendChild(metaDiv);
+        }
 
         const act=document.createElement('div');
         act.className='actionBtn';
@@ -1373,22 +1266,6 @@
       renderGallery();
     };
 
-    /***********************
-     * Upload-Helfer
-     ***********************/
-    function dataURLToBlob(dataUrl){
-      const arr = dataUrl.split(',');
-      const mimeMatch = arr[0].match(/:(.*?);/);
-      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      const bstr = atob(arr[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while(n--){
-        u8arr[n] = bstr.charCodeAt(n);
-      }
-      return new Blob([u8arr], { type: mime });
-    }
-
     function startUploadFromFile(file){
       if(!file) return;
       if(!file.type || !file.type.startsWith('image/')){
@@ -1413,21 +1290,13 @@
           canvas.height = h;
           ctx.drawImage(imgObj, 0, 0, w, h);
           pendingImage = canvas.toDataURL('image/jpeg', 0.82);
-
-          // Dateigrößenlimit (5 MB) nach Kompression
-          const blob = dataURLToBlob(pendingImage);
-          const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
-          if(blob.size > MAX_SIZE){
-            alert('image too big (max 5MB)');
-            pendingImage = null;
-            return;
-          }
-
           uploadPreview.src = pendingImage;
 
           uploadHint.style.display='none';
           uploadConfirmStep=0;
-          resetTagInputUI();
+          metaTitle.value='';
+          metaName.value='';
+          metaTags.value='';
 
           uploadOverlay.style.display='flex';
         };
@@ -1436,7 +1305,6 @@
       reader.readAsDataURL(file);
     }
 
-    // Drag & Drop
     document.addEventListener('dragover', e => {
       e.preventDefault();
       dropZone.style.display='flex';
@@ -1457,8 +1325,7 @@
       if(file) startUploadFromFile(file);
     });
 
-    // Upload Push
-    uploadPush.onclick = async () => {
+    uploadPush.onclick = () => {
       if(!pendingImage) return;
 
       if(uploadConfirmStep === 0){
@@ -1467,83 +1334,33 @@
         return;
       }
 
-      const tags = collectTagValues();
-      const blob = dataURLToBlob(pendingImage);
+      const imgObj = {
+        src:   pendingImage,
+        title: metaTitle.value.trim(),
+        name:  metaName.value.trim(),
+        tags:  parseTags(metaTags.value),
+        pullers: [],
+        reportBy: [],
+        reportHidden: false
+      };
 
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      images.unshift(imgObj);
+      pendingImage = null;
+      uploadOverlay.style.display='none';
+      uploadConfirmStep=0;
+      uploadHint.style.display='none';
 
-      try{
-        // 1) in Storage hochladen
-        const { data: uploadData, error: uploadError } = await supa
-          .storage
-          .from('images')
-          .upload(fileName, blob, {
-            contentType:'image/jpeg',
-            upsert:false
-          });
+      metaTitle.value='';
+      metaName.value='';
+      metaTags.value='';
 
-        if(uploadError){
-          console.error('upload error', uploadError);
-          alert('upload failed');
-          return;
-        }
-
-        // 2) Public URL holen
-        const { data: urlData } = supa
-          .storage
-          .from('images')
-          .getPublicUrl(uploadData.path);
-
-        const imageUrl = urlData.publicUrl;
-
-        // 3) Zeile in Tabelle images anlegen
-        const { data: inserted, error: insertError } = await supa
-          .from('images')
-          .insert({
-            image_url: imageUrl,
-            tags: tags
-          })
-          .select()
-          .single();
-
-        if(insertError){
-          console.error('insert error', insertError);
-          alert('save failed');
-          return;
-        }
-
-        // 4) Lokalen State updaten
-        const newImg = {
-          src: imageUrl,
-          title: "",
-          name: "",
-          tags: inserted.tags || [],
-          pullers: [],
-          reportBy: inserted.report_by || [],
-          reportHidden: !!inserted.report_hidden
-        };
-
-        images.unshift(newImg);
-
-        // UI zurücksetzen
-        pendingImage = null;
-        uploadOverlay.style.display='none';
-        uploadConfirmStep=0;
-        uploadHint.style.display='none';
-        resetTagInputUI();
-
-        area='public';
-        viewOwner=null;
-        ownerMenuOpen = false;
-        setGridUIVisible(true);
-        renderGallery();
-        const first = gallery.querySelector('img');
-        if(first) first.scrollIntoView({ behavior: 'auto', block: 'start' });
-
-      }catch(err){
-        console.error('unexpected upload error', err);
-        alert('error');
-      }
+      area='public';
+      viewOwner=null;
+      ownerMenuOpen = false;
+      setGridUIVisible(true);
+      renderGallery();
+      const first = gallery.querySelector('img');
+      if(first) first.scrollIntoView({ behavior: 'auto', block: 'start' });
     };
 
     uploadCancel.onclick = () => {
@@ -1551,10 +1368,8 @@
       uploadOverlay.style.display='none';
       uploadConfirmStep=0;
       uploadHint.style.display='none';
-      resetTagInputUI();
     };
 
-    // Scroll-Positions-Merker
     window.addEventListener('scroll', () => {
       if(singleScrollView.style.display === 'block') return;
       if(uploadOverlay.style.display === 'flex') return;
@@ -1568,61 +1383,12 @@
       }
     });
 
-    // Keyboard Shortcuts (x,y,z,p,ESC, Pfeile)
     document.addEventListener('keydown', e => {
       const ae = document.activeElement;
       const isTyping = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
 
       if(!isTyping){
-        // y = kleinere Kacheln (mehr Spalten)
-        if(e.key === 'y' || e.key === 'Y'){
-          let v = Number(columnsRange.value);
-          const min = Number(columnsRange.min);
-          if(v > min){
-            columnsRange.value = String(v - 1);
-            updateColumns();
-          }
-          return;
-        }
-
-        // x = größere Kacheln (weniger Spalten)
-        if(e.key === 'x' || e.key === 'X'){
-          let v = Number(columnsRange.value);
-          const max = Number(columnsRange.max);
-          if(v < max){
-            columnsRange.value = String(v + 1);
-            updateColumns();
-          }
-          return;
-        }
-
-        // z = random Bild in Einzelansicht
-        if(e.key === 'z' || e.key === 'Z'){
-          const baseList = getCurrentList();
-          const q = (searchTerm || '').toLowerCase();
-          let list;
-          if(isAdmin() && (q === 'reported' || q === 'hidden')){
-            list = baseList;
-          } else {
-            list = baseList.filter(matchesSearch);
-          }
-          if(list.length > 0){
-            const idx = Math.floor(Math.random() * list.length);
-            blinkWord(logo);
-            openSingle(idx, list);
-          }
-          return;
-        }
-
-        // p = pull/push in Einzelansicht
-        if(e.key === 'p' || e.key === 'P'){
-          if(singleScrollView.style.display === 'block' && currentSingleList && currentSingleIndex != null){
-            const btns = singleScrollView.querySelectorAll('.actionBtn');
-            const btn  = btns[currentSingleIndex];
-            if(btn) btn.click();
-          }
-          return;
-        }
+        // shortcuts (y/x/z/p) könntest du hier wieder einbauen, wenn du magst
       }
 
       if(e.key === 'Escape'){
@@ -1634,72 +1400,13 @@
         } else if(singleScrollView.style.display === 'block'){
           closeScroll(null);
         }
-      } else if(singleScrollView.style.display === 'block'){
-        if(e.key === 'ArrowRight'){
-          e.preventDefault();
-          if(currentSingleList && currentSingleIndex != null){
-            const newIndex = currentSingleIndex + 1;
-            if(newIndex >= 0 && newIndex < currentSingleList.length){
-              currentSingleIndex = newIndex;
-              const target = singleScrollView.children[newIndex];
-              if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
-            }
-          }
-        } else if(e.key === 'ArrowLeft'){
-          e.preventDefault();
-          if(currentSingleList && currentSingleIndex != null){
-            const newIndex = currentSingleIndex - 1;
-            if(newIndex >= 0 && newIndex < currentSingleList.length){
-              currentSingleIndex = newIndex;
-              const target = singleScrollView.children[newIndex];
-              if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
-            }
-          }
-        }
       }
     });
 
-    /***********************
-     * Supabase: Bilder laden
-     ***********************/
-    async function loadImagesFromSupabase(){
-      try{
-        const { data, error } = await supa
-          .from('images')
-          .select('*')
-          .order('created_at', { ascending:false });
-
-        if(error){
-          console.error('supabase select error', error);
-          renderGallery(); // fallback auf Demo
-          return;
-        }
-
-        images = (data || []).map(row => ({
-          src: row.image_url,
-          title: "",
-          name: "",
-          tags: row.tags || [],
-          pullers: [],
-          reportBy: row.report_by || [],
-          reportHidden: !!row.report_hidden
-        }));
-
-        renderGallery();
-      }catch(err){
-        console.error('supabase init error', err);
-        renderGallery(); // fallback
-      }
-    }
-
-    /***********************
-     * Init
-     ***********************/
+    renderGallery();
     updateProfile();
     updateSearchLabel();
     setGridUIVisible(true);
-    renderTagChips();
-    loadImagesFromSupabase(); // ersetzt Demo-Bilder, wenn DB da ist
   </script>
 </body>
 </html>

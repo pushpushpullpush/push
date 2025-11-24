@@ -36,13 +36,16 @@
       cursor:pointer;
     }
     #landingMessage{
-      margin-top:12px;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:12px;
-      color:#777;
-      opacity:0;
-      transition:opacity 0.15s ease-out;
-    }
+  margin-top:12px;
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:12px;
+  color:#777;
+  opacity:0;
+  transition:opacity 0.15s ease-out;
+  text-align:center;
+  line-height:1.4;
+}
+
     #landingContact{
       position:absolute;
       bottom:40px;
@@ -506,25 +509,16 @@
     }
 
     #uploadHint{
-      position:absolute;
-      right:5vw;
-      bottom:72px;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:11px;
-      color:#999;
-      max-width:260px;
-      line-height:1.4;
-      display:none;
-    }
-    #uploadPush{
-      position:absolute;
-      right:5vw;
-      bottom:40px;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:16px;
-      color:#444;
-      cursor:pointer;
-    }
+  position:absolute;
+  bottom:40px;
+  right:calc(5vw + 120px); /* links vom push-button */
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:11px;
+  color:#999;
+  line-height:1.4;
+  display:none;
+}
+
     #uploadCancel{
       position:absolute;
       left:5vw;
@@ -557,7 +551,11 @@
   <!-- LANDING PAGE -->
   <div id="landingOverlay">
     <div id="landingLogo">push</div>
-    <div id="landingMessage">All images published will be online forever.</div>
+     <div id="landingMessage">
+    by entering push you confirm to be of legal age<br>
+    all images published will be online forever
+  </div>
+
     <div id="landingContact">contact</div>
   </div>
 
@@ -618,9 +616,10 @@
       <div id="tagChips" class="tagChips"></div>
     </div>
     <div id="uploadHint">
-      I understand the image will be published forever and cannot be deleted.
-      I own the rights of this image.
-    </div>
+  i am allowed to share this image<br><br>
+  i understand that it will be published and online forever
+</div>
+
     <div id="uploadPush">push</div>
     <div id="uploadCancel">✕</div>
   </div>

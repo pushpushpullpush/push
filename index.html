@@ -1089,19 +1089,23 @@
           leaveInfluences.appendChild(s);
         });
 
-        // Klick auf Owner-Namen: User-Pull (Influence) toggeln
+                // Klick auf Owner-Namen: User-Pull (Influence) toggeln
         leaveOwner.onclick = async ev => {
           ev.stopPropagation();
           const original = leaveOwner.textContent;
           const now = await toggleUserPull(viewOwner);
-          if(now === null) return;
+          if(now === null) return;  // z.B. Login abgebrochen
+
           const flash = now ? 'pull' : 'push';
           leaveOwner.textContent = flash;
+
+          // Erst kurz flashen, DANN neu rendern
           setTimeout(() => {
             leaveOwner.textContent = original;
+            renderGallery();
           }, 220);
-          renderGallery();
         };
+
       }
 
       // "push" als Username am Ende der Reihe

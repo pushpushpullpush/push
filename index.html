@@ -2085,149 +2085,153 @@ async function loadUserPullsForOwner(username){
 
 
     // Pull setzen/entfernen
-   async function setPullForImage(base, shouldPull){
-  if(!authUser || !currentUser || !base || !base.id) return;
+       // Pull setzen/entfernen (für Bilder)
+    async function setPullForImage(base, shouldPull){
+      if(!authUser || !currentUser || !base || !base.id) return;
 
-  // 1) pulls-Tabelle für private Wall pflegen
-  if(shouldPull){
-    try{
-        const { error } = await supabaseClient
-        .from(SUPABASE_PULLS_TABLE)
-        .insert({
-          user_id: authUser.id,
-          image_id: base.id,
-          username: currentUser.username
-        });
-
-      if(error){
-        const msg = (error.message || '').toLowerCase();
-        if(msg.includes('duplicate')){
-          // schon vorhanden → egal
-        } else {
-          console.error('insert pull error:', error);
+      // 1) pulls-Tabelle für private Wall pflegen
+      if(shouldPull){
+        try{
+          const { error } = await supabaseClient
+            .from(SUPABASE_PULLS_TABLE)
+            .insert({
+              user_id: authUser.id,
+              image_id: base.id,
+              username: currentUser.username
+            });
+          if(error){
+            const msg = (error.message || '').toLowerCase();
+            if(msg.includes('duplicate')){
+              // schon vorhanden → egal
+            } else {
+              console.error('insert pull error:', error);
+            }
+          }
+        }catch(err){
+          console.error('insert pull exception:', err);
+        }
+      } else {
+        try{
+          const { error } = await supabaseClient
+            .from(SUPABASE_PULLS_TABLE)
+            .delete()
+            .eq('user_id', authUser.id)
+            .eq('image_id', base.id);
+          if(error){
+            console.error('delete pull error:', error);
+          }
+        }catch(err){
+          console.error('delete pull exception:', err);
         }
       }
-    }catch(err){
-      console.error('insert pull exception:', err);
-    }
-  } else {
-    try{
-      const { error } = await supabaseClient
-        .from(SUPABASE_PULLS_TABLE)
-        .delete()
-        .eq('user_id', authUser.id)
-        .eq('image_id', base.id);
-      if(error){
-        console.error('delete pull error:', error);
-      }
-    }catch(err){
-      console.error('delete pull exception:', err);
-    }
-  }
 
-  async function toggleUserPull(targetUsername){
-  const ok = await ensureAuth();
-  if(!ok) return null;
-  if(!currentUser || !authUser) return null;
-  const ownerName = currentUser.username;
-  if(!ownerName || ownerName === targetUsername) return null;
-
-  if(!userPulls[ownerName]) userPulls[ownerName] = [];
-  const arr = userPulls[ownerName];
-  const idx = arr.indexOf(targetUsername);
-  let nowFollowing = false;
-
-  if(idx === -1){
-    // neuen User-Pull hinzufügen (neuester nach vorne),
-    // und ggfs. einen alten entfernen, wenn du bei max. 7 bleiben willst
-    let removed = null;
-    if(arr.length >= 7){
-      removed = arr.pop(); // ältester raus
-    }
-    arr.unshift(targetUsername);
-
-    try{
-      const { error } = await supabaseClient
-        .from(SUPABASE_USER_PULLS_TABLE)
-        .insert({
-          owner_user_id: authUser.id,
-          owner_username: ownerName,
-          target_username: targetUsername
-        });
-      if(error){
-        console.error('insert user_pull error:', error);
-      }
-      if(removed){
-        const { error: delError } = await supabaseClient
-          .from(SUPABASE_USER_PULLS_TABLE)
-          .delete()
-          .eq('owner_user_id', authUser.id)
-          .eq('target_username', removed);
-        if(delError){
-          console.error('delete old user_pull error:', delError);
+      // 2) lokale saved-Liste + pullers-Array aktualisieren
+      if(shouldPull){
+        if(!isSaved(base.src)){
+          saved.unshift({
+            src: base.src,
+            imageId: base.id,
+            pulledAt: Date.now()
+          });
+        }
+        if(currentUser){
+          if(!base.pullers) base.pullers = [];
+          if(!base.pullers.includes(currentUser.username)){
+            base.pullers.push(currentUser.username);
+          }
+        }
+      } else {
+        saved = saved.filter(s => s.src !== base.src);
+        if(currentUser && base.pullers){
+          base.pullers = base.pullers.filter(u => u !== currentUser.username);
         }
       }
-    }catch(err){
-      console.error('toggleUserPull insert exception:', err);
-    }
-    nowFollowing = true;
-  } else {
-    // vorhandenen User-Pull entfernen
-    arr.splice(idx,1);
-    try{
-      const { error } = await supabaseClient
-        .from(SUPABASE_USER_PULLS_TABLE)
-        .delete()
-        .eq('owner_user_id', authUser.id)
-        .eq('target_username', targetUsername);
-      if(error){
-        console.error('delete user_pull error:', error);
-      }
-    }catch(err){
-      console.error('toggleUserPull delete exception:', err);
-    }
-    nowFollowing = false;
-  }
 
-  return nowFollowing;
-}
-
-
-  // 2) lokale saved-Liste + pullers-Array aktualisieren
-  if(shouldPull){
-    if(!isSaved(base.src)){
-      saved.unshift({
-        src: base.src,
-        imageId: base.id,
-        pulledAt: Date.now()
-      });
-    }
-    if(currentUser){
-      if(!base.pullers) base.pullers = [];
-      if(!base.pullers.includes(currentUser.username)){
-        base.pullers.push(currentUser.username);
+      // 3) pullers auch in der images-Tabelle speichern
+      try{
+        const { error: updError } = await supabaseClient
+          .from(SUPABASE_TABLE)
+          .update({ pullers: base.pullers || [] })
+          .eq('id', base.id);
+        if(updError){
+          console.error('update pullers error:', updError);
+        }
+      }catch(err){
+        console.error('update pullers exception:', err);
       }
     }
-  } else {
-    saved = saved.filter(s => s.src !== base.src);
-    if(currentUser && base.pullers){
-      base.pullers = base.pullers.filter(u => u !== currentUser.username);
-    }
-  }
 
-  // 3) pullers auch in der images-Tabelle speichern
-  try{
-    const { error: updError } = await supabaseClient
-      .from(SUPABASE_TABLE)
-      .update({ pullers: base.pullers || [] })
-      .eq('id', base.id);
-    if(updError){
-      console.error('update pullers error:', updError);
+    // User-Pulls (Influences) zwischen Usern toggeln
+    async function toggleUserPull(targetUsername){
+      const ok = await ensureAuth();
+      if(!ok) return null;
+      if(!currentUser || !authUser) return null;
+      const ownerName = currentUser.username;
+      if(!ownerName || ownerName === targetUsername) return null;
+
+      if(!userPulls[ownerName]) userPulls[ownerName] = [];
+      const arr = userPulls[ownerName];
+      const idx = arr.indexOf(targetUsername);
+      let nowFollowing = false;
+
+      if(idx === -1){
+        // neuen User-Pull hinzufügen (neuester nach vorne),
+        // und ggfs. einen alten entfernen, wenn du bei max. 7 bleiben willst
+        let removed = null;
+        if(arr.length >= 7){
+          removed = arr.pop(); // ältester raus
+        }
+        arr.unshift(targetUsername);
+
+        try{
+          const { error } = await supabaseClient
+            .from(SUPABASE_USER_PULLS_TABLE)
+            .insert({
+              owner_user_id: authUser.id,
+              owner_username: ownerName,
+              target_username: targetUsername
+            });
+          if(error){
+            const msg = (error.message || '').toLowerCase();
+            if(!msg.includes('duplicate')){
+              console.error('insert user_pull error:', error);
+            }
+          }
+          if(removed){
+            const { error: delError } = await supabaseClient
+              .from(SUPABASE_USER_PULLS_TABLE)
+              .delete()
+              .eq('owner_user_id', authUser.id)
+              .eq('target_username', removed);
+            if(delError){
+              console.error('delete old user_pull error:', delError);
+            }
+          }
+        }catch(err){
+          console.error('toggleUserPull insert exception:', err);
+        }
+        nowFollowing = true;
+      } else {
+        // vorhandenen User-Pull entfernen
+        arr.splice(idx,1);
+        try{
+          const { error } = await supabaseClient
+            .from(SUPABASE_USER_PULLS_TABLE)
+            .delete()
+            .eq('owner_user_id', authUser.id)
+            .eq('target_username', targetUsername);
+          if(error){
+            console.error('delete user_pull error:', error);
+          }
+        }catch(err){
+          console.error('toggleUserPull delete exception:', err);
+        }
+        nowFollowing = false;
+      }
+
+      return nowFollowing;
     }
-  }catch(err){
-    console.error('update pullers exception:', err);
-  }
-}
+
 
 
     async function initAuth(){

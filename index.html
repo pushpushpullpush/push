@@ -636,7 +636,8 @@
     const SUPABASE_BUCKET = 'images';                            // Storage-Bucket
     const SUPABASE_TABLE  = 'images';                            // Bild-Metadaten
     const SUPABASE_PULLS_TABLE = 'pulls';                        // Pulls-Tabelle
-
+    const SUPABASE_USER_PULLS_TABLE = 'user_pulls';              // User-Pulls (Influences)
+    
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     function dataURLToBlob(dataURL){
@@ -704,6 +705,7 @@
     };
 
     let wallOrders = {}; // username -> array von image_ids in Pull-Reihenfolge
+    let userPulls = {}; // owner_username -> array von target_usernames (neuester Pull zuerst)
 
 
     // Map: username -> array von usernames, die er als Wall gepullt hat
@@ -860,30 +862,33 @@
     }
 
     function getAllWallOwners(){
-      const set = new Set();
+  const set = new Set();
 
-      images.forEach(img => {
-        (img.pullers || []).forEach(u => {
-          if(u) set.add(u);
-        });
-      });
+  // alle, die schon irgendwo als Bild-Puller auftauchen
+  images.forEach(img => {
+    (img.pullers || []).forEach(u => {
+      if(u) set.add(u);
+    });
+  });
 
-      Object.keys(wallPullsByUser || {}).forEach(owner=>{
-        if(owner) set.add(owner);
-        (wallPullsByUser[owner] || []).forEach(u=>{
-          if(u) set.add(u);
-        });
-      });
+  // alle, die in User-Pulls vorkommen (Owner + Targets)
+  Object.keys(userPulls || {}).forEach(owner=>{
+    if(owner) set.add(owner);
+    (userPulls[owner] || []).forEach(u=>{
+      if(u) set.add(u);
+    });
+  });
 
-      if(currentUser && currentUser.username){
-        set.add(currentUser.username);
-      }
-      if(viewOwner){
-        set.add(viewOwner);
-      }
+  if(currentUser && currentUser.username){
+    set.add(currentUser.username);
+  }
+  if(viewOwner){
+    set.add(viewOwner);
+  }
 
-      return [...set];
-    }
+  return [...set];
+}
+
 
     function isHiddenGlobal(img){
       if(isAdmin()) return false;
@@ -1035,13 +1040,14 @@
         return;
       }
 
-      // Pull-Galerien
+           // PULL-GALERIEN (eigene oder fremde Wall)
       leaveBar.style.display = 'block';
 
       if(isOwnPullGallery){
+        // eigene Pull-Wall
         leaveOwner.textContent = currentUser.username;
 
-        const ownPulls = wallPullsByUser[currentUser.username] || [];
+        const ownPulls = userPulls[currentUser.username] || [];
         ownPulls.forEach(un => {
           const s = document.createElement('span');
           s.textContent = un;
@@ -1066,12 +1072,13 @@
         };
 
       } else {
+        // fremde Wall
         ownerMenuOpen = false;
 
         leaveOwner.textContent = viewOwner;
         leaveLogout.style.display = 'none';
 
-        const foreignPulls = wallPullsByUser[viewOwner] || [];
+        const foreignPulls = userPulls[viewOwner] || [];
         foreignPulls.forEach(un => {
           const s = document.createElement('span');
           s.textContent = un;
@@ -1082,39 +1089,22 @@
           leaveInfluences.appendChild(s);
         });
 
+        // Klick auf Owner-Namen: User-Pull (Influence) toggeln
         leaveOwner.onclick = async ev => {
           ev.stopPropagation();
-          const ok = await ensureAuth();
-          if(!ok) return;
-          const uName = viewOwner;
-          if(!wallPullsByUser[currentUser.username]){
-            wallPullsByUser[currentUser.username] = [];
-          }
-          const pulls = wallPullsByUser[currentUser.username];
-          const idx = pulls.indexOf(uName);
-          let flash = '';
-
-          if(idx === -1){
-            if(pulls.length >= 7){
-              pulls.shift();
-            }
-            pulls.push(uName);
-            flash = 'pull';
-          } else {
-            pulls.splice(idx,1);
-            flash = 'push';
-          }
-          currentUser.wallPulls = pulls;
-          saveWallPulls();
-
           const original = leaveOwner.textContent;
+          const now = await toggleUserPull(viewOwner);
+          if(now === null) return;
+          const flash = now ? 'pull' : 'push';
           leaveOwner.textContent = flash;
           setTimeout(() => {
             leaveOwner.textContent = original;
           }, 220);
+          renderGallery();
         };
       }
 
+      // "push" als Username am Ende der Reihe
       const allOwners = getAllWallOwners();
       if(allOwners.length){
         const pushSpan = document.createElement('span');
@@ -1148,6 +1138,7 @@
         leaveInfluences.style.display =
           leaveInfluences.children.length ? 'flex' : 'none';
       }
+
 
       if(list.length === 0){
         const msg = document.createElement('div');
@@ -1202,13 +1193,17 @@
   document.body.classList.remove('hideRange');
   setGridUIVisible(true);
 
-  // Reihenfolge der Pulls für diesen User laden
+  // Reihenfolge der Bild-Pulls laden (welche Bilder und Reihenfolge)
   await loadWallOrderForUser(username);
+
+  // User-Pulls (Influences) dieses Owners laden
+  await loadUserPullsForOwner(username);
 
   renderGallery();
   const y = scrollState.walls[username] || 0;
   window.scrollTo({ top: y, behavior: 'auto' });
 }
+
 async function loadWallOrderForUser(username){
   if(!username) return;
   if(wallOrders[username]) return; // schon geladen
@@ -1231,6 +1226,31 @@ async function loadWallOrderForUser(username){
     console.error('load wall order exception:', err);
   }
 }
+
+async function loadUserPullsForOwner(username){
+  if(!username) return;
+  if(userPulls[username]) return; // schon geladen
+
+  try{
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_USER_PULLS_TABLE)
+      .select('target_username, created_at')
+      .eq('owner_username', username)
+      .order('created_at', { ascending: false });
+
+    if(error){
+      console.error('load user pulls error:', error);
+      userPulls[username] = [];
+      return;
+    }
+
+    userPulls[username] = (data || []).map(r => r.target_username);
+  }catch(err){
+    console.error('load user pulls exception:', err);
+    userPulls[username] = [];
+  }
+}
+
 
 
     function openSingle(startIndex, listOverride=null){
@@ -1827,110 +1847,106 @@ async function loadWallOrderForUser(username){
     }
 
     async function handleAuthSubmit(){
-      if(authInProgress) return;
-      const name = (authName.value || '').trim();
-      const key = authKey.value || '';
-      if(!name || !key) return;
+  if(authInProgress) return;
+  const name = (authName.value || '').trim();
+  const key = authKey.value || '';
+  if(!name || !key) return;
 
-      authInProgress = true;
-      const email = name.toLowerCase() + '@push.local';
-      try{
-        let { data, error } = await supabaseClient.auth.signInWithPassword({
+  authInProgress = true;
+  const email = name.toLowerCase() + '@push.local';
+  try{
+    let { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password: key
+    });
+    if(error){
+      const msg = (error.message || '').toLowerCase();
+      if(msg.includes('invalid login credentials')){
+        const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
           email,
-          password: key
-        });
-        if(error){
-          const msg = (error.message || '').toLowerCase();
-          if(msg.includes('invalid login credentials')){
-            const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
-              email,
-              password: key,
-              options: {
-                data: { username: name }
-              }
-            });
-            if(signUpError){
-              console.error('signUp error', signUpError);
-              alert('login failed');
-              authInProgress = false;
-              return;
-            }
-            data = signUpData;
-          } else {
-            console.error('signIn error', error);
-            alert('login failed');
-            authInProgress = false;
-            return;
+          password: key,
+          options: {
+            data: { username: name }
           }
+        });
+        if(signUpError){
+          console.error('signUp error', signUpError);
+          alert('login failed');
+          authInProgress = false;
+          return;
         }
-        const user = data.user;
-        authUser = user;
-        const uname = user.user_metadata && user.user_metadata.username
-          ? user.user_metadata.username
-          : name;
-        if(!wallPullsByUser[uname]){
-          wallPullsByUser[uname] = wallPullsByUser[uname] || [];
-          saveWallPulls();
-        }
-        currentUser = {
-          username: uname,
-          userId: user.id,
-          wallPulls: wallPullsByUser[uname] || []
-        };
-        saveCurrentUser();
-        await loadPullsForCurrentUser();
-        renderGallery();
-        updateProfile();
-        closeAuthOverlay();
-        if(authResolve){
-          authResolve(true);
-          authResolve = null;
-        }
-      }catch(err){
-        console.error('auth exception', err);
+        data = signUpData;
+      } else {
+        console.error('signIn error', error);
         alert('login failed');
-        if(authResolve){
-          authResolve(false);
-          authResolve = null;
-        }
-      }finally{
         authInProgress = false;
+        return;
       }
     }
+    const user = data.user;
+    authUser = user;
+    const uname = user.user_metadata && user.user_metadata.username
+      ? user.user_metadata.username
+      : name;
+
+    currentUser = {
+      username: uname,
+      userId: user.id
+    };
+    saveCurrentUser();
+
+    await loadPullsForCurrentUser();     // Bilder, die ich gepullt habe
+    await loadUserPullsForOwner(uname);  // User, die ich als Wall-Pulls gesetzt habe
+
+    renderGallery();
+    updateProfile();
+    closeAuthOverlay();
+    if(authResolve){
+      authResolve(true);
+      authResolve = null;
+    }
+  }catch(err){
+    console.error('auth exception', err);
+    alert('login failed');
+    if(authResolve){
+      authResolve(false);
+      authResolve = null;
+    }
+  }finally{
+    authInProgress = false;
+  }
+}
+
 
     async function ensureAuth(){
-      if(authUser && currentUser) return true;
-      // Versuche Session aus Supabase zu holen
-      try{
-        const { data, error } = await supabaseClient.auth.getUser();
-        if(!error && data && data.user){
-          authUser = data.user;
-          const uname = data.user.user_metadata && data.user.user_metadata.username
-            ? data.user.user_metadata.username
-            : 'user';
-          if(!wallPullsByUser[uname]){
-            wallPullsByUser[uname] = wallPullsByUser[uname] || [];
-            saveWallPulls();
-          }
-          currentUser = {
-            username: uname,
-            userId: data.user.id,
-            wallPulls: wallPullsByUser[uname] || []
-          };
-          saveCurrentUser();
-          await loadPullsForCurrentUser();
-          renderGallery();
-          updateProfile();
-          return true;
-        }
-      }catch(e){
-        console.error('ensureAuth getUser error', e);
-      }
-      return new Promise(resolve=>{
-        authResolve = resolve;
-        openAuthOverlay();
-      });
+  if(authUser && currentUser) return true;
+  try{
+    const { data, error } = await supabaseClient.auth.getUser();
+    if(!error && data && data.user){
+      authUser = data.user;
+      const uname = data.user.user_metadata && data.user.user_metadata.username
+        ? data.user.user_metadata.username
+        : 'user';
+      currentUser = {
+        username: uname,
+        userId: data.user.id
+      };
+      saveCurrentUser();
+      await loadPullsForCurrentUser();
+      await loadUserPullsForOwner(uname);
+      renderGallery();
+      updateProfile();
+      return true;
     }
+  }catch(e){
+    console.error('ensureAuth getUser error', e);
+  }
+  return new Promise(resolve=>{
+    authResolve = resolve;
+    openAuthOverlay();
+  });
+}
+
 
     authEnter.addEventListener('click', handleAuthSubmit);
     authKey.addEventListener('keydown', e=>{
@@ -2109,6 +2125,74 @@ async function loadWallOrderForUser(username){
     }
   }
 
+  async function toggleUserPull(targetUsername){
+  const ok = await ensureAuth();
+  if(!ok) return null;
+  if(!currentUser || !authUser) return null;
+  const ownerName = currentUser.username;
+  if(!ownerName || ownerName === targetUsername) return null;
+
+  if(!userPulls[ownerName]) userPulls[ownerName] = [];
+  const arr = userPulls[ownerName];
+  const idx = arr.indexOf(targetUsername);
+  let nowFollowing = false;
+
+  if(idx === -1){
+    // neuen User-Pull hinzufügen (neuester nach vorne),
+    // und ggfs. einen alten entfernen, wenn du bei max. 7 bleiben willst
+    let removed = null;
+    if(arr.length >= 7){
+      removed = arr.pop(); // ältester raus
+    }
+    arr.unshift(targetUsername);
+
+    try{
+      const { error } = await supabaseClient
+        .from(SUPABASE_USER_PULLS_TABLE)
+        .insert({
+          owner_user_id: authUser.id,
+          owner_username: ownerName,
+          target_username: targetUsername
+        });
+      if(error){
+        console.error('insert user_pull error:', error);
+      }
+      if(removed){
+        const { error: delError } = await supabaseClient
+          .from(SUPABASE_USER_PULLS_TABLE)
+          .delete()
+          .eq('owner_user_id', authUser.id)
+          .eq('target_username', removed);
+        if(delError){
+          console.error('delete old user_pull error:', delError);
+        }
+      }
+    }catch(err){
+      console.error('toggleUserPull insert exception:', err);
+    }
+    nowFollowing = true;
+  } else {
+    // vorhandenen User-Pull entfernen
+    arr.splice(idx,1);
+    try{
+      const { error } = await supabaseClient
+        .from(SUPABASE_USER_PULLS_TABLE)
+        .delete()
+        .eq('owner_user_id', authUser.id)
+        .eq('target_username', targetUsername);
+      if(error){
+        console.error('delete user_pull error:', error);
+      }
+    }catch(err){
+      console.error('toggleUserPull delete exception:', err);
+    }
+    nowFollowing = false;
+  }
+
+  return nowFollowing;
+}
+
+
   // 2) lokale saved-Liste + pullers-Array aktualisieren
   if(shouldPull){
     if(!isSaved(base.src)){
@@ -2147,27 +2231,24 @@ async function loadWallOrderForUser(username){
 
 
     async function initAuth(){
-      try{
-        const { data, error } = await supabaseClient.auth.getUser();
-        if(!error && data && data.user){
-          authUser = data.user;
-          const uname = data.user.user_metadata && data.user.user_metadata.username
-            ? data.user.user_metadata.username
-            : 'user';
-          if(!wallPullsByUser[uname]){
-            wallPullsByUser[uname] = wallPullsByUser[uname] || [];
-            saveWallPulls();
-          }
-          currentUser = {
-            username: uname,
-            userId: data.user.id,
-            wallPulls: wallPullsByUser[uname] || []
-          };
-        }
-      }catch(e){
-        console.error('initAuth error', e);
-      }
+  try{
+    const { data, error } = await supabaseClient.auth.getUser();
+    if(!error && data && data.user){
+      authUser = data.user;
+      const uname = data.user.user_metadata && data.user.user_metadata.username
+        ? data.user.user_metadata.username
+        : 'user';
+      currentUser = {
+        username: uname,
+        userId: data.user.id
+      };
+      await loadUserPullsForOwner(uname);
     }
+  }catch(e){
+    console.error('initAuth error', e);
+  }
+}
+
 
     async function initApp(){
       await initAuth();

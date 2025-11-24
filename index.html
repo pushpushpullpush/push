@@ -511,13 +511,26 @@
     #uploadHint{
   position:absolute;
   bottom:40px;
-  right:calc(5vw + 120px); /* links vom push-button */
+  left:50%;
+  transform:translateX(-50%);
   font-family:Helvetica,Arial,sans-serif;
   font-size:11px;
   color:#999;
   line-height:1.4;
+  text-align:center;
   display:none;
 }
+
+#uploadPush{
+  position:absolute;
+  right:5vw;
+  bottom:40px;
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:16px;
+  color:#444;
+  cursor:pointer;
+}
+
 
     #uploadCancel{
       position:absolute;
@@ -594,7 +607,8 @@
     <div id="profileBtn">pull</div>
   </div>
 
-  <input id="fileInput" type="file" accept="image/*" style="display:none" />
+  <input id="fileInput" type="file" accept="image/*,.heic,.heif" style="display:none" />
+
   <div id="dropZone">drop image here</div>
 
   <div id="gallery"></div>
@@ -616,7 +630,7 @@
       <div id="tagChips" class="tagChips"></div>
     </div>
     <div id="uploadHint">
-  i am allowed to share this image<br><br>
+  i am allowed to share this image<br>
   i understand that it will be published and online forever
 </div>
 
@@ -1407,20 +1421,28 @@ async function loadUserPullsForOwner(username){
     }
 
     profileBtn.onclick = async () => {
-      blinkWord(profileBtn);
-      const ok = await ensureAuth();
-      if(!ok) return;
-      area = 'private';
-      viewOwner = null;
-      ownerMenuOpen = false;
-      singleScrollView.style.display='none';
-      singleScrollView.style.opacity=0;
-      document.body.classList.remove('hideRange');
-      setGridUIVisible(true);
-      renderGallery();
-      const y = scrollState.private || 0;
-      window.scrollTo({ top: y, behavior: 'auto' });
-    };
+  blinkWord(profileBtn);
+
+  // war ich schon auf meiner eigenen Pull-Wall?
+  const wasOwnPrivate = (area === 'private' && !viewOwner && currentUser);
+
+  const ok = await ensureAuth();
+  if(!ok) return;
+
+  area = 'private';
+  viewOwner = null;
+  ownerMenuOpen = false;
+  singleScrollView.style.display='none';
+  singleScrollView.style.opacity=0;
+  document.body.classList.remove('hideRange');
+  setGridUIVisible(true);
+  renderGallery();
+
+  // wenn ich schon auf meiner eigenen Wall war → immer ganz nach oben
+  const y = wasOwnPrivate ? 0 : (scrollState.private || 0);
+  window.scrollTo({ top: y, behavior: 'auto' });
+};
+
 
     async function doLogout(){
       if(!currentUser && !authUser) return;
@@ -1498,43 +1520,56 @@ async function loadUserPullsForOwner(username){
     };
 
     function startUploadFromFile(file){
-      if(!file) return;
-      if(!file.type || !file.type.startsWith('image/')){
-        alert('Only images');
-        return;
+  if(!file) return;
+
+  const name = (file.name || '').toLowerCase();
+  const isImageType = file.type && file.type.startsWith('image/');
+  const isHeicExt = name.endsWith('.heic') || name.endsWith('.heif');
+
+  // erlauben: normale Images ODER Dateien mit .heic/.heif-Endung
+  if(!isImageType && !isHeicExt){
+    alert('only images');
+    return;
+  }
+
+  const imgObj = new Image();
+  const reader = new FileReader();
+
+  reader.onload = ev => {
+    imgObj.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx    = canvas.getContext('2d');
+      const max    = 1600;
+      let w = imgObj.width, h = imgObj.height;
+      if(w > max || h > max){
+        const s = Math.min(max/w, max/h);
+        w *= s; h *= s;
       }
+      canvas.width  = w;
+      canvas.height = h;
+      ctx.drawImage(imgObj, 0, 0, w, h);
+      pendingImage = canvas.toDataURL('image/jpeg', 0.82);
+      uploadPreview.src = pendingImage;
 
-      const imgObj = new Image();
-      const reader = new FileReader();
+      uploadHint.style.display='none';
+      uploadConfirmStep=0;
+      pendingTags = [];
+      tagInput.value = '';
+      renderTagChips();
 
-      reader.onload = ev => {
-        imgObj.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ctx    = canvas.getContext('2d');
-          const max    = 1600;
-          let w = imgObj.width, h = imgObj.height;
-          if(w > max || h > max){
-            const s = Math.min(max/w, max/h);
-            w *= s; h *= s;
-          }
-          canvas.width  = w;
-          canvas.height = h;
-          ctx.drawImage(imgObj, 0, 0, w, h);
-          pendingImage = canvas.toDataURL('image/jpeg', 0.82);
-          uploadPreview.src = pendingImage;
+      uploadOverlay.style.display='flex';
+    };
 
-          uploadHint.style.display='none';
-          uploadConfirmStep=0;
-          pendingTags = [];
-          tagInput.value = '';
-          renderTagChips();
+    imgObj.onerror = () => {
+      alert('this image format is not supported by your browser');
+    };
 
-          uploadOverlay.style.display='flex';
-        };
-        imgObj.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
+    imgObj.src = ev.target.result;
+  };
+
+  reader.readAsDataURL(file);
+}
+
 
     document.addEventListener('dragover', e => {
       e.preventDefault();

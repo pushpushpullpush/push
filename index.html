@@ -669,6 +669,28 @@
 
     const REPORT_THRESHOLD = 5;
 
+        let anonReporterId = null;
+    function getReporterId(){
+      // eingeloggter User → Username als Reporter-ID
+      if(currentUser && currentUser.username) return currentUser.username;
+
+      // anonymer Reporter pro Browser
+      if(anonReporterId) return anonReporterId;
+      try{
+        const stored = localStorage.getItem('push_anon_id');
+        if(stored){
+          anonReporterId = stored;
+        } else {
+          anonReporterId = 'anon_' + Math.random().toString(36).slice(2,10);
+          localStorage.setItem('push_anon_id', anonReporterId);
+        }
+      }catch(e){
+        anonReporterId = '__anon__';
+      }
+      return anonReporterId;
+    }
+
+
     // Demo-Fallback-Bilder (falls DB leer ist)
     let images = [
       {
@@ -914,6 +936,25 @@
       const count = (base.reportBy || []).length;
       base.reportHidden = count >= REPORT_THRESHOLD;
     }
+
+      async function saveReportState(base){
+      if(!base.id) return;
+      try{
+        const { error } = await supabaseClient
+          .from(SUPABASE_TABLE)
+          .update({
+            report_by: base.reportBy || [],
+            report_hidden: base.reportHidden || false
+          })
+          .eq('id', base.id);
+        if(error){
+          console.error('saveReportState error:', error);
+        }
+      }catch(err){
+        console.error('saveReportState exception:', err);
+      }
+    }
+
 
     function updateColumns(){
       const v = Number(columnsRange.value);
@@ -1287,7 +1328,8 @@ async function loadUserPullsForOwner(username){
       currentSingleIndex = startIndex;
 
       const effectiveArea = viewOwner ? 'public' : area;
-      const reporterId = (currentUser && currentUser.username) || '__anon__';
+      const reporterId = getReporterId();
+
 
       function updateActions(){
         singleScrollView.querySelectorAll('.actionBtn').forEach((btn,i)=>{
@@ -1317,7 +1359,7 @@ async function loadUserPullsForOwner(username){
         rep.className = 'reportBtn';
         rep.textContent = 'report';
         if(base.reportBy.includes(reporterId)) rep.classList.add('reported');
-        rep.onclick = e => {
+        rep.onclick = async e => {
           e.stopPropagation();
           if(!base.reportBy) base.reportBy = [];
           const already = base.reportBy.includes(reporterId);
@@ -1327,6 +1369,8 @@ async function loadUserPullsForOwner(username){
             base.reportBy = base.reportBy.filter(id => id !== reporterId);
           }
           updateHiddenFlag(base);
+          await saveReportState(base);  // <-- in Supabase speichern
+
           const nowReported = base.reportBy.includes(reporterId);
           rep.classList.toggle('reported', nowReported);
           rep.textContent = nowReported ? 'reported' : 'undo';
@@ -1335,20 +1379,24 @@ async function loadUserPullsForOwner(username){
         };
         wrap.appendChild(rep);
 
-        if(isAdmin() && base.reportBy.length > 0){
+
+         if(isAdmin() && base.reportBy.length > 0){
           const restore = document.createElement('div');
           restore.className = 'restoreBtn';
           restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
-          restore.onclick = e => {
+          restore.onclick = async e => {
             e.stopPropagation();
             base.reportBy = [];
             base.reportHidden = false;
+            await saveReportState(base);  // <-- Reset in Supabase
+
             rep.classList.remove('reported');
             rep.textContent = 'report';
             renderGallery();
           };
           wrap.appendChild(restore);
         }
+
 
         const hoverLeft = document.createElement('div');
         hoverLeft.className = 'hoverLeft';
@@ -2008,8 +2056,7 @@ async function loadUserPullsForOwner(username){
       }
     });
 
-    // Bilder aus Supabase laden (globaler Feed)
-    async function loadImagesFromSupabase(){
+        async function loadImagesFromSupabase(){
   try{
     const { data, error } = await supabaseClient
       .from(SUPABASE_TABLE)
@@ -2028,9 +2075,9 @@ async function loadUserPullsForOwner(username){
       id: row.id,
       src: row.url,
       tags: row.tags || [],
-      pullers: row.pullers || [],   // <— WICHTIG: aus DB holen
-      reportBy: [],
-      reportHidden: false
+      pullers: row.pullers || [],
+      reportBy: row.report_by || [],
+      reportHidden: !!row.report_hidden
     }));
   }catch(err){
     console.error('Supabase load exception:', err);

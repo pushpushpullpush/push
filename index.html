@@ -411,7 +411,7 @@
       bottom:80px;
       left:5vw;
       width:12vw;
-      cursor:pointer;            /* <- cursor stabil */
+      cursor:pointer;
     }
     .singleUsers{
       position:absolute;
@@ -445,7 +445,7 @@
       position:absolute;
       left:0;
       right:0;
-      bottom:92px;   /* über report/pull buttons */
+      bottom:92px;
       height:64px;
       display:none;
       cursor:pointer;
@@ -474,163 +474,162 @@
     }
 
     /* upload overlay — cleaner + consistent */
-#uploadOverlay{
-  position:fixed;
-  inset:0;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  background:rgba(255,255,255,0.92);
-  backdrop-filter:blur(8px);
-  z-index:200;
-  padding:24px 12px;
-  box-sizing:border-box;
-}
+    #uploadOverlay{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,0.92);
+      backdrop-filter:blur(8px);
+      z-index:200;
+      padding:24px 12px;
+      box-sizing:border-box;
+    }
 
-#uploadCard{
-  width:min(820px, 94vw);
-  border:1px solid #eee;
-  border-radius:18px;
-  box-shadow:0 24px 70px rgba(0,0,0,0.06);
-  background:#fff;
-  padding:20px 20px 16px;
-  box-sizing:border-box;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-}
+    #uploadCard{
+      width:min(820px, 94vw);
+      border:1px solid #eee;
+      border-radius:18px;
+      box-shadow:0 24px 70px rgba(0,0,0,0.06);
+      background:#fff;
+      padding:20px 20px 16px;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
 
-#uploadHeader{
-  width:100%;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding-bottom:10px;
-}
+    #uploadHeader{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding-bottom:10px;
+    }
 
-#uploadTitle{
-  font-family:Helvetica,Arial,sans-serif;
-  font-size:12px;
-  letter-spacing:0.08em;
-  text-transform:lowercase;
-  color:#444;
-}
+    #uploadTitle{
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:12px;
+      letter-spacing:0.08em;
+      text-transform:lowercase;
+      color:#444;
+    }
 
-.chipRow{
-  display:flex;
-  gap:6px;
-  align-items:center;
-}
-.chip{
-  padding:3px 10px;
-  border:1px solid #eee;
-  border-radius:999px;
-  font-size:11px;
-  color:#999;
-  user-select:none;
-  white-space:nowrap;
-}
-.chip.muted{
-  color:#bbb;
-  border-color:#f0f0f0;
-}
+    .chipRow{
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+    .chip{
+      padding:3px 10px;
+      border:1px solid #eee;
+      border-radius:999px;
+      font-size:11px;
+      color:#999;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .chip.muted{
+      color:#bbb;
+      border-color:#f0f0f0;
+    }
 
-#uploadPreview{
-  width:100%;
-  max-height:58vh;
-  object-fit:contain;
-  margin:6px 0 10px;
-}
+    #uploadPreview{
+      width:100%;
+      max-height:58vh;
+      object-fit:contain;
+      margin:6px 0 10px;
+    }
 
-.uploadMeta{
-  width:100%;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  align-items:flex-start;
-  margin-top:2px;
-}
+    .uploadMeta{
+      width:100%;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      align-items:flex-start;
+      margin-top:2px;
+    }
 
-.uploadMeta input{
-  border:none;
-  border-bottom:1px solid #ddd;
-  font-family:Helvetica,Arial,sans-serif;
-  font-size:14px;
-  padding:2px 0;
-  outline:none;
-  width:min(360px, 86vw);
-  background:transparent;
-}
+    .uploadMeta input{
+      border:none;
+      border-bottom:1px solid #ddd;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:14px;
+      padding:2px 0;
+      outline:none;
+      width:min(360px, 86vw);
+      background:transparent;
+    }
 
-#tagInput::placeholder{ color:#555; opacity:1; }
+    #tagInput::placeholder{ color:#555; opacity:1; }
 
-.tagChips{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  margin-top:4px;
-}
-.tagChip{
-  padding:3px 10px;
-  border-radius:999px;
-  border:1px solid #ddd;
-  font-family:Helvetica,Arial,sans-serif;
-  font-size:12px;
-  cursor:pointer;
-  user-select:none;
-}
-.tagChip:hover{
-  border-color:#aaa;
-  background:#f5f5f5;
-}
+    .tagChips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:4px;
+    }
+    .tagChip{
+      padding:3px 10px;
+      border-radius:999px;
+      border:1px solid #ddd;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:12px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .tagChip:hover{
+      border-color:#aaa;
+      background:#f5f5f5;
+    }
 
-/* hint: centered, directly above push */
-#uploadHint{
-  width:min(520px, 86vw);
-  margin-top:14px;
-  font-family:Helvetica,Arial,sans-serif;
-  font-size:12px;
-  color:#888;
-  line-height:1.45;
-  text-align:center;
-  display:none;
-  pointer-events:none;
-}
+    /* hint: centered, directly above push */
+    #uploadHint{
+      width:min(520px, 86vw);
+      margin-top:14px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:12px;
+      color:#888;
+      line-height:1.45;
+      text-align:center;
+      display:none;
+      pointer-events:none;
+    }
 
-/* actions: x left, push right */
-#uploadActions{
-  width:100%;
-  margin-top:14px;
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-end;
-}
+    /* actions: x left, push right */
+    #uploadActions{
+      width:100%;
+      margin-top:14px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+    }
 
-#uploadCancel{
-  font-family:Helvetica,Arial,sans-serif;
-  font-size:16px;
-  color:#444;
-  cursor:pointer;
-  padding:6px 2px;
-}
-#uploadCancel:hover{ color:#111; }
+    #uploadCancel{
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:16px;
+      color:#444;
+      cursor:pointer;
+      padding:6px 2px;
+    }
+    #uploadCancel:hover{ color:#111; }
 
-#uploadPush{
-  font-family:Helvetica,Arial,sans-serif;
-  font-size:16px;
-  color:#444;
-  cursor:pointer;
-  padding:6px 2px;
-}
-#uploadPush:hover{ color:#111; }
+    #uploadPush{
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:16px;
+      color:#444;
+      cursor:pointer;
+      padding:6px 2px;
+    }
+    #uploadPush:hover{ color:#111; }
 
-@media (max-width:480px){
-  #uploadCard{ padding:18px 14px 14px; }
-  #uploadPreview{ max-height:52vh; }
-}
+    @media (max-width:480px){
+      #uploadCard{ padding:18px 14px 14px; }
+      #uploadPreview{ max-height:52vh; }
+    }
 
-
- .hideRange #columnsRange{display:none}
+    .hideRange #columnsRange{display:none}
 
     /* Drag & Drop Overlay */
     #dropZone{
@@ -712,34 +711,33 @@
   <div id="singleScrollView"></div>
 
   <div id="uploadOverlay">
-  <div id="uploadCard">
-    <div id="uploadHeader">
-      <div id="uploadTitle">push</div>
-      <div class="chipRow">
-        <div id="uploadChipUser" class="chip">anonymous</div>
-        <div class="chip muted">upload stays anonymous</div>
+    <div id="uploadCard">
+      <div id="uploadHeader">
+        <div id="uploadTitle">push</div>
+        <div class="chipRow">
+          <div id="uploadChipUser" class="chip">anonymous</div>
+          <div class="chip muted">upload stays anonymous</div>
+        </div>
+      </div>
+
+      <img id="uploadPreview" alt="preview" />
+
+      <div class="uploadMeta">
+        <input id="tagInput" type="text" placeholder="tags" />
+        <div id="tagChips" class="tagChips"></div>
+      </div>
+
+      <div id="uploadHint">
+        i am allowed to share this image<br>
+        i understand that it will be published and online forever
+      </div>
+
+      <div id="uploadActions">
+        <div id="uploadCancel">✕</div>
+        <div id="uploadPush">push</div>
       </div>
     </div>
-
-    <img id="uploadPreview" alt="preview" />
-
-    <div class="uploadMeta">
-      <input id="tagInput" type="text" placeholder="tags" />
-      <div id="tagChips" class="tagChips"></div>
-    </div>
-
-    <div id="uploadHint">
-      i am allowed to share this image<br>
-      i understand that it will be published and online forever
-    </div>
-
-    <div id="uploadActions">
-      <div id="uploadCancel">✕</div>
-      <div id="uploadPush">push</div>
-    </div>
   </div>
-</div>
-
 
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -754,6 +752,7 @@
     const SUPABASE_TABLE  = 'images';
     const SUPABASE_PULLS_TABLE = 'pulls';
     const SUPABASE_USER_PULLS_TABLE = 'user_pulls';
+    const SUPABASE_REPORTS_TABLE = 'image_reports';
 
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -770,7 +769,7 @@
 
     const REPORT_THRESHOLD = 5;
 
-    // Demo-Fallback-Bilder (falls DB leer ist)
+    // Images array (loaded from Supabase)
     let images = [];
 
     let saved  = [];
@@ -817,8 +816,7 @@
     const tagInput          = document.getElementById('tagInput');
     const tagChips          = document.getElementById('tagChips');
     const uploadHint        = document.getElementById('uploadHint');
-    const uploadChipUser = document.getElementById('uploadChipUser');
-
+    const uploadChipUser    = document.getElementById('uploadChipUser');
 
     const landingOverlay    = document.getElementById('landingOverlay');
     const landingLogo       = document.getElementById('landingLogo');
@@ -836,6 +834,7 @@
 
     let authResolve = null;
     let authInProgress = false;
+
     const isSaved = src => saved.some(s => s.src === src);
 
     function isAdmin(){ return currentUser && currentUser.username === 'push-admin'; }
@@ -919,98 +918,119 @@
       return [...set];
     }
 
-   function isHiddenGlobal(img){
-  if(isAdmin()) return false;
-  const base = images.find(i => i.src === img.src);
-  return !!(base && base.reportHidden);
-}
-
-    function updateHiddenFlag(base){
-      const count = (base.reportBy || []).length;
-      base.reportHidden = count >= REPORT_THRESHOLD;
+    function isHiddenGlobal(img){
+      if(isAdmin()) return false;
+      const base = images.find(i => i.src === img.src);
+      return !!(base && base.reportHidden);
     }
-
-    function updateColumns(){
-      const v = Number(columnsRange.value);
-      const cols = 9 - v;
-      gallery.style.gridTemplateColumns = `repeat(${cols},1fr)`;
-
-      const min = Number(columnsRange.min);
-      const max = Number(columnsRange.max);
-      const ratio = (v - min) / (max - min || 1);
-      const pct = ratio * 100;
-
-      const grad = `linear-gradient(to right,#555 0%,#555 ${pct}%,#ddd ${pct}%,#ddd 100%)`;
-      columnsRange.style.background = grad;
-      columnsRange.style.backgroundSize = '100% 2px';
-      columnsRange.style.backgroundPosition = 'center';
-      columnsRange.style.backgroundRepeat = 'no-repeat';
-    }
-    columnsRange.addEventListener('input', updateColumns);
-    updateColumns();
 
     function blinkWord(el){
       el.style.opacity = '0';
       setTimeout(() => { el.style.opacity = '1'; }, 120);
     }
 
-async function refreshReportState(base){
-  if(!base?.id) return;
-  const { data, error } = await supabaseClient
-    .from(SUPABASE_TABLE)
-    .select('report_count, report_hidden')
-    .eq('id', base.id)
-    .single();
+    async function refreshReportState(base){
+      if(!base || !base.id) return;
+      try{
+        const { data, error } = await supabaseClient
+          .from(SUPABASE_TABLE)
+          .select('report_count, report_hidden')
+          .eq('id', base.id)
+          .single();
 
-  if(!error && data){
-    base.reportCount = data.report_count || 0;
-    base.reportHidden = !!data.report_hidden;
-  }
-}
-
-async function toggleReportForImage(base){
-  const ok = await ensureAuth();
-  if(!ok || !authUser || !base?.id) return null;
-
-  const userId = authUser.id;
-
-  const { data: existing, error: e1 } = await supabaseClient
-    .from('image_reports')
-    .select('id')
-    .eq('image_id', base.id)
-    .eq('user_id', userId)
-    .limit(1);
-
-  const already = (!e1 && existing && existing.length > 0);
-
-  if(!already){
-    const { error } = await supabaseClient
-      .from('image_reports')
-      .insert({ image_id: base.id, user_id: userId });
-    if(error){
-      const msg = (error.message || '').toLowerCase();
-      if(!msg.includes('duplicate')) console.error('report insert error', error);
+        if(!error && data){
+          base.reportCount = data.report_count || 0;
+          base.reportHidden = !!data.report_hidden;
+        }
+      }catch(e){
+        console.error('refreshReportState exception', e);
+      }
     }
-  } else {
-    const { error } = await supabaseClient
-      .from('image_reports')
-      .delete()
-      .eq('image_id', base.id)
-      .eq('user_id', userId);
-    if(error) console.error('report delete error', error);
-  }
 
-  await refreshReportState(base);
-  return !already; // nowReported
-}
+    async function hasUserReported(imageId){
+      if(!authUser || !imageId) return false;
+      try{
+        const { data, error } = await supabaseClient
+          .from(SUPABASE_REPORTS_TABLE)
+          .select('id')
+          .eq('image_id', imageId)
+          .eq('user_id', authUser.id)
+          .limit(1);
 
-    
-function updateUploadChip(){
-  if(!uploadChipUser) return;
-  uploadChipUser.textContent =
-    (currentUser && currentUser.username)
-      ? `logged in: ${currentUser.username}`
-      : 'anonymous';
+        if(error) return false;
+        return !!(data && data.length);
+      }catch(e){
+        return false;
+      }
+    }
+
+    async function toggleReportForImage(base){
+      const ok = await ensureAuth();
+      if(!ok || !authUser || !base || !base.id) return null;
+
+      const userId = authUser.id;
+
+      let already = false;
+      try{
+        const { data: existing, error } = await supabaseClient
+          .from(SUPABASE_REPORTS_TABLE)
+          .select('id')
+          .eq('image_id', base.id)
+          .eq('user_id', userId)
+          .limit(1);
+
+        already = (!error && existing && existing.length > 0);
+      }catch(e){ already = false; }
+
+      if(!already){
+        const { error } = await supabaseClient
+          .from(SUPABASE_REPORTS_TABLE)
+          .insert({ image_id: base.id, user_id: userId });
+
+        if(error){
+          const msg = (error.message || '').toLowerCase();
+          if(!msg.includes('duplicate')) console.error('report insert error', error);
+        }
+      } else {
+        const { error } = await supabaseClient
+          .from(SUPABASE_REPORTS_TABLE)
+          .delete()
+          .eq('image_id', base.id)
+          .eq('user_id', userId);
+
+        if(error) console.error('report delete error', error);
+      }
+
+      await refreshReportState(base);
+      return !already; // nowReported
+    }
+
+    async function adminRestoreImage(base){
+      if(!isAdmin() || !base || !base.id) return;
+      try{
+        await supabaseClient
+          .from(SUPABASE_REPORTS_TABLE)
+          .delete()
+          .eq('image_id', base.id);
+
+        await supabaseClient
+          .from(SUPABASE_TABLE)
+          .update({ report_count: 0, report_hidden: false })
+          .eq('id', base.id);
+
+        base.reportCount = 0;
+        base.reportHidden = false;
+      }catch(e){
+        console.error('adminRestoreImage exception', e);
+      }
+    }
+
+    function updateUploadChip(){
+      if(!uploadChipUser) return;
+      uploadChipUser.textContent =
+        (currentUser && currentUser.username)
+          ? `logged in: ${currentUser.username}`
+          : 'anonymous';
     }
 
     function updateSearchLabel(){
@@ -1035,13 +1055,32 @@ function updateUploadChip(){
       }
     }
 
+    function updateColumns(){
+      const v = Number(columnsRange.value);
+      const cols = 9 - v;
+      gallery.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+
+      const min = Number(columnsRange.min);
+      const max = Number(columnsRange.max);
+      const ratio = (v - min) / (max - min || 1);
+      const pct = ratio * 100;
+
+      const grad = `linear-gradient(to right,#555 0%,#555 ${pct}%,#ddd ${pct}%,#ddd 100%)`;
+      columnsRange.style.background = grad;
+      columnsRange.style.backgroundSize = '100% 2px';
+      columnsRange.style.backgroundPosition = 'center';
+      columnsRange.style.backgroundRepeat = 'no-repeat';
+    }
+    columnsRange.addEventListener('input', updateColumns);
+    updateColumns();
+
     function getCurrentList(){
       const q = (searchTerm || '').toLowerCase();
 
       if(isAdmin() && q){
-  if(q === 'reported') return images.filter(img => (img.reportCount || 0) > 0);
-  if(q === 'hidden')   return images.filter(img => !!img.reportHidden);
-}
+        if(q === 'reported') return images.filter(img => (img.reportCount || 0) > 0);
+        if(q === 'hidden')   return images.filter(img => !!img.reportHidden);
+      }
 
       if(!viewOwner && area === 'private'){
         const res = [];
@@ -1306,13 +1345,13 @@ function updateUploadChip(){
           ? fullList
           : fullList.filter(matchesSearch)
       );
-      singleScrollView.innerHTML='';
+
+      singleScrollView.innerHTML = '';
 
       currentSingleList = list;
       currentSingleIndex = startIndex;
 
       const effectiveArea = viewOwner ? 'public' : area;
-      const reporterId = (currentUser && currentUser.username) || '__anon__';
       const isTouch = window.matchMedia && window.matchMedia('(hover: none)').matches;
 
       function updateActions(){
@@ -1329,7 +1368,8 @@ function updateUploadChip(){
         wrap.className='singleItem';
 
         const base = images.find(i => i.src === img.src) || img;
-        if(!base.reportBy) base.reportBy = [];
+        if(typeof base.reportCount !== 'number') base.reportCount = 0;
+        base.reportHidden = !!base.reportHidden;
 
         const im=document.createElement('img');
         im.src=img.src;
@@ -1340,38 +1380,39 @@ function updateUploadChip(){
         const rep = document.createElement('div');
         rep.className = 'reportBtn';
         rep.textContent = 'report';
-        if(base.reportBy.includes(reporterId)) rep.classList.add('reported');
-        
+
+        // async: mark if user already reported (optional, no crash if table/policy missing)
+        if(authUser && base.id){
+          hasUserReported(base.id).then(flag=>{
+            if(flag) rep.classList.add('reported');
+          }).catch(()=>{});
+        }
+
         rep.onclick = async (e) => {
-  e.stopPropagation();
+          e.stopPropagation();
 
-  const nowReported = await toggleReportForImage(base);
-  if(nowReported === null) return;
+          const nowReported = await toggleReportForImage(base);
+          if(nowReported === null) return;
 
-  rep.classList.toggle('reported', nowReported);
-  rep.textContent = nowReported ? 'reported' : 'undo';
-  setTimeout(() => { rep.textContent = 'report'; }, 800);
+          rep.classList.toggle('reported', nowReported);
+          rep.textContent = nowReported ? 'reported' : 'undo';
+          setTimeout(() => { rep.textContent = 'report'; }, 800);
 
-  renderGallery();
+          renderGallery();
 
-  // wenn das Bild jetzt hidden ist und du nicht admin bist: raus
-  if(base.reportHidden && !isAdmin()){
-    closeScroll(null);
-  }
-  if(base.reportHidden) { /* optional */ }
-
-};
-
+          if(base.reportHidden && !isAdmin()){
+            closeScroll(null);
+          }
+        };
         wrap.appendChild(rep);
 
-        if(isAdmin() && base.reportBy.length > 0){
+        if(isAdmin() && ((base.reportCount || 0) > 0 || base.reportHidden)){
           const restore = document.createElement('div');
           restore.className = 'restoreBtn';
           restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
-          restore.onclick = e => {
+          restore.onclick = async (e) => {
             e.stopPropagation();
-            base.reportBy = [];
-            base.reportHidden = false;
+            await adminRestoreImage(base);
             rep.classList.remove('reported');
             rep.textContent = 'report';
             renderGallery();
@@ -1403,7 +1444,6 @@ function updateUploadChip(){
         renderUsersList();
         wrap.appendChild(usersDiv);
 
-        // mobile: tap-zone under image toggles list
         const tapZone = document.createElement('div');
         tapZone.className = 'tapUsersZone';
         tapZone.onclick = (ev) => {
@@ -1412,7 +1452,6 @@ function updateUploadChip(){
         };
         wrap.appendChild(tapZone);
 
-        // optional: on touch, tapping the left region also toggles
         if(isTouch){
           hoverLeft.onclick = (ev) => {
             ev.stopPropagation();
@@ -1425,6 +1464,7 @@ function updateUploadChip(){
         act.textContent = (effectiveArea==='public')
           ? (isSaved(img.src) ? 'push' : 'pull')
           : 'push';
+
         act.onclick = async e=>{
           e.stopPropagation();
           if(effectiveArea==='public'){
@@ -1457,6 +1497,7 @@ function updateUploadChip(){
       singleScrollView.style.display='block';
       requestAnimationFrame(()=>{ singleScrollView.style.opacity = 1; });
       document.body.classList.add('hideRange');
+
       const target = singleScrollView.children[startIndex];
       if (target) target.scrollIntoView({ behavior: 'auto', block: 'center' });
     }
@@ -1469,6 +1510,7 @@ function updateUploadChip(){
       blinkWord(profileBtn);
       const ok = await ensureAuth();
       if(!ok) return;
+
       area = 'private';
       viewOwner = null;
       ownerMenuOpen = false;
@@ -1477,8 +1519,6 @@ function updateUploadChip(){
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
-
-      // if you're on your own pull page and click pull again, go to the top
       window.scrollTo({ top: 0, behavior: 'auto' });
     };
 
@@ -1581,6 +1621,7 @@ function updateUploadChip(){
       renderGallery();
     };
 
+    // --- Upload (fixed) ---
     function startUploadFromFile(file){
       if(!file) return;
       if(!file.type || !file.type.startsWith('image/')){
@@ -1591,40 +1632,46 @@ function updateUploadChip(){
       const imgObj = new Image();
       const reader = new FileReader();
 
-      reader.onload = ev => {
+      reader.onload = (ev) => {
         imgObj.onload = () => {
           const canvas = document.createElement('canvas');
           const ctx    = canvas.getContext('2d');
           const max    = 1600;
           let w = imgObj.width, h = imgObj.height;
+
           if(w > max || h > max){
             const s = Math.min(max/w, max/h);
             w *= s; h *= s;
           }
+
           canvas.width  = w;
           canvas.height = h;
           ctx.drawImage(imgObj, 0, 0, w, h);
+
           pendingImage = canvas.toDataURL('image/jpeg', 0.82);
           uploadPreview.src = pendingImage;
 
-          uploadHint.style.display='none';
-          uploadConfirmStep=0;
+          // reset state
+          uploadConfirmStep = 0;
+          uploadHint.style.display = 'none';
           pendingTags = [];
           tagInput.value = '';
           renderTagChips();
-          
-          updateUploadChip();
-          uploadOverlay.style.display='flex'; 
-}
 
-          uploadOverlay.style.display='flex';
+          updateUploadChip();
+          uploadOverlay.style.display = 'flex';
         };
+
+        imgObj.onerror = () => {
+          alert('could not read this image');
+        };
+
         imgObj.src = ev.target.result;
       };
-      reader.readAsDataURL(file);
-    
 
-    // file picker support (mobile + desktop)
+      reader.readAsDataURL(file);
+    }
+
     fileInput.addEventListener('change', (e)=>{
       const file = e.target.files && e.target.files[0];
       if(file) startUploadFromFile(file);
@@ -1688,14 +1735,13 @@ function updateUploadChip(){
         }
 
         return {
-  id: inserted.id,
-  src: inserted.url,
-  tags: inserted.tags || [],
-  pullers: [],
-  reportCount: inserted.report_count || 0,
-  reportHidden: !!inserted.report_hidden
-};
-
+          id: inserted.id,
+          src: inserted.url,
+          tags: inserted.tags || [],
+          pullers: inserted.pullers || [],
+          reportCount: inserted.report_count || 0,
+          reportHidden: !!inserted.report_hidden
+        };
       }catch(err){
         console.error('Supabase upload exception:', err);
         alert('upload failed (exception)');
@@ -1706,19 +1752,25 @@ function updateUploadChip(){
     uploadPush.onclick = async () => {
       if(!pendingImage) return;
 
-      updateUploadChip();
-uploadOverlay.style.display='flex';
-
+      // 1st click: show hint, 2nd click: upload
+      if(uploadConfirmStep === 0){
+        uploadHint.style.display = 'block';
+        uploadConfirmStep = 1;
+        blinkWord(uploadPush);
+        return;
+      }
 
       const tags = pendingTags.slice(0,7);
       const imgObj = await uploadImageToSupabase(pendingImage, tags);
       if(!imgObj) return;
 
       images.unshift(imgObj);
+
       pendingImage = null;
       pendingTags = [];
       tagInput.value = '';
       renderTagChips();
+
       uploadOverlay.style.display='none';
       uploadConfirmStep=0;
       uploadHint.style.display='none';
@@ -1728,6 +1780,7 @@ uploadOverlay.style.display='flex';
       ownerMenuOpen = false;
       setGridUIVisible(true);
       renderGallery();
+
       const first = gallery.querySelector('img');
       if(first) first.scrollIntoView({ behavior: 'auto', block: 'start' });
     };
@@ -1751,6 +1804,7 @@ uploadOverlay.style.display='flex';
       else if(area === 'private') scrollState.private = y;
     });
 
+    // --- Landing ---
     let landingHintShown = false;
 
     function showLanding(fromShortcut){
@@ -1871,17 +1925,32 @@ uploadOverlay.style.display='flex';
       if(!landingOverlay || !landingLogo || !landingMessage) return;
       const ack = sessionStorage.getItem('push_landing_ack') === '1';
 
-      landingLogo.addEventListener('click', () => {
+      function hideLanding(){
+        sessionStorage.setItem('push_landing_ack','1');
+        landingOverlay.classList.add('hidden');
+        landingOverlay.addEventListener('transitionend', function handler(){
+          landingOverlay.removeEventListener('transitionend', handler);
+          landingOverlay.style.display = 'none';
+        });
+      }
+
+      landingLogo.addEventListener('click', (e) => {
+        e.stopPropagation();
         if(!landingHintShown){
           landingHintShown = true;
           landingMessage.style.opacity = 1;
         } else {
-          sessionStorage.setItem('push_landing_ack','1');
-          landingOverlay.classList.add('hidden');
-          landingOverlay.addEventListener('transitionend', function handler(){
-            landingOverlay.removeEventListener('transitionend', handler);
-            landingOverlay.style.display = 'none';
-          });
+          hideLanding();
+        }
+      });
+
+      // optional: click outside also proceeds after hint shown (prevents "stuck" feeling)
+      landingOverlay.addEventListener('click', () => {
+        if(!landingHintShown){
+          landingHintShown = true;
+          landingMessage.style.opacity = 1;
+        } else {
+          hideLanding();
         }
       });
 
@@ -2011,14 +2080,13 @@ uploadOverlay.style.display='flex';
         if(!data || data.length === 0) return;
 
         images = data.map(row => ({
-  id: row.id,
-  src: row.url,
-  tags: row.tags || [],
-  pullers: row.pullers || [],
-  reportCount: row.report_count || 0,
-  reportHidden: !!row.report_hidden
-}));
-
+          id: row.id,
+          src: row.url,
+          tags: row.tags || [],
+          pullers: row.pullers || [],
+          reportCount: row.report_count || 0,
+          reportHidden: !!row.report_hidden
+        }));
       }catch(err){
         console.error('Supabase load exception:', err);
       }

@@ -45,6 +45,11 @@
       text-align:center;
       line-height:1.4;
     }
+    #landingMessage .landingSub{
+      opacity:.65;
+      font-size:11px;
+    }
+
     #landingContact{
       position:absolute;
       bottom:40px;
@@ -97,7 +102,9 @@
       color:#999;
       cursor:pointer;
     }
-    #contactClose:hover{ color:#666; }
+    #contactClose:hover{
+      color:#666;
+    }
 
     /* AUTH OVERLAY */
     #authOverlay{
@@ -129,7 +136,20 @@
       background:transparent;
       display:block;
     }
-    #authBox input + input{ margin-top:10px; }
+    #authBox input + input{
+      margin-top:10px;
+    }
+    #authShowKey{
+      margin-top:8px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:10px;
+      color:#bbb;
+      cursor:pointer;
+      user-select:none;
+      width:max-content;
+    }
+    #authShowKey:hover{ color:#777; }
+
     #authHint{
       margin-top:10px;
       font-family:Helvetica,Arial,sans-serif;
@@ -154,7 +174,18 @@
       color:#999;
       cursor:pointer;
     }
-    #authCancel:hover{ color:#666; }
+    #authCancel:hover{
+      color:#666;
+    }
+
+    @keyframes shakeX{
+      0%{transform:translateX(0)}
+      25%{transform:translateX(-3px)}
+      50%{transform:translateX(3px)}
+      75%{transform:translateX(-2px)}
+      100%{transform:translateX(0)}
+    }
+    .shake{ animation:shakeX .18s ease-in-out; }
 
     /* TOP BAR */
     #topBar{
@@ -171,15 +202,23 @@
       backdrop-filter:blur(6px);
       border-bottom:1px solid #eee;
     }
-    #logo{ font-size:20px; cursor:pointer; }
+    #logo{
+      font-size:20px;
+      cursor:pointer;
+    }
 
     /* zentrierte Blöcke zwischen push & pull */
-    #leftCenter, #rightCenter{
+    #leftCenter,
+    #rightCenter{
       display:flex;
       align-items:center;
     }
-    #leftCenter{ margin-left:32px; }
-    #rightCenter{ margin-right:32px; }
+    #leftCenter{
+      margin-left:32px;
+    }
+    #rightCenter{
+      margin-right:32px;
+    }
 
     /* Suche */
     #searchInput{
@@ -194,7 +233,10 @@
       color:#222;
       cursor:text;
     }
-    #searchInput::placeholder{ color:#555; opacity:1; }
+    #searchInput::placeholder{
+      color:#555;
+      opacity:1;
+    }
     #searchLabel{
       margin-left:8px;
       font-size:11px;
@@ -233,10 +275,17 @@
     }
     #columnsRange::-webkit-slider-thumb{
       appearance:none;
-      width:0;height:0;border:none;background:transparent;margin-top:0;
+      width:0;
+      height:0;
+      border:none;
+      background:transparent;
+      margin-top:0;
     }
     #columnsRange::-moz-range-thumb{
-      width:0;height:0;border:none;background:transparent;
+      width:0;
+      height:0;
+      border:none;
+      background:transparent;
     }
 
     /* gallery grid */
@@ -254,7 +303,7 @@
       object-fit:cover;
     }
 
-    /* Hero: halb breit, rechtsbündig + feste Höhe (Profile weniger "potent") */
+    /* Hero: halb breit, rechtsbündig */
     .heroWrap{
       grid-column:1 / -1;
       display:flex;
@@ -263,8 +312,6 @@
     .heroThumb{
       width:50%;
       max-width:50%;
-      height:42vh;
-      max-height:420px;
       display:block;
       object-fit:cover;
     }
@@ -312,7 +359,9 @@
       color:#bbb;
       cursor:pointer;
     }
-    #leaveInfluences span:hover{ color:#444; }
+    #leaveInfluences span:hover{
+      color:#444;
+    }
     #leaveLogout{
       margin-top:12px;
       font-family:Helvetica,Arial,sans-serif;
@@ -352,7 +401,9 @@
       object-fit:contain;
       cursor:pointer;
     }
-    .singleItem img.hiddenAdmin{ outline:1px solid #f3cccc; }
+    .singleItem img.hiddenAdmin{
+      outline:1px solid #f3cccc;
+    }
     .actionBtn{
       position:absolute;
       right:5vw;
@@ -373,7 +424,9 @@
       cursor:pointer;
       color:#aaa;
     }
-    .reportBtn.reported{ color:#c33; }
+    .reportBtn.reported{
+      color:#c33;
+    }
     .restoreBtn{
       position:absolute;
       left:5vw;
@@ -390,9 +443,11 @@
       top:0;
       bottom:80px;
       left:5vw;
-      width:18vw;
-      cursor:pointer;
+      width:12vw;
+      cursor:default;
     }
+
+    /* user list (bigger + easier to click) */
     .singleUsers{
       position:absolute;
       left:5vw;
@@ -401,27 +456,52 @@
       font-family:Helvetica,Arial,sans-serif;
       font-size:15px;
       color:#bbb;
-      max-width:18vw;
+      max-width:16vw;
       max-height:60vh;
-      line-height:1.6;
+      line-height:1.55;
       text-align:left;
       white-space:pre-line;
       display:none;
       overflow-y:auto;
-      -webkit-overflow-scrolling:touch;
+      padding-right:6px;
     }
-    .singleUsers div{ cursor:pointer; padding:2px 0; }
-    .singleUsers div:hover{ color:#888; }
+    .singleUsers div{
+      cursor:pointer;
+      padding:6px 0;
+    }
+    .singleUsers div:hover{
+      color:#888;
+    }
+    .hoverLeft:hover + .singleUsers{
+      display:block;
+    }
 
-    .hoverLeft:hover + .singleUsers{ display:block; }
-    .singleUsers.open{ display:block; }
+    /* mobile: tap-zone under the image toggles list */
+    .tapUsersZone{
+      display:none;
+      position:absolute;
+      left:22vw;
+      right:22vw;
+      bottom:92px;
+      height:72px;
+      cursor:pointer;
+    }
 
-    @media (max-width: 820px){
-      .hoverLeft{ width:34vw; }
-      .singleUsers{
-        max-width:34vw;
-        font-size:16px;
-      }
+    body.touch .hoverLeft{ display:none; }
+    body.touch .tapUsersZone{ display:block; }
+
+    body.touch .singleUsers{
+      left:50%;
+      top:auto;
+      bottom:92px;
+      transform:translateX(-50%);
+      max-width:84vw;
+      max-height:28vh;
+      text-align:center;
+      display:none;
+    }
+    body.touch .singleUsers.open{
+      display:block;
     }
 
     /* upload overlay */
@@ -441,10 +521,6 @@
       object-fit:contain;
       margin-bottom:18px;
     }
-    @media (max-width: 820px){
-      #uploadPreview{ max-width:90vw; max-height:55vh; }
-    }
-
     .uploadMeta{
       margin-top:8px;
       display:flex;
@@ -464,7 +540,10 @@
       width:260px;
       background:transparent;
     }
-    #tagInput::placeholder{ color:#555; opacity:1; }
+    #tagInput::placeholder{
+      color:#555;
+      opacity:1;
+    }
     .tagChips{
       display:flex;
       flex-wrap:wrap;
@@ -485,32 +564,15 @@
       background:#f5f5f5;
     }
 
-    /* push + hint Unten: x links, push rechts, hint zentriert */
-    #uploadPush{
-      position:absolute;
-      right:5vw;
-      bottom:40px;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:16px;
-      color:#444;
-      cursor:pointer;
-      user-select:none;
-    }
-    #uploadPush:hover{ color:#111; }
-
     #uploadHint{
       position:absolute;
       bottom:40px;
-      left:50%;
-      transform:translateX(-50%);
+      right:calc(5vw + 120px);
       font-family:Helvetica,Arial,sans-serif;
       font-size:11px;
       color:#999;
       line-height:1.4;
-      text-align:center;
-      max-width:min(72vw, 360px);
       display:none;
-      pointer-events:none;
     }
 
     #uploadCancel{
@@ -521,7 +583,6 @@
       font-size:16px;
       color:#444;
       cursor:pointer;
-      user-select:none;
     }
 
     .hideRange #columnsRange{display:none}
@@ -536,14 +597,9 @@
       border:4px dashed #bbb;
       background:rgba(0,0,0,0.04);
       z-index:190;
-      font-size:16px;
+      font-size:22px;
       color:#666;
       pointer-events:none;
-      text-align:center;
-      line-height:1.5;
-      white-space:pre-line;
-      padding:24px;
-      box-sizing:border-box;
     }
   </style>
 </head>
@@ -553,7 +609,8 @@
     <div id="landingLogo">push</div>
     <div id="landingMessage">
       by entering push you confirm to be of legal age<br>
-      all images published will be online forever
+      all images published will be online forever<br>
+      <span class="landingSub">drag&drop image to push it into public gallery</span>
     </div>
     <div id="landingContact">contact</div>
   </div>
@@ -571,12 +628,9 @@
   <div id="authOverlay">
     <div id="authBox">
       <input id="authName" type="text" placeholder="name" autocomplete="username" />
-      <input id="authKey" type="password" placeholder="key" autocomplete="current-password" />
-      <div id="authHint">
-        sign up by entering a free username and password.<br>
-        pw: max 7 characters, only letters and numbers.<br>
-        use the same combination for future login.
-      </div>
+      <input id="authKey" type="password" placeholder="key" maxlength="7" autocomplete="current-password" />
+      <div id="authShowKey">show key</div>
+      <div id="authHint">sign up by entering a free username and key. key max 7 characters, only letters and numbers. use same combination for future login.</div>
       <div id="authEnter">enter</div>
       <div id="authCancel">✕</div>
     </div>
@@ -598,8 +652,7 @@
   </div>
 
   <input id="fileInput" type="file" accept="image/*" style="display:none" />
-  <div id="dropZone">drag&drop image to push it into public gallery
-all images published will be online forever</div>
+  <div id="dropZone">drop image here</div>
 
   <div id="gallery"></div>
 
@@ -619,9 +672,8 @@ all images published will be online forever</div>
       <input id="tagInput" type="text" placeholder="tags" />
       <div id="tagChips" class="tagChips"></div>
     </div>
-
     <div id="uploadHint">
-      i am allowed to share this image<br>
+      i am allowed to share this image<br><br>
       i understand that it will be published and online forever
     </div>
 
@@ -631,8 +683,6 @@ all images published will be online forever</div>
 
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- HEIC/HEIF convert -->
-  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
   <script>
     // === Supabase Setup ===
@@ -647,6 +697,14 @@ all images published will be online forever</div>
 
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // touch detection (for mobile behavior)
+    (function initTouchFlag(){
+      try{
+        const isTouch = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
+        if(isTouch) document.body.classList.add('touch');
+      }catch(e){}
+    })();
+
     function dataURLToBlob(dataURL){
       const parts = dataURL.split(',');
       const mimeMatch = parts[0].match(/:(.*?);/);
@@ -654,16 +712,39 @@ all images published will be online forever</div>
       const binary = atob(parts[1]);
       const len = binary.length;
       const u8 = new Uint8Array(len);
-      for(let i=0;i<len;i++){
-        u8[i] = binary.charCodeAt(i);
-      }
+      for(let i=0;i<len;i++) u8[i] = binary.charCodeAt(i);
       return new Blob([u8], { type: mime });
     }
 
     const REPORT_THRESHOLD = 5;
 
-    // global feed
-    let images = [];
+    // Demo-Fallback-Bilder (falls DB leer ist)
+    let images = [
+      {
+        id: null,
+        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#111'/><circle cx='400' cy='300' r='160' fill='#444'/><text x='50%' y='50%' fill='#fafafa' font-size='36' font-family='Helvetica' text-anchor='middle' dy='12'>luna 01</text></svg>",
+        tags: ["luna","demo","dark"],
+        pullers: ["luna"],
+        reportBy: [],
+        reportHidden: false
+      },
+      {
+        id: null,
+        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#f5f5f5'/><rect x='80' y='60' width='640' height='480' fill='#ddd'/><text x='50%' y='50%' fill='#444' font-size='32' font-family='Helvetica' text-anchor='middle' dy='10'>ghost 01</text></svg>",
+        tags: ["ghost","demo","gray"],
+        pullers: ["ghost"],
+        reportBy: [],
+        reportHidden: false
+      },
+      {
+        id: null,
+        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#002b36'/><rect x='120' y='120' width='560' height='360' fill='#268bd2'/><text x='50%' y='50%' fill='#fdf6e3' font-size='30' font-family='Helvetica' text-anchor='middle' dy='10'>luna & ghost</text></svg>",
+        tags: ["luna","ghost","demo"],
+        pullers: ["luna","ghost"],
+        reportBy: [],
+        reportHidden: false
+      }
+    ];
 
     let saved  = [];
     let pendingImage = null;
@@ -676,14 +757,18 @@ all images published will be online forever</div>
     let currentSingleList = null;
     let currentSingleIndex = null;
 
-    let currentUser = null;
-    let authUser = null;
+    let currentUser = null;  // { username, userId }
+    let authUser = null;     // supabase user object
     let ownerMenuOpen = false;
 
     const scrollState = { public: 0, private: 0, walls: {} };
 
-    let wallOrders = {}; // username -> array von image_ids
-    let userPulls = {}; // owner_username -> array von target_usernames (neuester zuerst)
+    let wallOrders = {}; // username -> array of image_ids (newest first)
+    let userPulls  = {}; // owner_username -> array of target_usernames (newest first)
+
+    // legacy cache (used only for search user discovery; safe to keep)
+    let wallPullsByUser = {};
+    try{ wallPullsByUser = JSON.parse(localStorage.getItem('push_wall_pulls') || '{}'); }catch(e){ wallPullsByUser = {}; }
 
     const gallery           = document.getElementById('gallery');
     const singleScrollView  = document.getElementById('singleScrollView');
@@ -716,8 +801,10 @@ all images published will be online forever</div>
     const contactClose      = document.getElementById('contactClose');
 
     const authOverlay       = document.getElementById('authOverlay');
+    const authBox           = document.getElementById('authBox');
     const authName          = document.getElementById('authName');
     const authKey           = document.getElementById('authKey');
+    const authShowKey       = document.getElementById('authShowKey');
     const authEnter         = document.getElementById('authEnter');
     const authCancel        = document.getElementById('authCancel');
 
@@ -739,15 +826,12 @@ all images published will be online forever</div>
     }
 
     function renderTagChips(){
-      tagChips.innerHTML = '';
+      tagChips.innerHTML='';
       pendingTags.forEach((t, i) => {
         const chip = document.createElement('div');
-        chip.className = 'tagChip';
-        chip.textContent = t;
-        chip.onclick = () => {
-          pendingTags.splice(i, 1);
-          renderTagChips();
-        };
+        chip.className='tagChip';
+        chip.textContent=t;
+        chip.onclick=()=>{ pendingTags.splice(i,1); renderTagChips(); };
         tagChips.appendChild(chip);
       });
     }
@@ -759,77 +843,50 @@ all images published will be online forever</div>
         e.preventDefault();
         const list = parseTagsInput(raw);
         list.forEach(tag => {
-          if(pendingTags.length < 7 && !pendingTags.includes(tag)){
-            pendingTags.push(tag);
-          }
+          if(pendingTags.length < 7 && !pendingTags.includes(tag)) pendingTags.push(tag);
         });
-        tagInput.value = '';
+        tagInput.value='';
         renderTagChips();
       }
     });
 
     function matchesSearch(img){
       if(!searchTerm) return true;
-
       const raw = searchTerm.trim();
-
       if(raw.startsWith('#')){
         const q = raw.slice(1).toLowerCase().trim();
         if(!q) return true;
         const tagsArr = img.tags || [];
         return tagsArr.some(t => (t || '').toLowerCase().includes(q));
       }
-
-      const q       = raw.toLowerCase();
+      const q = raw.toLowerCase();
       const tagsStr = (img.tags || []).join(' ').toLowerCase();
       const pullers = (img.pullers || []).join(' ').toLowerCase();
-
-      return (tagsStr.includes(q) || pullers.includes(q));
+      return tagsStr.includes(q) || pullers.includes(q);
     }
 
     function findUserByQuery(qRaw){
       const q = (qRaw || '').trim().toLowerCase();
       if(!q) return null;
-
       const found = new Set();
 
-      images.forEach(img => {
-        (img.pullers || []).forEach(u => {
-          if(u && u.toLowerCase() === q) found.add(u);
-        });
-      });
+      images.forEach(img => (img.pullers || []).forEach(u => { if(u && u.toLowerCase() === q) found.add(u); }));
+      Object.keys(wallPullsByUser || {}).forEach(owner => { if(owner && owner.toLowerCase() === q) found.add(owner); });
 
-      Object.keys(userPulls || {}).forEach(owner=>{
-        if(owner && owner.toLowerCase() === q) found.add(owner);
-        (userPulls[owner] || []).forEach(u=>{
-          if(u && u.toLowerCase() === q) found.add(u);
-        });
-      });
-
-      if(currentUser && currentUser.username &&
-         currentUser.username.toLowerCase() === q){
-        found.add(currentUser.username);
-      }
-
+      if(currentUser && currentUser.username && currentUser.username.toLowerCase() === q) found.add(currentUser.username);
       if(found.size === 0) return null;
       return [...found][0];
     }
 
     function getAllWallOwners(){
       const set = new Set();
-
-      images.forEach(img => {
-        (img.pullers || []).forEach(u => { if(u) set.add(u); });
-      });
-
-      Object.keys(userPulls || {}).forEach(owner=>{
+      images.forEach(img => (img.pullers || []).forEach(u => { if(u) set.add(u); }));
+      Object.keys(userPulls || {}).forEach(owner => {
         if(owner) set.add(owner);
-        (userPulls[owner] || []).forEach(u=>{ if(u) set.add(u); });
+        (userPulls[owner] || []).forEach(u => { if(u) set.add(u); });
       });
-
       if(currentUser && currentUser.username) set.add(currentUser.username);
       if(viewOwner) set.add(viewOwner);
-
       return [...set];
     }
 
@@ -864,29 +921,29 @@ all images published will be online forever</div>
     updateColumns();
 
     function blinkWord(el){
-      el.style.opacity = '0';
-      setTimeout(() => { el.style.opacity = '1'; }, 120);
+      el.style.opacity='0';
+      setTimeout(()=>{ el.style.opacity='1'; }, 120);
     }
 
     function updateSearchLabel(){
       if(searchTerm){
-        searchLabel.style.display = 'inline';
-        searchLabel.textContent = '✕';
-      } else {
-        searchLabel.style.display = 'none';
-        searchLabel.textContent = '';
+        searchLabel.style.display='inline';
+        searchLabel.textContent='✕';
+      }else{
+        searchLabel.style.display='none';
+        searchLabel.textContent='';
       }
     }
 
     function setGridUIVisible(on){
       if(on){
-        columnsRange.style.display = 'block';
-        searchInput.style.display  = 'inline';
+        columnsRange.style.display='block';
+        searchInput.style.display='inline';
         updateSearchLabel();
       }else{
-        columnsRange.style.display = 'none';
-        searchInput.style.display  = 'none';
-        searchLabel.style.display  = 'none';
+        columnsRange.style.display='none';
+        searchInput.style.display='none';
+        searchLabel.style.display='none';
       }
     }
 
@@ -923,88 +980,82 @@ all images published will be online forever</div>
       } else {
         base = images;
       }
+
       return base.filter(img => !isHiddenGlobal(img));
     }
 
     function renderGallery(){
-      gallery.innerHTML = '';
-      leaveInfluences.innerHTML = '';
+      gallery.innerHTML='';
+      leaveInfluences.innerHTML='';
 
       const baseList = getCurrentList();
       const q = (searchTerm || '').toLowerCase();
-      let list = (isAdmin() && (q === 'reported' || q === 'hidden')) ? baseList : baseList.filter(matchesSearch);
+      const list = (isAdmin() && (q === 'reported' || q === 'hidden')) ? baseList : baseList.filter(matchesSearch);
 
-      const isOwnPullGallery      = (!viewOwner && area === 'private' && currentUser);
-      const isForeignPullGallery  = !!viewOwner;
-      const isPullGallery         = isOwnPullGallery || isForeignPullGallery;
+      const isOwnPullGallery     = (!viewOwner && area === 'private' && currentUser);
+      const isForeignPullGallery = !!viewOwner;
+      const isPullGallery        = isOwnPullGallery || isForeignPullGallery;
 
       if(!isPullGallery){
-        ownerMenuOpen = false;
-        leaveBar.style.display = 'none';
-        leaveLogout.style.display = 'none';
-        leaveInfluences.style.display = 'none';
+        ownerMenuOpen=false;
+        leaveBar.style.display='none';
+        leaveLogout.style.display='none';
+        leaveInfluences.style.display='none';
 
         if(list.length === 0){
-          const msg = document.createElement('div');
-          msg.className = 'emptyState';
-          msg.textContent = 'no images';
+          const msg=document.createElement('div');
+          msg.className='emptyState';
+          msg.textContent='no images';
           gallery.appendChild(msg);
           return;
         }
 
         list.forEach((img, i) => {
-          const el = document.createElement('img');
-          el.src = img.src;
-          el.className = 'thumb';
-          el.onclick = () => openSingle(i, list);
+          const el=document.createElement('img');
+          el.src=img.src;
+          el.className='thumb';
+          el.onclick=()=>openSingle(i, list);
           gallery.appendChild(el);
         });
         return;
       }
 
-      leaveBar.style.display = 'block';
+      leaveBar.style.display='block';
 
       if(isOwnPullGallery){
-        leaveOwner.textContent = currentUser.username;
+        leaveOwner.textContent=currentUser.username;
 
         const ownPulls = userPulls[currentUser.username] || [];
         ownPulls.forEach(un => {
-          const s = document.createElement('span');
-          s.textContent = un;
-          s.onclick = ev => {
-            ev.stopPropagation();
-            openUserWall(un);
-          };
+          const s=document.createElement('span');
+          s.textContent=un;
+          s.onclick=ev=>{ ev.stopPropagation(); openUserWall(un); };
           leaveInfluences.appendChild(s);
         });
 
         if(ownerMenuOpen){
-          leaveInfluences.style.display = 'none';
-          leaveLogout.style.display = 'block';
+          leaveInfluences.style.display='none';
+          leaveLogout.style.display='block';
         } else {
-          leaveLogout.style.display = 'none';
+          leaveLogout.style.display='none';
         }
 
-        leaveOwner.onclick = ev => {
+        leaveOwner.onclick=ev=>{
           ev.stopPropagation();
-          ownerMenuOpen = !ownerMenuOpen;
+          ownerMenuOpen=!ownerMenuOpen;
           renderGallery();
         };
 
       } else {
-        ownerMenuOpen = false;
-
-        leaveOwner.textContent = viewOwner;
-        leaveLogout.style.display = 'none';
+        ownerMenuOpen=false;
+        leaveOwner.textContent=viewOwner;
+        leaveLogout.style.display='none';
 
         const foreignPulls = userPulls[viewOwner] || [];
         foreignPulls.forEach(un => {
-          const s = document.createElement('span');
-          s.textContent = un;
-          s.onclick = ev => {
-            ev.stopPropagation();
-            openUserWall(un);
-          };
+          const s=document.createElement('span');
+          s.textContent=un;
+          s.onclick=ev=>{ ev.stopPropagation(); openUserWall(un); };
           leaveInfluences.appendChild(s);
         });
 
@@ -1026,13 +1077,11 @@ all images published will be online forever</div>
 
       const allOwners = getAllWallOwners();
       if(allOwners.length){
-        const pushSpan = document.createElement('span');
-        pushSpan.textContent = 'push';
-        pushSpan.onclick = (e) => {
+        const pushSpan=document.createElement('span');
+        pushSpan.textContent='push';
+        pushSpan.onclick=(e)=>{
           e.stopPropagation();
-
           let candidates = allOwners;
-
           if(viewOwner){
             candidates = allOwners.filter(u => u !== viewOwner);
             if(!candidates.length) candidates = allOwners;
@@ -1040,9 +1089,8 @@ all images published will be online forever</div>
             candidates = allOwners.filter(u => u !== currentUser.username);
             if(!candidates.length) candidates = allOwners;
           }
-
-          const idx = Math.floor(Math.random()*candidates.length);
-          const target = candidates[idx];
+          const idx=Math.floor(Math.random()*candidates.length);
+          const target=candidates[idx];
           if(target){
             blinkWord(pushSpan);
             openUserWall(target);
@@ -1052,61 +1100,60 @@ all images published will be online forever</div>
       }
 
       if(ownerMenuOpen){
-        leaveInfluences.style.display = 'none';
+        leaveInfluences.style.display='none';
       } else {
         leaveInfluences.style.display = leaveInfluences.children.length ? 'flex' : 'none';
       }
 
-      if(list.length === 0){
-        const msg = document.createElement('div');
-        msg.className = 'emptyState';
-        msg.textContent = isOwnPullGallery ? 'no pulls yet' : 'no images';
+      if(list.length===0){
+        const msg=document.createElement('div');
+        msg.className='emptyState';
+        msg.textContent=isOwnPullGallery ? 'no pulls yet' : 'no images';
         gallery.appendChild(msg);
         gallery.appendChild(leaveBar);
         return;
       }
 
-      const heroWrap = document.createElement('div');
-      heroWrap.className = 'heroWrap';
+      const heroWrap=document.createElement('div');
+      heroWrap.className='heroWrap';
 
-      const heroImg = document.createElement('img');
-      heroImg.src = list[0].src;
-      heroImg.className = 'thumb heroThumb';
-      heroImg.onclick = () => openSingle(0, list);
-
+      const heroImg=document.createElement('img');
+      heroImg.src=list[0].src;
+      heroImg.className='thumb heroThumb';
+      heroImg.onclick=()=>openSingle(0, list);
       heroWrap.appendChild(heroImg);
       gallery.appendChild(heroWrap);
 
       gallery.appendChild(leaveBar);
 
-      for(let i = 1; i < list.length; i++){
-        const el = document.createElement('img');
-        el.src = list[i].src;
-        el.className = 'thumb';
-        el.onclick = () => openSingle(i, list);
+      for(let i=1;i<list.length;i++){
+        const el=document.createElement('img');
+        el.src=list[i].src;
+        el.className='thumb';
+        el.onclick=()=>openSingle(i, list);
         gallery.appendChild(el);
       }
     }
 
     function closeScroll(src){
-      singleScrollView.style.display = 'none';
-      singleScrollView.style.opacity = 0;
+      singleScrollView.style.display='none';
+      singleScrollView.style.opacity=0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
       if(src){
-        const t = [...gallery.querySelectorAll('img')].find(x => x.src === src);
-        if(t) t.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+        const t=[...gallery.querySelectorAll('img')].find(x=>x.src===src);
+        if(t) t.scrollIntoView({ behavior:'auto', block:'nearest' });
       }
-      currentSingleList = null;
-      currentSingleIndex = null;
+      currentSingleList=null;
+      currentSingleIndex=null;
     }
 
     async function openUserWall(username){
-      viewOwner = username;
-      area = 'public';
-      singleScrollView.style.display = 'none';
-      singleScrollView.style.opacity = 0;
+      viewOwner=username;
+      area='public';
+      singleScrollView.style.display='none';
+      singleScrollView.style.opacity=0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
 
@@ -1115,25 +1162,24 @@ all images published will be online forever</div>
 
       renderGallery();
       const y = scrollState.walls[username] || 0;
-      window.scrollTo({ top: y, behavior: 'auto' });
+      window.scrollTo({ top:y, behavior:'auto' });
     }
 
     async function loadWallOrderForUser(username){
       if(!username) return;
-
+      if(wallOrders[username]) return;
       try{
         const { data, error } = await supabaseClient
           .from(SUPABASE_PULLS_TABLE)
           .select('image_id, created_at')
           .eq('username', username)
-          .order('created_at', { ascending: false });
-
+          .order('created_at', { ascending:false });
         if(error){
           console.error('load wall order error:', error);
-          wallOrders[username] = [];
+          wallOrders[username]=[];
           return;
         }
-        wallOrders[username] = (data || []).map(r => r.image_id);
+        wallOrders[username]=(data||[]).map(r=>r.image_id);
       }catch(err){
         console.error('load wall order exception:', err);
       }
@@ -1141,23 +1187,22 @@ all images published will be online forever</div>
 
     async function loadUserPullsForOwner(username){
       if(!username) return;
-
+      if(userPulls[username]) return;
       try{
         const { data, error } = await supabaseClient
           .from(SUPABASE_USER_PULLS_TABLE)
           .select('target_username, created_at')
           .eq('owner_username', username)
-          .order('created_at', { ascending: false });
-
+          .order('created_at', { ascending:false });
         if(error){
           console.error('load user pulls error:', error);
-          userPulls[username] = [];
+          userPulls[username]=[];
           return;
         }
-        userPulls[username] = (data || []).map(r => r.target_username);
+        userPulls[username]=(data||[]).map(r=>r.target_username);
       }catch(err){
         console.error('load user pulls exception:', err);
-        userPulls[username] = [];
+        userPulls[username]=[];
       }
     }
 
@@ -1167,12 +1212,14 @@ all images published will be online forever</div>
       const fullList = getCurrentList();
       const q = (searchTerm || '').toLowerCase();
       const list = listOverride || (
-        (isAdmin() && (q === 'reported' || q === 'hidden')) ? fullList : fullList.filter(matchesSearch)
+        (isAdmin() && (q === 'reported' || q === 'hidden'))
+          ? fullList
+          : fullList.filter(matchesSearch)
       );
 
       singleScrollView.innerHTML='';
-      currentSingleList = list;
-      currentSingleIndex = startIndex;
+      currentSingleList=list;
+      currentSingleIndex=startIndex;
 
       const effectiveArea = viewOwner ? 'public' : area;
       const reporterId = (currentUser && currentUser.username) || '__anon__';
@@ -1195,62 +1242,57 @@ all images published will be online forever</div>
 
         const im=document.createElement('img');
         im.src=img.src;
-        if(isAdmin() && base.reportHidden){
-          im.classList.add('hiddenAdmin');
-        }
+        if(isAdmin() && base.reportHidden) im.classList.add('hiddenAdmin');
         im.onclick=()=>closeScroll(img.src);
         wrap.appendChild(im);
 
         const rep = document.createElement('div');
-        rep.className = 'reportBtn';
-        rep.textContent = 'report';
+        rep.className='reportBtn';
+        rep.textContent='report';
         if(base.reportBy.includes(reporterId)) rep.classList.add('reported');
         rep.onclick = e => {
           e.stopPropagation();
-          if(!base.reportBy) base.reportBy = [];
+          if(!base.reportBy) base.reportBy=[];
           const already = base.reportBy.includes(reporterId);
-          if(!already){
-            base.reportBy.push(reporterId);
-          } else {
-            base.reportBy = base.reportBy.filter(id => id !== reporterId);
-          }
+          if(!already) base.reportBy.push(reporterId);
+          else base.reportBy = base.reportBy.filter(id => id !== reporterId);
           updateHiddenFlag(base);
           const nowReported = base.reportBy.includes(reporterId);
           rep.classList.toggle('reported', nowReported);
           rep.textContent = nowReported ? 'reported' : 'undo';
-          setTimeout(() => { rep.textContent = 'report'; }, 800);
+          setTimeout(()=>{ rep.textContent='report'; }, 800);
           renderGallery();
         };
         wrap.appendChild(rep);
 
         if(isAdmin() && base.reportBy.length > 0){
-          const restore = document.createElement('div');
-          restore.className = 'restoreBtn';
+          const restore=document.createElement('div');
+          restore.className='restoreBtn';
           restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
           restore.onclick = e => {
             e.stopPropagation();
-            base.reportBy = [];
-            base.reportHidden = false;
+            base.reportBy=[];
+            base.reportHidden=false;
             rep.classList.remove('reported');
-            rep.textContent = 'report';
+            rep.textContent='report';
             renderGallery();
           };
           wrap.appendChild(restore);
         }
 
-        const hoverLeft = document.createElement('div');
-        hoverLeft.className = 'hoverLeft';
+        const hoverLeft=document.createElement('div');
+        hoverLeft.className='hoverLeft';
         wrap.appendChild(hoverLeft);
 
-        const usersDiv = document.createElement('div');
-        usersDiv.className = 'singleUsers';
+        const usersDiv=document.createElement('div');
+        usersDiv.className='singleUsers';
 
         function renderUsersList(){
-          usersDiv.innerHTML = '';
+          usersDiv.innerHTML='';
           if(base.pullers && base.pullers.length){
             base.pullers.forEach(name=>{
-              const line = document.createElement('div');
-              line.textContent = name;
+              const line=document.createElement('div');
+              line.textContent=name;
               line.onclick = ev => {
                 ev.stopPropagation();
                 openUserWall(name);
@@ -1259,20 +1301,25 @@ all images published will be online forever</div>
             });
           }
         }
-
-        hoverLeft.onclick = (ev) => {
-          ev.stopPropagation();
-          usersDiv.classList.toggle('open');
-        };
-
         renderUsersList();
         wrap.appendChild(usersDiv);
+
+        // mobile tap-zone under image -> toggles list
+        const tapZone = document.createElement('div');
+        tapZone.className = 'tapUsersZone';
+        tapZone.onclick = (ev) => {
+          ev.stopPropagation();
+          if(!(base.pullers && base.pullers.length)) return;
+          usersDiv.classList.toggle('open');
+        };
+        wrap.appendChild(tapZone);
 
         const act=document.createElement('div');
         act.className='actionBtn';
         act.textContent = (effectiveArea==='public')
           ? (isSaved(img.src) ? 'push' : 'pull')
           : 'push';
+
         act.onclick = async e=>{
           e.stopPropagation();
           if(effectiveArea==='public'){
@@ -1289,11 +1336,8 @@ all images published will be online forever</div>
               const removed = saved[iSaved];
               const pub = images.find(x=>x.src===removed.src) || base;
               await setPullForImage(pub, false);
-              if(saved.length===0){
-                closeScroll(null);
-              } else {
-                openSingle(Math.min(iSaved,saved.length-1));
-              }
+              if(saved.length===0) closeScroll(null);
+              else openSingle(Math.min(iSaved, saved.length-1));
             }
           }
         };
@@ -1303,101 +1347,80 @@ all images published will be online forever</div>
       });
 
       singleScrollView.style.display='block';
-      requestAnimationFrame(()=>{ singleScrollView.style.opacity = 1; });
+      requestAnimationFrame(()=>{ singleScrollView.style.opacity=1; });
       document.body.classList.add('hideRange');
+
       const target = singleScrollView.children[startIndex];
-      if (target) target.scrollIntoView({ behavior: 'auto', block: 'center' });
+      if(target) target.scrollIntoView({ behavior:'auto', block:'center' });
     }
 
-    function updateProfile(){
-      profileBtn.textContent = 'pull';
-    }
+    function updateProfile(){ profileBtn.textContent='pull'; }
 
     profileBtn.onclick = async () => {
       blinkWord(profileBtn);
       const ok = await ensureAuth();
       if(!ok) return;
-
-      const alreadyOwnPrivate = (area === 'private' && !viewOwner);
-      area = 'private';
-      viewOwner = null;
-      ownerMenuOpen = false;
+      area='private';
+      viewOwner=null;
+      ownerMenuOpen=false;
       singleScrollView.style.display='none';
       singleScrollView.style.opacity=0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
-
-      // requested: clicking pull while on own pull page goes to top
-      scrollState.private = 0;
-      window.scrollTo({ top: 0, behavior: 'auto' });
+      const y = scrollState.private || 0;
+      window.scrollTo({ top:y, behavior:'auto' });
     };
 
     async function doLogout(){
       if(!currentUser && !authUser) return;
       try{ await supabaseClient.auth.signOut(); }catch(e){}
-      authUser = null;
-      currentUser = null;
-      saved = [];
-      area = 'public';
-      viewOwner = null;
-      ownerMenuOpen = false;
+      authUser=null;
+      currentUser=null;
+      saved=[];
+      try{
+        localStorage.removeItem('push_user');
+        localStorage.removeItem('push_saved');
+      }catch(e){}
+      area='public';
+      viewOwner=null;
+      ownerMenuOpen=false;
       singleScrollView.style.display='none';
       singleScrollView.style.opacity=0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
       updateProfile();
-      window.scrollTo({ top: 0, behavior: 'auto' });
+      window.scrollTo({ top:0, behavior:'auto' });
     }
 
-    leaveLogout.onclick = () => {
-      if(confirm('logout?')){
-        doLogout();
-        leaveLogout.style.display = 'none';
-      }
-    };
+    leaveLogout.onclick=()=>{ if(confirm('logout?')){ doLogout(); leaveLogout.style.display='none'; } };
 
-    function isOverlayBlocking(){
-      return (
-        uploadOverlay.style.display === 'flex' ||
-        contactOverlay.style.display === 'flex' ||
-        authOverlay.style.display === 'flex' ||
-        landingOverlay.style.display === 'flex'
-      );
-    }
-
-    function openFilePicker(){
-      try{ fileInput.value = ''; }catch(e){}
-      fileInput.click();
-    }
-
-    function isOnPublicHome(){
-      return area === 'public' && !viewOwner && singleScrollView.style.display !== 'block';
-    }
-
+    // 1A: logo click = home (if not home), and if already home + at top -> open file picker
     logo.onclick = () => {
       blinkWord(logo);
 
-      const wasHome = isOnPublicHome() && !isOverlayBlocking();
-      const atTop = (window.scrollY || 0) < 8;
+      const atTop = (window.scrollY || 0) < 10;
+      const isHome = (area==='public' && !viewOwner &&
+                      singleScrollView.style.display !== 'block' &&
+                      uploadOverlay.style.display !== 'flex' &&
+                      (landingOverlay.style.display === 'none' || landingOverlay.classList.contains('hidden')));
 
-      area = 'public';
-      viewOwner = null;
-      ownerMenuOpen = false;
+      if(isHome && atTop){
+        fileInput.click();
+        return;
+      }
+
+      area='public';
+      viewOwner=null;
+      ownerMenuOpen=false;
       singleScrollView.style.display='none';
       singleScrollView.style.opacity=0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
-
-      if(wasHome && atTop){
-        openFilePicker();
-        return;
-      }
-
-      scrollState.public = 0;
-      window.scrollTo({ top: 0, behavior:'auto' });
+      scrollState.public=0;
+      window.scrollTo({ top:0, behavior:'auto' });
     };
 
     searchInput.addEventListener('input', e => {
@@ -1411,11 +1434,10 @@ all images published will be online forever</div>
         const raw = searchInput.value.trim();
         if(!raw) return;
         if(raw.startsWith('#')) return;
-
         const userName = findUserByQuery(raw);
         if(userName){
-          searchTerm = '';
-          searchInput.value = '';
+          searchTerm='';
+          searchInput.value='';
           updateSearchLabel();
           openUserWall(userName);
           e.preventDefault();
@@ -1423,102 +1445,69 @@ all images published will be online forever</div>
       }
     });
 
-    searchLabel.onclick = () => {
-      searchTerm = '';
-      searchInput.value = '';
+    searchLabel.onclick=()=>{
+      searchTerm='';
+      searchInput.value='';
       updateSearchLabel();
       renderGallery();
     };
 
-    async function maybeConvertHeicToJpegFile(file){
-      const isHeic = /heic|heif/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
-      if(!isHeic) return file;
-
-      if(typeof heic2any !== 'function'){
-        alert('heic not supported in this browser');
-        return null;
-      }
-
-      try{
-        const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-        const blob = Array.isArray(out) ? out[0] : out;
-        const newName = (file.name || 'image').replace(/\.(heic|heif)$/i, '') + '.jpg';
-        return new File([blob], newName, { type: 'image/jpeg' });
-      }catch(err){
-        console.error('heic conversion failed', err);
-        alert('heic conversion failed');
-        return null;
-      }
-    }
-
-    async function startUploadFromFile(file){
+    function startUploadFromFile(file){
       if(!file) return;
-
-      file = await maybeConvertHeicToJpegFile(file);
-      if(!file) return;
-
       if(!file.type || !file.type.startsWith('image/')){
         alert('only images');
         return;
       }
 
-      const imgObj = new Image();
-      const reader = new FileReader();
+      const imgObj=new Image();
+      const reader=new FileReader();
 
       reader.onload = ev => {
         imgObj.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ctx    = canvas.getContext('2d');
-          const max    = 1600;
-          let w = imgObj.width, h = imgObj.height;
-          if(w > max || h > max){
-            const s = Math.min(max/w, max/h);
-            w *= s; h *= s;
+          const canvas=document.createElement('canvas');
+          const ctx=canvas.getContext('2d');
+          const max=1600;
+          let w=imgObj.width, h=imgObj.height;
+          if(w>max || h>max){
+            const s=Math.min(max/w, max/h);
+            w*=s; h*=s;
           }
-          canvas.width  = w;
-          canvas.height = h;
+          canvas.width=w; canvas.height=h;
           ctx.drawImage(imgObj, 0, 0, w, h);
+
           pendingImage = canvas.toDataURL('image/jpeg', 0.82);
           uploadPreview.src = pendingImage;
 
           uploadHint.style.display='none';
           uploadConfirmStep=0;
-          pendingTags = [];
-          tagInput.value = '';
+          pendingTags=[];
+          tagInput.value='';
           renderTagChips();
 
           uploadOverlay.style.display='flex';
         };
         imgObj.src = ev.target.result;
       };
-
       reader.readAsDataURL(file);
     }
 
-    fileInput.addEventListener('change', async (e) => {
+    // file picker -> upload overlay (mobile friendly)
+    fileInput.addEventListener('change', e => {
       const file = e.target.files && e.target.files[0];
-      try{ e.target.value = ''; }catch(err){}
-      if(file) await startUploadFromFile(file);
+      if(file) startUploadFromFile(file);
+      fileInput.value = '';
     });
 
-    document.addEventListener('dragover', e => {
-      e.preventDefault();
-      dropZone.style.display='flex';
-    });
-    document.addEventListener('dragenter', e => {
-      e.preventDefault();
-      dropZone.style.display='flex';
-    });
+    document.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.display='flex'; });
+    document.addEventListener('dragenter', e => { e.preventDefault(); dropZone.style.display='flex'; });
     document.addEventListener('dragleave', e => {
-      if(e.target === document.body || e.target === dropZone){
-        dropZone.style.display='none';
-      }
+      if(e.target === document.body || e.target === dropZone) dropZone.style.display='none';
     });
-    document.addEventListener('drop', async e => {
+    document.addEventListener('drop', e => {
       e.preventDefault();
       dropZone.style.display='none';
       const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if(file) await startUploadFromFile(file);
+      if(file) startUploadFromFile(file);
     });
 
     async function uploadImageToSupabase(dataUrl, tags){
@@ -1528,24 +1517,16 @@ all images published will be online forever</div>
         const filePath = `uploads/${fileName}`;
 
         const { error } = await supabaseClient
-          .storage
-          .from(SUPABASE_BUCKET)
-          .upload(filePath, blob, {
-            contentType: 'image/jpeg',
-            cacheControl: '3600'
-          });
+          .storage.from(SUPABASE_BUCKET)
+          .upload(filePath, blob, { contentType:'image/jpeg', cacheControl:'3600' });
 
         if(error){
-          console.error('Supabase upload error:', error);
+          console.error('supabase upload error:', error);
           alert('upload failed');
           return null;
         }
 
-        const { data: publicData } = supabaseClient
-          .storage
-          .from(SUPABASE_BUCKET)
-          .getPublicUrl(filePath);
-
+        const { data: publicData } = supabaseClient.storage.from(SUPABASE_BUCKET).getPublicUrl(filePath);
         const publicUrl = publicData && publicData.publicUrl;
         if(!publicUrl){
           alert('could not get public url');
@@ -1559,21 +1540,14 @@ all images published will be online forever</div>
           .single();
 
         if(insertError){
-          console.error('Supabase insert error:', insertError);
+          console.error('supabase insert error:', insertError);
           alert('saving metadata failed');
           return null;
         }
 
-        return {
-          id: inserted.id,
-          src: inserted.url,
-          tags: inserted.tags || [],
-          pullers: [],
-          reportBy: [],
-          reportHidden: false
-        };
+        return { id: inserted.id, src: inserted.url, tags: inserted.tags || [], pullers: [], reportBy: [], reportHidden: false };
       }catch(err){
-        console.error('Supabase upload exception:', err);
+        console.error('supabase upload exception:', err);
         alert('upload failed (exception)');
         return null;
       }
@@ -1589,14 +1563,13 @@ all images published will be online forever</div>
       }
 
       const tags = pendingTags.slice(0,7);
-
       const imgObj = await uploadImageToSupabase(pendingImage, tags);
       if(!imgObj) return;
 
       images.unshift(imgObj);
-      pendingImage = null;
-      pendingTags = [];
-      tagInput.value = '';
+      pendingImage=null;
+      pendingTags=[];
+      tagInput.value='';
       renderTagChips();
 
       uploadOverlay.style.display='none';
@@ -1605,17 +1578,18 @@ all images published will be online forever</div>
 
       area='public';
       viewOwner=null;
-      ownerMenuOpen = false;
+      ownerMenuOpen=false;
+
       setGridUIVisible(true);
       renderGallery();
       const first = gallery.querySelector('img');
-      if(first) first.scrollIntoView({ behavior: 'auto', block: 'start' });
+      if(first) first.scrollIntoView({ behavior:'auto', block:'start' });
     };
 
     uploadCancel.onclick = () => {
       pendingImage=null;
-      pendingTags = [];
-      tagInput.value = '';
+      pendingTags=[];
+      tagInput.value='';
       renderTagChips();
       uploadOverlay.style.display='none';
       uploadConfirmStep=0;
@@ -1626,124 +1600,106 @@ all images published will be online forever</div>
       if(singleScrollView.style.display === 'block') return;
       if(uploadOverlay.style.display === 'flex') return;
       const y = window.scrollY || 0;
-      if(viewOwner){
-        scrollState.walls[viewOwner] = y;
-      } else if(area === 'public'){
-        scrollState.public = y;
-      } else if(area === 'private'){
-        scrollState.private = y;
-      }
+      if(viewOwner) scrollState.walls[viewOwner] = y;
+      else if(area === 'public') scrollState.public = y;
+      else if(area === 'private') scrollState.private = y;
     });
 
-    let landingHintShown = false;
-
+    let landingHintShown=false;
     function showLanding(fromShortcut){
       if(!landingOverlay) return;
-      landingOverlay.style.display = 'flex';
+      landingOverlay.style.display='flex';
       landingOverlay.classList.remove('hidden');
       if(landingMessage){
         if(fromShortcut){
-          landingHintShown = true;
-          landingMessage.style.opacity = 1;
+          landingHintShown=true;
+          landingMessage.style.opacity=1;
         } else {
-          landingHintShown = false;
-          landingMessage.style.opacity = 0;
+          landingHintShown=false;
+          landingMessage.style.opacity=0;
         }
       }
     }
 
     document.addEventListener('keydown', e => {
-      const ae = document.activeElement;
-      const isTyping = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
+      const ae=document.activeElement;
+      const isTyping = ae && (ae.tagName==='INPUT' || ae.tagName==='TEXTAREA');
 
       if(!isTyping){
-        if(e.key === 'y' || e.key === 'Y'){
-          let v = Number(columnsRange.value);
-          const min = Number(columnsRange.min);
-          if(v > min){
-            columnsRange.value = String(v - 1);
-            updateColumns();
-          }
+        if(e.key==='y' || e.key==='Y'){
+          let v=Number(columnsRange.value);
+          const min=Number(columnsRange.min);
+          if(v>min){ columnsRange.value=String(v-1); updateColumns(); }
           return;
         }
-
-        if(e.key === 'x' || e.key === 'X'){
-          let v = Number(columnsRange.value);
-          const max = Number(columnsRange.max);
-          if(v < max){
-            columnsRange.value = String(v + 1);
-            updateColumns();
-          }
+        if(e.key==='x' || e.key==='X'){
+          let v=Number(columnsRange.value);
+          const max=Number(columnsRange.max);
+          if(v<max){ columnsRange.value=String(v+1); updateColumns(); }
           return;
         }
-
-        if(e.key === 'z' || e.key === 'Z'){
-          const baseList = getCurrentList();
-          const q = (searchTerm || '').toLowerCase();
-          let list = (isAdmin() && (q === 'reported' || q === 'hidden')) ? baseList : baseList.filter(matchesSearch);
-          if(list.length > 0){
-            const idx = Math.floor(Math.random() * list.length);
+        if(e.key==='z' || e.key==='Z'){
+          const baseList=getCurrentList();
+          const q=(searchTerm||'').toLowerCase();
+          const list = (isAdmin() && (q==='reported'||q==='hidden')) ? baseList : baseList.filter(matchesSearch);
+          if(list.length>0){
+            const idx=Math.floor(Math.random()*list.length);
             blinkWord(logo);
             openSingle(idx, list);
           }
           return;
         }
-
-        if(e.key === 'p' || e.key === 'P'){
-          if(singleScrollView.style.display === 'block' && currentSingleList && currentSingleIndex != null){
-            const btns = singleScrollView.querySelectorAll('.actionBtn');
-            const btn  = btns[currentSingleIndex];
+        if(e.key==='p' || e.key==='P'){
+          if(singleScrollView.style.display==='block' && currentSingleList && currentSingleIndex!=null){
+            const btns=singleScrollView.querySelectorAll('.actionBtn');
+            const btn=btns[currentSingleIndex];
             if(btn) btn.click();
           }
           return;
         }
-
-        if(e.key === 'i' || e.key === 'I'){
+        if(e.key==='i' || e.key==='I'){
           showLanding(true);
           return;
         }
       }
 
-      if(e.key === 'Escape'){
-        if(uploadOverlay.style.display === 'flex'){
+      if(e.key==='Escape'){
+        if(uploadOverlay.style.display==='flex'){
           pendingImage=null;
-          pendingTags = [];
-          tagInput.value = '';
+          pendingTags=[];
+          tagInput.value='';
           renderTagChips();
           uploadOverlay.style.display='none';
           uploadConfirmStep=0;
           uploadHint.style.display='none';
-        } else if(singleScrollView.style.display === 'block'){
+        } else if(singleScrollView.style.display==='block'){
           closeScroll(null);
-        } else if(contactOverlay.style.display === 'flex'){
+        } else if(contactOverlay.style.display==='flex'){
           contactOverlay.style.display='none';
-        } else if(authOverlay.style.display === 'flex'){
+        } else if(authOverlay.style.display==='flex'){
           authOverlay.style.display='none';
           authName.value='';
           authKey.value='';
-          if(authResolve){
-            authResolve(false);
-            authResolve = null;
-          }
+          if(authResolve){ authResolve(false); authResolve=null; }
         }
-      } else if(singleScrollView.style.display === 'block'){
-        if(e.key === 'ArrowRight'){
+      } else if(singleScrollView.style.display==='block'){
+        if(e.key==='ArrowRight'){
           e.preventDefault();
-          if(currentSingleList && currentSingleIndex != null){
-            const newIndex = currentSingleIndex + 1;
-            if(newIndex >= 0 && newIndex < currentSingleList.length){
-              currentSingleIndex = newIndex;
-              const target = singleScrollView.children[newIndex];
+          if(currentSingleList && currentSingleIndex!=null){
+            const newIndex=currentSingleIndex+1;
+            if(newIndex>=0 && newIndex<currentSingleList.length){
+              currentSingleIndex=newIndex;
+              const target=singleScrollView.children[newIndex];
               if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
             }
           }
-        } else if(e.key === 'ArrowLeft'){
+        } else if(e.key==='ArrowLeft'){
           e.preventDefault();
-          if(currentSingleList && currentSingleIndex != null){
-            const newIndex = currentSingleIndex - 1;
-            if(newIndex >= 0 && newIndex < currentSingleList.length){
-              currentSingleIndex = newIndex;
-              const target = singleScrollView.children[newIndex];
+          if(currentSingleList && currentSingleIndex!=null){
+            const newIndex=currentSingleIndex-1;
+            if(newIndex>=0 && newIndex<currentSingleList.length){
+              currentSingleIndex=newIndex;
+              const target=singleScrollView.children[newIndex];
               if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
             }
           }
@@ -1757,14 +1713,14 @@ all images published will be online forever</div>
 
       landingLogo.addEventListener('click', () => {
         if(!landingHintShown){
-          landingHintShown = true;
-          landingMessage.style.opacity = 1;
+          landingHintShown=true;
+          landingMessage.style.opacity=1;
         } else {
           sessionStorage.setItem('push_landing_ack','1');
           landingOverlay.classList.add('hidden');
           landingOverlay.addEventListener('transitionend', function handler(){
             landingOverlay.removeEventListener('transitionend', handler);
-            landingOverlay.style.display = 'none';
+            landingOverlay.style.display='none';
           });
         }
       });
@@ -1772,80 +1728,88 @@ all images published will be online forever</div>
       if(landingContact){
         landingContact.addEventListener('click', (e)=>{
           e.stopPropagation();
-          contactOverlay.style.display = 'flex';
+          contactOverlay.style.display='flex';
         });
       }
 
       if(!ack){
         showLanding(false);
       } else {
-        landingOverlay.style.display = 'none';
+        landingOverlay.style.display='none';
         landingOverlay.classList.remove('hidden');
-        landingMessage.style.opacity = 0;
+        landingMessage.style.opacity=0;
       }
     })();
 
     if(contactClose){
-      contactClose.addEventListener('click', ()=>{ contactOverlay.style.display = 'none'; });
+      contactClose.addEventListener('click', ()=>{ contactOverlay.style.display='none'; });
     }
-    contactOverlay.addEventListener('click', (e)=>{
-      if(e.target === contactOverlay) contactOverlay.style.display = 'none';
-    });
+    contactOverlay.addEventListener('click', (e)=>{ if(e.target === contactOverlay) contactOverlay.style.display='none'; });
 
     function openAuthOverlay(){
-      authOverlay.style.display = 'flex';
+      authOverlay.style.display='flex';
       authName.focus();
     }
     function closeAuthOverlay(){
-      authOverlay.style.display = 'none';
-      authName.value = '';
-      authKey.value = '';
+      authOverlay.style.display='none';
+      authName.value='';
+      authKey.value='';
     }
+
+    // 2B: show/hide key
+    (function initAuthShowKey(){
+      if(!authShowKey) return;
+      let showing=false;
+      authShowKey.addEventListener('click', ()=>{
+        showing=!showing;
+        authKey.type = showing ? 'text' : 'password';
+        authShowKey.textContent = showing ? 'hide key' : 'show key';
+      });
+    })();
 
     async function handleAuthSubmit(){
       if(authInProgress) return;
 
       const name = (authName.value || '').trim();
-      const key = (authKey.value || '');
+      const key  = (authKey.value || '').trim();
 
       if(!name || !key) return;
 
-      authInProgress = true;
+      // key rules: max 7, only letters/numbers
+      if(!/^[a-z0-9]{1,7}$/i.test(key)){
+        if(authBox){
+          authBox.classList.remove('shake');
+          void authBox.offsetWidth;
+          authBox.classList.add('shake');
+        }
+        return;
+      }
+
+      authInProgress=true;
       const email = name.toLowerCase() + '@push.local';
 
       try{
-        let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: key });
+        let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password:key });
 
         if(error){
           const msg = (error.message || '').toLowerCase();
-
-          // only enforce pw rules for NEW signups (so old accounts keep working)
-          const pwOk = /^[A-Za-z0-9]{1,7}$/.test(key);
-
           if(msg.includes('invalid login credentials')){
-            if(!pwOk){
-              alert('pw must be max 7 and only letters/numbers');
-              authInProgress = false;
-              return;
-            }
-
             const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
               email,
               password: key,
               options: { data: { username: name } }
             });
-
             if(signUpError){
               console.error('signUp error', signUpError);
               alert('login failed');
-              authInProgress = false;
+              authInProgress=false;
               return;
             }
             data = signUpData;
           } else {
             console.error('signIn error', error);
             alert('login failed');
-            authInProgress = false;
+            authInProgress=false;
             return;
           }
         }
@@ -1854,7 +1818,6 @@ all images published will be online forever</div>
         authUser = user;
 
         const uname = (user.user_metadata && user.user_metadata.username) ? user.user_metadata.username : name;
-
         currentUser = { username: uname, userId: user.id };
 
         await loadPullsForCurrentUser();
@@ -1864,25 +1827,18 @@ all images published will be online forever</div>
         updateProfile();
         closeAuthOverlay();
 
-        if(authResolve){
-          authResolve(true);
-          authResolve = null;
-        }
+        if(authResolve){ authResolve(true); authResolve=null; }
       }catch(err){
         console.error('auth exception', err);
         alert('login failed');
-        if(authResolve){
-          authResolve(false);
-          authResolve = null;
-        }
+        if(authResolve){ authResolve(false); authResolve=null; }
       }finally{
-        authInProgress = false;
+        authInProgress=false;
       }
     }
 
     async function ensureAuth(){
       if(authUser && currentUser) return true;
-
       try{
         const { data, error } = await supabaseClient.auth.getUser();
         if(!error && data && data.user){
@@ -1898,32 +1854,18 @@ all images published will be online forever</div>
       }catch(e){
         console.error('ensureAuth getUser error', e);
       }
-
       return new Promise(resolve=>{
-        authResolve = resolve;
+        authResolve=resolve;
         openAuthOverlay();
       });
     }
 
     authEnter.addEventListener('click', handleAuthSubmit);
-    authKey.addEventListener('keydown', e=>{
-      if(e.key === 'Enter'){
-        e.preventDefault();
-        handleAuthSubmit();
-      }
-    });
-    authName.addEventListener('keydown', e=>{
-      if(e.key === 'Enter'){
-        e.preventDefault();
-        authKey.focus();
-      }
-    });
+    authKey.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); handleAuthSubmit(); } });
+    authName.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); authKey.focus(); } });
     authCancel.addEventListener('click', ()=>{
       closeAuthOverlay();
-      if(authResolve){
-        authResolve(false);
-        authResolve = null;
-      }
+      if(authResolve){ authResolve(false); authResolve=null; }
     });
 
     async function loadImagesFromSupabase(){
@@ -1931,14 +1873,15 @@ all images published will be online forever</div>
         const { data, error } = await supabaseClient
           .from(SUPABASE_TABLE)
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending:false });
 
         if(error){
-          console.error('Supabase load error:', error);
+          console.error('supabase load error:', error);
           return;
         }
+        if(!data || data.length === 0) return;
 
-        images = (data || []).map(row => ({
+        images = data.map(row => ({
           id: row.id,
           src: row.url,
           tags: row.tags || [],
@@ -1947,12 +1890,12 @@ all images published will be online forever</div>
           reportHidden: false
         }));
       }catch(err){
-        console.error('Supabase load exception:', err);
+        console.error('supabase load exception:', err);
       }
     }
 
     async function loadPullsForCurrentUser(){
-      saved = [];
+      saved=[];
       if(!authUser || !currentUser) return;
 
       try{
@@ -1960,15 +1903,15 @@ all images published will be online forever</div>
           .from(SUPABASE_PULLS_TABLE)
           .select('image_id, created_at')
           .eq('user_id', authUser.id)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending:false });
 
         if(error){
           console.error('load pulls error:', error);
           return;
         }
-        if(!pullRows || pullRows.length === 0) return;
+        if(!pullRows || pullRows.length===0) return;
 
-        const ids = pullRows.map(r => r.image_id);
+        const ids = pullRows.map(r=>r.image_id);
 
         const { data: imgRows, error: imgError } = await supabaseClient
           .from(SUPABASE_TABLE)
@@ -1980,29 +1923,22 @@ all images published will be online forever</div>
           return;
         }
 
-        const byId = new Map((imgRows || []).map(row => [row.id, row]));
+        const byId = new Map(imgRows.map(row => [row.id, row]));
+        saved = pullRows.map(pr=>{
+          const row = byId.get(pr.image_id);
+          if(!row) return null;
+          return { src: row.url, imageId: row.id, pulledAt: pr.created_at || null };
+        }).filter(Boolean);
 
-        saved = pullRows
-          .map(pr => {
-            const row = byId.get(pr.image_id);
-            if(!row) return null;
-            return {
-              src: row.url,
-              imageId: row.id,
-              pulledAt: pr.created_at || null
-            };
-          })
-          .filter(Boolean);
-
-        // make sure pullers have my username
+        // ensure current user is inside pullers (local + db)
         if(currentUser && images && Array.isArray(images)){
           const bySrc = new Map(images.map(img => [img.src, img]));
           const updates = [];
 
-          saved.forEach(s => {
+          saved.forEach(s=>{
             const base = bySrc.get(s.src);
             if(base && base.id){
-              let arr = Array.isArray(base.pullers) ? base.pullers.slice() : [];
+              const arr = Array.isArray(base.pullers) ? base.pullers.slice() : [];
               if(!arr.includes(currentUser.username)){
                 arr.push(currentUser.username);
                 base.pullers = arr;
@@ -2017,14 +1953,13 @@ all images published will be online forever</div>
                 .from(SUPABASE_TABLE)
                 .update({ pullers: u.pullers })
                 .eq('id', u.id);
-              if(updError){
-                console.error('loadPullsForCurrentUser update pullers error:', updError);
-              }
+              if(updError) console.error('update pullers error:', updError);
             }catch(e){
-              console.error('loadPullsForCurrentUser update pullers exception:', e);
+              console.error('update pullers exception:', e);
             }
           }
         }
+
       }catch(err){
         console.error('loadPullsForCurrentUser exception:', err);
       }
@@ -2037,29 +1972,21 @@ all images published will be online forever</div>
         try{
           const { error } = await supabaseClient
             .from(SUPABASE_PULLS_TABLE)
-            .insert({
-              user_id: authUser.id,
-              image_id: base.id,
-              username: currentUser.username
-            });
-
+            .insert({ user_id: authUser.id, image_id: base.id, username: currentUser.username });
           if(error){
             const msg = (error.message || '').toLowerCase();
-            if(!msg.includes('duplicate')){
-              console.error('insert pull error:', error);
-            }
+            if(!msg.includes('duplicate')) console.error('insert pull error:', error);
           }
         }catch(err){
           console.error('insert pull exception:', err);
         }
-      } else {
+      }else{
         try{
           const { error } = await supabaseClient
             .from(SUPABASE_PULLS_TABLE)
             .delete()
             .eq('user_id', authUser.id)
             .eq('image_id', base.id);
-
           if(error) console.error('delete pull error:', error);
         }catch(err){
           console.error('delete pull exception:', err);
@@ -2067,18 +1994,12 @@ all images published will be online forever</div>
       }
 
       if(shouldPull){
-        if(!isSaved(base.src)){
-          saved.unshift({ src: base.src, imageId: base.id, pulledAt: Date.now() });
-        }
-        if(!base.pullers) base.pullers = [];
-        if(!base.pullers.includes(currentUser.username)){
-          base.pullers.push(currentUser.username);
-        }
-      } else {
+        if(!isSaved(base.src)) saved.unshift({ src: base.src, imageId: base.id, pulledAt: Date.now() });
+        if(!base.pullers) base.pullers=[];
+        if(!base.pullers.includes(currentUser.username)) base.pullers.push(currentUser.username);
+      }else{
         saved = saved.filter(s => s.src !== base.src);
-        if(base.pullers){
-          base.pullers = base.pullers.filter(u => u !== currentUser.username);
-        }
+        if(base.pullers) base.pullers = base.pullers.filter(u => u !== currentUser.username);
       }
 
       try{
@@ -2086,7 +2007,6 @@ all images published will be online forever</div>
           .from(SUPABASE_TABLE)
           .update({ pullers: base.pullers || [] })
           .eq('id', base.id);
-
         if(updError) console.error('update pullers error:', updError);
       }catch(err){
         console.error('update pullers exception:', err);
@@ -2101,30 +2021,22 @@ all images published will be online forever</div>
       const ownerName = currentUser.username;
       if(!ownerName || ownerName === targetUsername) return null;
 
-      if(!userPulls[ownerName]) userPulls[ownerName] = [];
+      if(!userPulls[ownerName]) userPulls[ownerName]=[];
       const arr = userPulls[ownerName];
       const idx = arr.indexOf(targetUsername);
-      let nowFollowing = false;
 
       if(idx === -1){
-        let removed = null;
+        let removed=null;
         if(arr.length >= 7) removed = arr.pop();
         arr.unshift(targetUsername);
 
         try{
           const { error } = await supabaseClient
             .from(SUPABASE_USER_PULLS_TABLE)
-            .insert({
-              owner_user_id: authUser.id,
-              owner_username: ownerName,
-              target_username: targetUsername
-            });
-
+            .insert({ owner_user_id: authUser.id, owner_username: ownerName, target_username: targetUsername });
           if(error){
             const msg = (error.message || '').toLowerCase();
-            if(!msg.includes('duplicate')){
-              console.error('insert user_pull error:', error);
-            }
+            if(!msg.includes('duplicate')) console.error('insert user_pull error:', error);
           }
 
           if(removed){
@@ -2133,14 +2045,14 @@ all images published will be online forever</div>
               .delete()
               .eq('owner_user_id', authUser.id)
               .eq('target_username', removed);
-
             if(delError) console.error('delete old user_pull error:', delError);
           }
         }catch(err){
           console.error('toggleUserPull insert exception:', err);
         }
-        nowFollowing = true;
-      } else {
+
+        return true;
+      }else{
         arr.splice(idx,1);
         try{
           const { error } = await supabaseClient
@@ -2148,15 +2060,12 @@ all images published will be online forever</div>
             .delete()
             .eq('owner_user_id', authUser.id)
             .eq('target_username', targetUsername);
-
           if(error) console.error('delete user_pull error:', error);
         }catch(err){
           console.error('toggleUserPull delete exception:', err);
         }
-        nowFollowing = false;
+        return false;
       }
-
-      return nowFollowing;
     }
 
     async function initAuth(){

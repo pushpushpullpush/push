@@ -45,11 +45,6 @@
       text-align:center;
       line-height:1.4;
     }
-    #landingMessage .landingSub{
-      opacity:.65;
-      font-size:11px;
-    }
-
     #landingContact{
       position:absolute;
       bottom:40px;
@@ -139,23 +134,12 @@
     #authBox input + input{
       margin-top:10px;
     }
-    #authShowKey{
-      margin-top:8px;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:10px;
-      color:#bbb;
-      cursor:pointer;
-      user-select:none;
-      width:max-content;
-    }
-    #authShowKey:hover{ color:#777; }
-
     #authHint{
       margin-top:10px;
       font-family:Helvetica,Arial,sans-serif;
       font-size:10px;
       color:#aaa;
-      max-width:240px;
+      max-width:220px;
       line-height:1.4;
     }
     #authEnter{
@@ -177,15 +161,6 @@
     #authCancel:hover{
       color:#666;
     }
-
-    @keyframes shakeX{
-      0%{transform:translateX(0)}
-      25%{transform:translateX(-3px)}
-      50%{transform:translateX(3px)}
-      75%{transform:translateX(-2px)}
-      100%{transform:translateX(0)}
-    }
-    .shake{ animation:shakeX .18s ease-in-out; }
 
     /* TOP BAR */
     #topBar{
@@ -213,12 +188,8 @@
       display:flex;
       align-items:center;
     }
-    #leftCenter{
-      margin-left:32px;
-    }
-    #rightCenter{
-      margin-right:32px;
-    }
+    #leftCenter{ margin-left:32px; }
+    #rightCenter{ margin-right:32px; }
 
     /* Suche */
     #searchInput{
@@ -359,9 +330,7 @@
       color:#bbb;
       cursor:pointer;
     }
-    #leaveInfluences span:hover{
-      color:#444;
-    }
+    #leaveInfluences span:hover{ color:#444; }
     #leaveLogout{
       margin-top:12px;
       font-family:Helvetica,Arial,sans-serif;
@@ -424,9 +393,7 @@
       cursor:pointer;
       color:#aaa;
     }
-    .reportBtn.reported{
-      color:#c33;
-    }
+    .reportBtn.reported{ color:#c33; }
     .restoreBtn{
       position:absolute;
       left:5vw;
@@ -437,77 +404,76 @@
       color:#777;
     }
 
-    /* Hover-Zone links (puller) */
+    /* Hover-/Tap-Zone links (puller list) */
     .hoverLeft{
       position:absolute;
       top:0;
       bottom:80px;
       left:5vw;
       width:12vw;
-      cursor:default;
+      cursor:pointer;            /* <- cursor stabil */
     }
-
-    /* user list (bigger + easier to click) */
     .singleUsers{
       position:absolute;
       left:5vw;
       top:50%;
       transform:translateY(-50%);
       font-family:Helvetica,Arial,sans-serif;
-      font-size:15px;
+      font-size:13px;
       color:#bbb;
-      max-width:16vw;
+      max-width:12vw;
       max-height:60vh;
-      line-height:1.55;
+      line-height:1.4;
       text-align:left;
       white-space:pre-line;
       display:none;
       overflow-y:auto;
-      padding-right:6px;
-      z-index:3;
+      z-index:5;
+      pointer-events:auto;
+    }
+    .singleUsers div{ cursor:pointer; }
+    .singleUsers div:hover{ color:#888; }
 
-    }
-    .singleUsers div{
-      cursor:pointer;
-      padding:6px 0;
-    }
-    .singleUsers div:hover{
-      color:#888;
-    }
-    .hoverLeft:hover + .singleUsers{
+    /* bleibt offen wenn man von hover-zone in die liste fährt */
+    .hoverLeft:hover + .singleUsers,
+    .singleUsers:hover{
       display:block;
     }
 
-    /* mobile: tap-zone under the image toggles list */
+    /* mobile: liste unter dem bild + per tap-zone toggeln */
     .tapUsersZone{
-      display:none;
       position:absolute;
-      left:22vw;
-      right:22vw;
-      bottom:92px;
-      height:72px;
+      left:0;
+      right:0;
+      bottom:92px;   /* über report/pull buttons */
+      height:64px;
+      display:none;
       cursor:pointer;
       z-index:2;
     }
-
-    body.touch .hoverLeft{ display:none; }
-    body.touch .tapUsersZone{ display:block; }
-
-    body.touch .singleUsers{
-      left:50%;
-      top:auto;
-      bottom:92px;
-      transform:translateX(-50%);
-      max-width:84vw;
-      max-height:28vh;
-      text-align:center;
-      display:none;
-    }
-    body.touch .singleUsers.open{
+    .singleItem.showUsers .singleUsers{
       display:block;
     }
+    @media (hover:none){
+      .hoverLeft{ display:none; }
+      .tapUsersZone{ display:block; }
+      .singleUsers{
+        left:50%;
+        top:auto;
+        bottom:98px;
+        transform:translateX(-50%);
+        max-width:84vw;
+        max-height:28vh;
+        text-align:center;
+        font-size:16px;
+        color:#999;
+      }
+      .singleUsers div{
+        padding:6px 0;
+      }
+    }
 
-    /* upload overlay */
+    /* upload overlay (cleaner, centered panel) */
     #uploadOverlay{
       position:fixed;
       inset:0;
@@ -516,21 +482,25 @@
       justify-content:center;
       background:#fff;
       z-index:200;
-      flex-direction:column;
     }
-    #uploadPreview{
-      max-width:50vw;
-      max-height:50vh;
-      object-fit:contain;
-      margin-bottom:18px;
-    }
-    .uploadMeta{
-      margin-top:8px;
+    #uploadPanel{
+      width:min(760px, 92vw);
       display:flex;
       flex-direction:column;
-      gap:6px;
-      font-size:14px;
-      color:#444;
+      align-items:center;
+      justify-content:center;
+    }
+    #uploadPreview{
+      width:100%;
+      max-height:60vh;
+      object-fit:contain;
+      margin-bottom:16px;
+    }
+    .uploadMeta{
+      width:100%;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
       align-items:flex-start;
     }
     .uploadMeta input{
@@ -540,7 +510,7 @@
       font-size:14px;
       padding:2px 0;
       outline:none;
-      width:260px;
+      width:min(340px, 86vw);
       background:transparent;
     }
     #tagInput::placeholder{
@@ -550,15 +520,15 @@
     .tagChips{
       display:flex;
       flex-wrap:wrap;
-      gap:4px;
-      margin-top:4px;
+      gap:6px;
+      margin-top:6px;
     }
     .tagChip{
-      padding:2px 8px;
+      padding:3px 10px;
       border-radius:999px;
       border:1px solid #ddd;
       font-family:Helvetica,Arial,sans-serif;
-      font-size:11px;
+      font-size:12px;
       cursor:pointer;
       user-select:none;
     }
@@ -567,31 +537,40 @@
       background:#f5f5f5;
     }
 
-    #uploadHint{
-  position:fixed;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  font-family:Helvetica,Arial,sans-serif;
-  font-size:11px;
-  color:#999;
-  line-height:1.4;
-  text-align:center;
-  width:min(420px, 84vw);
-  display:none;
-  z-index:999;
-  pointer-events:none;
-}
-
-
+    #uploadActions{
+      width:100%;
+      margin-top:18px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      position:relative;
+    }
     #uploadCancel{
-      position:absolute;
-      left:5vw;
-      bottom:40px;
       font-family:Helvetica,Arial,sans-serif;
       font-size:16px;
       color:#444;
       cursor:pointer;
+    }
+    #uploadPush{
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:16px;
+      color:#444;
+      cursor:pointer;
+    }
+
+    /* hint appears near/barely above push button */
+    #uploadHint{
+      position:absolute;
+      right:0;
+      bottom:26px;
+      font-family:Helvetica,Arial,sans-serif;
+      font-size:11px;
+      color:#999;
+      line-height:1.4;
+      text-align:right;
+      width:min(520px, 86vw);
+      display:none;
+      pointer-events:none;
     }
 
     .hideRange #columnsRange{display:none}
@@ -617,9 +596,8 @@
   <div id="landingOverlay">
     <div id="landingLogo">push</div>
     <div id="landingMessage">
-      by entering push you confirm to be of legal age<br>
-      all images published will be online forever<br>
-      <span class="landingSub">drag&drop image to push it into public gallery</span>
+      drag&drop or klick top left to push image into public gallery<br><br>
+      all images published will be online forever
     </div>
     <div id="landingContact">contact</div>
   </div>
@@ -637,9 +615,8 @@
   <div id="authOverlay">
     <div id="authBox">
       <input id="authName" type="text" placeholder="name" autocomplete="username" />
-      <input id="authKey" type="password" placeholder="key" maxlength="7" autocomplete="current-password" />
-      <div id="authShowKey">show key</div>
-      <div id="authHint">sign up by entering a free username and key. key max 7 characters, only letters and numbers. use same combination for future login.</div>
+      <input id="authKey" type="password" placeholder="key" autocomplete="current-password" />
+      <div id="authHint">name + key keep your pulls across browsers. keep them simple.</div>
       <div id="authEnter">enter</div>
       <div id="authCancel">✕</div>
     </div>
@@ -676,18 +653,22 @@
   <div id="singleScrollView"></div>
 
   <div id="uploadOverlay">
-    <img id="uploadPreview" alt="preview" />
-    <div class="uploadMeta">
-      <input id="tagInput" type="text" placeholder="tags" />
-      <div id="tagChips" class="tagChips"></div>
-    </div>
-    <div id="uploadHint">
-      i am allowed to share this image<br><br>
-      i understand that it will be published and online forever
-    </div>
+    <div id="uploadPanel">
+      <img id="uploadPreview" alt="preview" />
+      <div class="uploadMeta">
+        <input id="tagInput" type="text" placeholder="tags" />
+        <div id="tagChips" class="tagChips"></div>
+      </div>
 
-    <div id="uploadPush">push</div>
-    <div id="uploadCancel">✕</div>
+      <div id="uploadActions">
+        <div id="uploadCancel">✕</div>
+        <div id="uploadHint">
+          i am allowed to share this image<br>
+          i understand that it will be published and online forever
+        </div>
+        <div id="uploadPush">push</div>
+      </div>
+    </div>
   </div>
 
   <!-- Supabase CDN -->
@@ -705,14 +686,6 @@
     const SUPABASE_USER_PULLS_TABLE = 'user_pulls';
 
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    // touch detection (for mobile behavior)
-    (function initTouchFlag(){
-      try{
-        const isTouch = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
-        if(isTouch) document.body.classList.add('touch');
-      }catch(e){}
-    })();
 
     function dataURLToBlob(dataURL){
       const parts = dataURL.split(',');
@@ -766,16 +739,15 @@
     let currentSingleList = null;
     let currentSingleIndex = null;
 
-    let currentUser = null;  // { username, userId }
-    let authUser = null;     // supabase user object
+    let currentUser = null;
+    let authUser = null;
     let ownerMenuOpen = false;
 
     const scrollState = { public: 0, private: 0, walls: {} };
+    let wallOrders = {};
+    let userPulls = {};
 
-    let wallOrders = {}; // username -> array of image_ids (newest first)
-    let userPulls  = {}; // owner_username -> array of target_usernames (newest first)
-
-    // legacy cache (used only for search user discovery; safe to keep)
+    // legacy local (harmless; only used for search discovery)
     let wallPullsByUser = {};
     try{ wallPullsByUser = JSON.parse(localStorage.getItem('push_wall_pulls') || '{}'); }catch(e){ wallPullsByUser = {}; }
 
@@ -810,21 +782,17 @@
     const contactClose      = document.getElementById('contactClose');
 
     const authOverlay       = document.getElementById('authOverlay');
-    const authBox           = document.getElementById('authBox');
     const authName          = document.getElementById('authName');
     const authKey           = document.getElementById('authKey');
-    const authShowKey       = document.getElementById('authShowKey');
     const authEnter         = document.getElementById('authEnter');
     const authCancel        = document.getElementById('authCancel');
 
     let authResolve = null;
     let authInProgress = false;
-
     const isSaved = src => saved.some(s => s.src === src);
 
-    function isAdmin(){
-      return currentUser && currentUser.username === 'push-admin';
-    }
+    function isAdmin(){ return currentUser && currentUser.username === 'push-admin'; }
+    function saveCurrentUser(){ /* supabase auth holds session */ }
 
     function parseTagsInput(raw){
       if(!raw) return [];
@@ -835,12 +803,15 @@
     }
 
     function renderTagChips(){
-      tagChips.innerHTML='';
+      tagChips.innerHTML = '';
       pendingTags.forEach((t, i) => {
         const chip = document.createElement('div');
-        chip.className='tagChip';
-        chip.textContent=t;
-        chip.onclick=()=>{ pendingTags.splice(i,1); renderTagChips(); };
+        chip.className = 'tagChip';
+        chip.textContent = t;
+        chip.onclick = () => {
+          pendingTags.splice(i, 1);
+          renderTagChips();
+        };
         tagChips.appendChild(chip);
       });
     }
@@ -852,9 +823,11 @@
         e.preventDefault();
         const list = parseTagsInput(raw);
         list.forEach(tag => {
-          if(pendingTags.length < 7 && !pendingTags.includes(tag)) pendingTags.push(tag);
+          if(pendingTags.length < 7 && !pendingTags.includes(tag)){
+            pendingTags.push(tag);
+          }
         });
-        tagInput.value='';
+        tagInput.value = '';
         renderTagChips();
       }
     });
@@ -868,10 +841,10 @@
         const tagsArr = img.tags || [];
         return tagsArr.some(t => (t || '').toLowerCase().includes(q));
       }
-      const q = raw.toLowerCase();
+      const q       = raw.toLowerCase();
       const tagsStr = (img.tags || []).join(' ').toLowerCase();
       const pullers = (img.pullers || []).join(' ').toLowerCase();
-      return tagsStr.includes(q) || pullers.includes(q);
+      return (tagsStr.includes(q) || pullers.includes(q));
     }
 
     function findUserByQuery(qRaw){
@@ -881,8 +854,8 @@
 
       images.forEach(img => (img.pullers || []).forEach(u => { if(u && u.toLowerCase() === q) found.add(u); }));
       Object.keys(wallPullsByUser || {}).forEach(owner => { if(owner && owner.toLowerCase() === q) found.add(owner); });
-
       if(currentUser && currentUser.username && currentUser.username.toLowerCase() === q) found.add(currentUser.username);
+
       if(found.size === 0) return null;
       return [...found][0];
     }
@@ -904,7 +877,6 @@
       const base = images.find(i => i.src === img.src);
       return !!(base && base.reportHidden);
     }
-
     function updateHiddenFlag(base){
       const count = (base.reportBy || []).length;
       base.reportHidden = count >= REPORT_THRESHOLD;
@@ -930,29 +902,29 @@
     updateColumns();
 
     function blinkWord(el){
-      el.style.opacity='0';
-      setTimeout(()=>{ el.style.opacity='1'; }, 120);
+      el.style.opacity = '0';
+      setTimeout(() => { el.style.opacity = '1'; }, 120);
     }
 
     function updateSearchLabel(){
       if(searchTerm){
-        searchLabel.style.display='inline';
-        searchLabel.textContent='✕';
-      }else{
-        searchLabel.style.display='none';
-        searchLabel.textContent='';
+        searchLabel.style.display = 'inline';
+        searchLabel.textContent = '✕';
+      } else {
+        searchLabel.style.display = 'none';
+        searchLabel.textContent = '';
       }
     }
 
     function setGridUIVisible(on){
       if(on){
-        columnsRange.style.display='block';
-        searchInput.style.display='inline';
+        columnsRange.style.display = 'block';
+        searchInput.style.display  = 'inline';
         updateSearchLabel();
-      }else{
-        columnsRange.style.display='none';
-        searchInput.style.display='none';
-        searchLabel.style.display='none';
+      } else {
+        columnsRange.style.display = 'none';
+        searchInput.style.display  = 'none';
+        searchLabel.style.display  = 'none';
       }
     }
 
@@ -989,13 +961,12 @@
       } else {
         base = images;
       }
-
       return base.filter(img => !isHiddenGlobal(img));
     }
 
     function renderGallery(){
-      gallery.innerHTML='';
-      leaveInfluences.innerHTML='';
+      gallery.innerHTML = '';
+      leaveInfluences.innerHTML = '';
 
       const baseList = getCurrentList();
       const q = (searchTerm || '').toLowerCase();
@@ -1006,65 +977,65 @@
       const isPullGallery        = isOwnPullGallery || isForeignPullGallery;
 
       if(!isPullGallery){
-        ownerMenuOpen=false;
-        leaveBar.style.display='none';
-        leaveLogout.style.display='none';
-        leaveInfluences.style.display='none';
+        ownerMenuOpen = false;
+        leaveBar.style.display = 'none';
+        leaveLogout.style.display = 'none';
+        leaveInfluences.style.display = 'none';
 
         if(list.length === 0){
-          const msg=document.createElement('div');
-          msg.className='emptyState';
-          msg.textContent='no images';
+          const msg = document.createElement('div');
+          msg.className = 'emptyState';
+          msg.textContent = 'no images';
           gallery.appendChild(msg);
           return;
         }
 
         list.forEach((img, i) => {
-          const el=document.createElement('img');
-          el.src=img.src;
-          el.className='thumb';
-          el.onclick=()=>openSingle(i, list);
+          const el = document.createElement('img');
+          el.src = img.src;
+          el.className = 'thumb';
+          el.onclick = () => openSingle(i, list);
           gallery.appendChild(el);
         });
         return;
       }
 
-      leaveBar.style.display='block';
+      leaveBar.style.display = 'block';
 
       if(isOwnPullGallery){
-        leaveOwner.textContent=currentUser.username;
+        leaveOwner.textContent = currentUser.username;
 
         const ownPulls = userPulls[currentUser.username] || [];
         ownPulls.forEach(un => {
-          const s=document.createElement('span');
-          s.textContent=un;
-          s.onclick=ev=>{ ev.stopPropagation(); openUserWall(un); };
+          const s = document.createElement('span');
+          s.textContent = un;
+          s.onclick = ev => { ev.stopPropagation(); openUserWall(un); };
           leaveInfluences.appendChild(s);
         });
 
         if(ownerMenuOpen){
-          leaveInfluences.style.display='none';
-          leaveLogout.style.display='block';
+          leaveInfluences.style.display = 'none';
+          leaveLogout.style.display = 'block';
         } else {
-          leaveLogout.style.display='none';
+          leaveLogout.style.display = 'none';
         }
 
-        leaveOwner.onclick=ev=>{
+        leaveOwner.onclick = ev => {
           ev.stopPropagation();
-          ownerMenuOpen=!ownerMenuOpen;
+          ownerMenuOpen = !ownerMenuOpen;
           renderGallery();
         };
-
       } else {
-        ownerMenuOpen=false;
-        leaveOwner.textContent=viewOwner;
-        leaveLogout.style.display='none';
+        ownerMenuOpen = false;
+
+        leaveOwner.textContent = viewOwner;
+        leaveLogout.style.display = 'none';
 
         const foreignPulls = userPulls[viewOwner] || [];
         foreignPulls.forEach(un => {
-          const s=document.createElement('span');
-          s.textContent=un;
-          s.onclick=ev=>{ ev.stopPropagation(); openUserWall(un); };
+          const s = document.createElement('span');
+          s.textContent = un;
+          s.onclick = ev => { ev.stopPropagation(); openUserWall(un); };
           leaveInfluences.appendChild(s);
         });
 
@@ -1073,10 +1044,8 @@
           const original = leaveOwner.textContent;
           const now = await toggleUserPull(viewOwner);
           if(now === null) return;
-
           const flash = now ? 'pull' : 'push';
           leaveOwner.textContent = flash;
-
           setTimeout(() => {
             leaveOwner.textContent = original;
             renderGallery();
@@ -1086,11 +1055,12 @@
 
       const allOwners = getAllWallOwners();
       if(allOwners.length){
-        const pushSpan=document.createElement('span');
-        pushSpan.textContent='push';
-        pushSpan.onclick=(e)=>{
+        const pushSpan = document.createElement('span');
+        pushSpan.textContent = 'push';
+        pushSpan.onclick = (e) => {
           e.stopPropagation();
           let candidates = allOwners;
+
           if(viewOwner){
             candidates = allOwners.filter(u => u !== viewOwner);
             if(!candidates.length) candidates = allOwners;
@@ -1098,8 +1068,9 @@
             candidates = allOwners.filter(u => u !== currentUser.username);
             if(!candidates.length) candidates = allOwners;
           }
-          const idx=Math.floor(Math.random()*candidates.length);
-          const target=candidates[idx];
+
+          const idx = Math.floor(Math.random()*candidates.length);
+          const target = candidates[idx];
           if(target){
             blinkWord(pushSpan);
             openUserWall(target);
@@ -1109,60 +1080,61 @@
       }
 
       if(ownerMenuOpen){
-        leaveInfluences.style.display='none';
+        leaveInfluences.style.display = 'none';
       } else {
         leaveInfluences.style.display = leaveInfluences.children.length ? 'flex' : 'none';
       }
 
-      if(list.length===0){
-        const msg=document.createElement('div');
-        msg.className='emptyState';
-        msg.textContent=isOwnPullGallery ? 'no pulls yet' : 'no images';
+      if(list.length === 0){
+        const msg = document.createElement('div');
+        msg.className = 'emptyState';
+        msg.textContent = isOwnPullGallery ? 'no pulls yet' : 'no images';
         gallery.appendChild(msg);
         gallery.appendChild(leaveBar);
         return;
       }
 
-      const heroWrap=document.createElement('div');
-      heroWrap.className='heroWrap';
+      const heroWrap = document.createElement('div');
+      heroWrap.className = 'heroWrap';
 
-      const heroImg=document.createElement('img');
-      heroImg.src=list[0].src;
-      heroImg.className='thumb heroThumb';
-      heroImg.onclick=()=>openSingle(0, list);
+      const heroImg = document.createElement('img');
+      heroImg.src = list[0].src;
+      heroImg.className = 'thumb heroThumb';
+      heroImg.onclick = () => openSingle(0, list);
+
       heroWrap.appendChild(heroImg);
       gallery.appendChild(heroWrap);
 
       gallery.appendChild(leaveBar);
 
-      for(let i=1;i<list.length;i++){
-        const el=document.createElement('img');
-        el.src=list[i].src;
-        el.className='thumb';
-        el.onclick=()=>openSingle(i, list);
+      for(let i = 1; i < list.length; i++){
+        const el = document.createElement('img');
+        el.src = list[i].src;
+        el.className = 'thumb';
+        el.onclick = () => openSingle(i, list);
         gallery.appendChild(el);
       }
     }
 
     function closeScroll(src){
-      singleScrollView.style.display='none';
-      singleScrollView.style.opacity=0;
+      singleScrollView.style.display = 'none';
+      singleScrollView.style.opacity = 0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
       if(src){
-        const t=[...gallery.querySelectorAll('img')].find(x=>x.src===src);
-        if(t) t.scrollIntoView({ behavior:'auto', block:'nearest' });
+        const t = [...gallery.querySelectorAll('img')].find(x => x.src === src);
+        if(t) t.scrollIntoView({ behavior: 'auto', block: 'nearest' });
       }
-      currentSingleList=null;
-      currentSingleIndex=null;
+      currentSingleList = null;
+      currentSingleIndex = null;
     }
 
     async function openUserWall(username){
-      viewOwner=username;
-      area='public';
-      singleScrollView.style.display='none';
-      singleScrollView.style.opacity=0;
+      viewOwner = username;
+      area = 'public';
+      singleScrollView.style.display = 'none';
+      singleScrollView.style.opacity = 0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
 
@@ -1171,7 +1143,7 @@
 
       renderGallery();
       const y = scrollState.walls[username] || 0;
-      window.scrollTo({ top:y, behavior:'auto' });
+      window.scrollTo({ top: y, behavior: 'auto' });
     }
 
     async function loadWallOrderForUser(username){
@@ -1182,13 +1154,14 @@
           .from(SUPABASE_PULLS_TABLE)
           .select('image_id, created_at')
           .eq('username', username)
-          .order('created_at', { ascending:false });
+          .order('created_at', { ascending: false });
+
         if(error){
           console.error('load wall order error:', error);
-          wallOrders[username]=[];
+          wallOrders[username] = [];
           return;
         }
-        wallOrders[username]=(data||[]).map(r=>r.image_id);
+        wallOrders[username] = (data || []).map(r => r.image_id);
       }catch(err){
         console.error('load wall order exception:', err);
       }
@@ -1202,16 +1175,17 @@
           .from(SUPABASE_USER_PULLS_TABLE)
           .select('target_username, created_at')
           .eq('owner_username', username)
-          .order('created_at', { ascending:false });
+          .order('created_at', { ascending: false });
+
         if(error){
           console.error('load user pulls error:', error);
-          userPulls[username]=[];
+          userPulls[username] = [];
           return;
         }
-        userPulls[username]=(data||[]).map(r=>r.target_username);
+        userPulls[username] = (data || []).map(r => r.target_username);
       }catch(err){
         console.error('load user pulls exception:', err);
-        userPulls[username]=[];
+        userPulls[username] = [];
       }
     }
 
@@ -1225,13 +1199,14 @@
           ? fullList
           : fullList.filter(matchesSearch)
       );
-
       singleScrollView.innerHTML='';
-      currentSingleList=list;
-      currentSingleIndex=startIndex;
+
+      currentSingleList = list;
+      currentSingleIndex = startIndex;
 
       const effectiveArea = viewOwner ? 'public' : area;
       const reporterId = (currentUser && currentUser.username) || '__anon__';
+      const isTouch = window.matchMedia && window.matchMedia('(hover: none)').matches;
 
       function updateActions(){
         singleScrollView.querySelectorAll('.actionBtn').forEach((btn,i)=>{
@@ -1256,52 +1231,55 @@
         wrap.appendChild(im);
 
         const rep = document.createElement('div');
-        rep.className='reportBtn';
-        rep.textContent='report';
+        rep.className = 'reportBtn';
+        rep.textContent = 'report';
         if(base.reportBy.includes(reporterId)) rep.classList.add('reported');
         rep.onclick = e => {
           e.stopPropagation();
-          if(!base.reportBy) base.reportBy=[];
+          if(!base.reportBy) base.reportBy = [];
           const already = base.reportBy.includes(reporterId);
-          if(!already) base.reportBy.push(reporterId);
-          else base.reportBy = base.reportBy.filter(id => id !== reporterId);
+          if(!already){
+            base.reportBy.push(reporterId);
+          } else {
+            base.reportBy = base.reportBy.filter(id => id !== reporterId);
+          }
           updateHiddenFlag(base);
           const nowReported = base.reportBy.includes(reporterId);
           rep.classList.toggle('reported', nowReported);
           rep.textContent = nowReported ? 'reported' : 'undo';
-          setTimeout(()=>{ rep.textContent='report'; }, 800);
+          setTimeout(() => { rep.textContent = 'report'; }, 800);
           renderGallery();
         };
         wrap.appendChild(rep);
 
         if(isAdmin() && base.reportBy.length > 0){
-          const restore=document.createElement('div');
-          restore.className='restoreBtn';
+          const restore = document.createElement('div');
+          restore.className = 'restoreBtn';
           restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
           restore.onclick = e => {
             e.stopPropagation();
-            base.reportBy=[];
-            base.reportHidden=false;
+            base.reportBy = [];
+            base.reportHidden = false;
             rep.classList.remove('reported');
-            rep.textContent='report';
+            rep.textContent = 'report';
             renderGallery();
           };
           wrap.appendChild(restore);
         }
 
-        const hoverLeft=document.createElement('div');
-        hoverLeft.className='hoverLeft';
+        const hoverLeft = document.createElement('div');
+        hoverLeft.className = 'hoverLeft';
         wrap.appendChild(hoverLeft);
 
-        const usersDiv=document.createElement('div');
-        usersDiv.className='singleUsers';
+        const usersDiv = document.createElement('div');
+        usersDiv.className = 'singleUsers';
 
         function renderUsersList(){
-          usersDiv.innerHTML='';
+          usersDiv.innerHTML = '';
           if(base.pullers && base.pullers.length){
             base.pullers.forEach(name=>{
-              const line=document.createElement('div');
-              line.textContent=name;
+              const line = document.createElement('div');
+              line.textContent = name;
               line.onclick = ev => {
                 ev.stopPropagation();
                 openUserWall(name);
@@ -1313,22 +1291,28 @@
         renderUsersList();
         wrap.appendChild(usersDiv);
 
-        // mobile tap-zone under image -> toggles list
+        // mobile: tap-zone under image toggles list
         const tapZone = document.createElement('div');
         tapZone.className = 'tapUsersZone';
         tapZone.onclick = (ev) => {
           ev.stopPropagation();
-          if(!(base.pullers && base.pullers.length)) return;
-          usersDiv.classList.toggle('open');
+          wrap.classList.toggle('showUsers');
         };
         wrap.appendChild(tapZone);
+
+        // optional: on touch, tapping the left region also toggles
+        if(isTouch){
+          hoverLeft.onclick = (ev) => {
+            ev.stopPropagation();
+            wrap.classList.toggle('showUsers');
+          };
+        }
 
         const act=document.createElement('div');
         act.className='actionBtn';
         act.textContent = (effectiveArea==='public')
           ? (isSaved(img.src) ? 'push' : 'pull')
           : 'push';
-
         act.onclick = async e=>{
           e.stopPropagation();
           if(effectiveArea==='public'){
@@ -1345,8 +1329,11 @@
               const removed = saved[iSaved];
               const pub = images.find(x=>x.src===removed.src) || base;
               await setPullForImage(pub, false);
-              if(saved.length===0) closeScroll(null);
-              else openSingle(Math.min(iSaved, saved.length-1));
+              if(saved.length===0){
+                closeScroll(null);
+              } else {
+                openSingle(Math.min(iSaved,saved.length-1));
+              }
             }
           }
         };
@@ -1356,80 +1343,100 @@
       });
 
       singleScrollView.style.display='block';
-      requestAnimationFrame(()=>{ singleScrollView.style.opacity=1; });
+      requestAnimationFrame(()=>{ singleScrollView.style.opacity = 1; });
       document.body.classList.add('hideRange');
-
       const target = singleScrollView.children[startIndex];
-      if(target) target.scrollIntoView({ behavior:'auto', block:'center' });
+      if (target) target.scrollIntoView({ behavior: 'auto', block: 'center' });
     }
 
-    function updateProfile(){ profileBtn.textContent='pull'; }
+    function updateProfile(){
+      profileBtn.textContent = 'pull';
+    }
 
     profileBtn.onclick = async () => {
       blinkWord(profileBtn);
       const ok = await ensureAuth();
       if(!ok) return;
-      area='private';
-      viewOwner=null;
-      ownerMenuOpen=false;
+      area = 'private';
+      viewOwner = null;
+      ownerMenuOpen = false;
       singleScrollView.style.display='none';
       singleScrollView.style.opacity=0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
-      const y = scrollState.private || 0;
-      window.scrollTo({ top:y, behavior:'auto' });
+
+      // if you're on your own pull page and click pull again, go to the top
+      window.scrollTo({ top: 0, behavior: 'auto' });
     };
 
     async function doLogout(){
       if(!currentUser && !authUser) return;
       try{ await supabaseClient.auth.signOut(); }catch(e){}
-      authUser=null;
-      currentUser=null;
-      saved=[];
+      authUser = null;
+      currentUser = null;
+      saved = [];
       try{
         localStorage.removeItem('push_user');
         localStorage.removeItem('push_saved');
       }catch(e){}
-      area='public';
-      viewOwner=null;
-      ownerMenuOpen=false;
+      area = 'public';
+      viewOwner = null;
+      ownerMenuOpen = false;
       singleScrollView.style.display='none';
       singleScrollView.style.opacity=0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
       updateProfile();
-      window.scrollTo({ top:0, behavior:'auto' });
+      window.scrollTo({ top: 0, behavior: 'auto' });
     }
 
-    leaveLogout.onclick=()=>{ if(confirm('logout?')){ doLogout(); leaveLogout.style.display='none'; } };
+    leaveLogout.onclick = () => {
+      if(confirm('logout?')){
+        doLogout();
+        leaveLogout.style.display = 'none';
+      }
+    };
 
-    // 1A: logo click = home (if not home), and if already home + at top -> open file picker
+    let logoArmed = false;
+    let logoArmTimer = null;
+
     logo.onclick = () => {
       blinkWord(logo);
 
-      const atTop = (window.scrollY || 0) < 10;
-      const isHome = (area==='public' && !viewOwner &&
-                      singleScrollView.style.display !== 'block' &&
-                      uploadOverlay.style.display !== 'flex' &&
-                      (landingOverlay.style.display === 'none' || landingOverlay.classList.contains('hidden')));
+      const overlaysOpen =
+        (uploadOverlay.style.display === 'flex') ||
+        (singleScrollView.style.display === 'block') ||
+        (contactOverlay.style.display === 'flex') ||
+        (authOverlay.style.display === 'flex') ||
+        (landingOverlay && landingOverlay.style.display === 'flex');
 
-      if(isHome && atTop){
+      const canArmPicker = !overlaysOpen && area === 'public' && !viewOwner;
+
+      if(canArmPicker && logoArmed){
+        logoArmed = false;
+        if(logoArmTimer) clearTimeout(logoArmTimer);
         fileInput.click();
         return;
       }
 
-      area='public';
-      viewOwner=null;
-      ownerMenuOpen=false;
+      area = 'public';
+      viewOwner = null;
+      ownerMenuOpen = false;
       singleScrollView.style.display='none';
       singleScrollView.style.opacity=0;
       document.body.classList.remove('hideRange');
       setGridUIVisible(true);
       renderGallery();
-      scrollState.public=0;
-      window.scrollTo({ top:0, behavior:'auto' });
+      scrollState.public = 0;
+      window.scrollTo({ top: 0, behavior:'auto' });
+
+      if(canArmPicker){
+        logoArmed = true;
+        if(logoArmTimer) clearTimeout(logoArmTimer);
+        logoArmTimer = setTimeout(()=>{ logoArmed = false; }, 900);
+      }
     };
 
     searchInput.addEventListener('input', e => {
@@ -1443,10 +1450,11 @@
         const raw = searchInput.value.trim();
         if(!raw) return;
         if(raw.startsWith('#')) return;
+
         const userName = findUserByQuery(raw);
         if(userName){
-          searchTerm='';
-          searchInput.value='';
+          searchTerm = '';
+          searchInput.value = '';
           updateSearchLabel();
           openUserWall(userName);
           e.preventDefault();
@@ -1454,9 +1462,9 @@
       }
     });
 
-    searchLabel.onclick=()=>{
-      searchTerm='';
-      searchInput.value='';
+    searchLabel.onclick = () => {
+      searchTerm = '';
+      searchInput.value = '';
       updateSearchLabel();
       renderGallery();
     };
@@ -1464,33 +1472,33 @@
     function startUploadFromFile(file){
       if(!file) return;
       if(!file.type || !file.type.startsWith('image/')){
-        alert('only images');
+        alert('Only images');
         return;
       }
 
-      const imgObj=new Image();
-      const reader=new FileReader();
+      const imgObj = new Image();
+      const reader = new FileReader();
 
       reader.onload = ev => {
         imgObj.onload = () => {
-          const canvas=document.createElement('canvas');
-          const ctx=canvas.getContext('2d');
-          const max=1600;
-          let w=imgObj.width, h=imgObj.height;
-          if(w>max || h>max){
-            const s=Math.min(max/w, max/h);
-            w*=s; h*=s;
+          const canvas = document.createElement('canvas');
+          const ctx    = canvas.getContext('2d');
+          const max    = 1600;
+          let w = imgObj.width, h = imgObj.height;
+          if(w > max || h > max){
+            const s = Math.min(max/w, max/h);
+            w *= s; h *= s;
           }
-          canvas.width=w; canvas.height=h;
+          canvas.width  = w;
+          canvas.height = h;
           ctx.drawImage(imgObj, 0, 0, w, h);
-
           pendingImage = canvas.toDataURL('image/jpeg', 0.82);
           uploadPreview.src = pendingImage;
 
           uploadHint.style.display='none';
           uploadConfirmStep=0;
-          pendingTags=[];
-          tagInput.value='';
+          pendingTags = [];
+          tagInput.value = '';
           renderTagChips();
 
           uploadOverlay.style.display='flex';
@@ -1500,17 +1508,25 @@
       reader.readAsDataURL(file);
     }
 
-    // file picker -> upload overlay (mobile friendly)
-    fileInput.addEventListener('change', e => {
+    // file picker support (mobile + desktop)
+    fileInput.addEventListener('change', (e)=>{
       const file = e.target.files && e.target.files[0];
       if(file) startUploadFromFile(file);
       fileInput.value = '';
     });
 
-    document.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.display='flex'; });
-    document.addEventListener('dragenter', e => { e.preventDefault(); dropZone.style.display='flex'; });
+    document.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.style.display='flex';
+    });
+    document.addEventListener('dragenter', e => {
+      e.preventDefault();
+      dropZone.style.display='flex';
+    });
     document.addEventListener('dragleave', e => {
-      if(e.target === document.body || e.target === dropZone) dropZone.style.display='none';
+      if(e.target === document.body || e.target === dropZone){
+        dropZone.style.display='none';
+      }
     });
     document.addEventListener('drop', e => {
       e.preventDefault();
@@ -1526,11 +1542,12 @@
         const filePath = `uploads/${fileName}`;
 
         const { error } = await supabaseClient
-          .storage.from(SUPABASE_BUCKET)
-          .upload(filePath, blob, { contentType:'image/jpeg', cacheControl:'3600' });
+          .storage
+          .from(SUPABASE_BUCKET)
+          .upload(filePath, blob, { contentType: 'image/jpeg', cacheControl: '3600' });
 
         if(error){
-          console.error('supabase upload error:', error);
+          console.error('Supabase upload error:', error);
           alert('upload failed');
           return null;
         }
@@ -1549,14 +1566,21 @@
           .single();
 
         if(insertError){
-          console.error('supabase insert error:', insertError);
+          console.error('Supabase insert error:', insertError);
           alert('saving metadata failed');
           return null;
         }
 
-        return { id: inserted.id, src: inserted.url, tags: inserted.tags || [], pullers: [], reportBy: [], reportHidden: false };
+        return {
+          id: inserted.id,
+          src: inserted.url,
+          tags: inserted.tags || [],
+          pullers: [],
+          reportBy: [],
+          reportHidden: false
+        };
       }catch(err){
-        console.error('supabase upload exception:', err);
+        console.error('Supabase upload exception:', err);
         alert('upload failed (exception)');
         return null;
       }
@@ -1576,29 +1600,27 @@
       if(!imgObj) return;
 
       images.unshift(imgObj);
-      pendingImage=null;
-      pendingTags=[];
-      tagInput.value='';
+      pendingImage = null;
+      pendingTags = [];
+      tagInput.value = '';
       renderTagChips();
-
       uploadOverlay.style.display='none';
       uploadConfirmStep=0;
       uploadHint.style.display='none';
 
       area='public';
       viewOwner=null;
-      ownerMenuOpen=false;
-
+      ownerMenuOpen = false;
       setGridUIVisible(true);
       renderGallery();
       const first = gallery.querySelector('img');
-      if(first) first.scrollIntoView({ behavior:'auto', block:'start' });
+      if(first) first.scrollIntoView({ behavior: 'auto', block: 'start' });
     };
 
     uploadCancel.onclick = () => {
       pendingImage=null;
-      pendingTags=[];
-      tagInput.value='';
+      pendingTags = [];
+      tagInput.value = '';
       renderTagChips();
       uploadOverlay.style.display='none';
       uploadConfirmStep=0;
@@ -1614,101 +1636,115 @@
       else if(area === 'private') scrollState.private = y;
     });
 
-    let landingHintShown=false;
+    let landingHintShown = false;
+
     function showLanding(fromShortcut){
       if(!landingOverlay) return;
-      landingOverlay.style.display='flex';
+      landingOverlay.style.display = 'flex';
       landingOverlay.classList.remove('hidden');
       if(landingMessage){
         if(fromShortcut){
-          landingHintShown=true;
-          landingMessage.style.opacity=1;
+          landingHintShown = true;
+          landingMessage.style.opacity = 1;
         } else {
-          landingHintShown=false;
-          landingMessage.style.opacity=0;
+          landingHintShown = false;
+          landingMessage.style.opacity = 0;
         }
       }
     }
 
     document.addEventListener('keydown', e => {
-      const ae=document.activeElement;
-      const isTyping = ae && (ae.tagName==='INPUT' || ae.tagName==='TEXTAREA');
+      const ae = document.activeElement;
+      const isTyping = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
 
       if(!isTyping){
-        if(e.key==='y' || e.key==='Y'){
-          let v=Number(columnsRange.value);
-          const min=Number(columnsRange.min);
-          if(v>min){ columnsRange.value=String(v-1); updateColumns(); }
+        if(e.key === 'y' || e.key === 'Y'){
+          let v = Number(columnsRange.value);
+          const min = Number(columnsRange.min);
+          if(v > min){
+            columnsRange.value = String(v - 1);
+            updateColumns();
+          }
           return;
         }
-        if(e.key==='x' || e.key==='X'){
-          let v=Number(columnsRange.value);
-          const max=Number(columnsRange.max);
-          if(v<max){ columnsRange.value=String(v+1); updateColumns(); }
+
+        if(e.key === 'x' || e.key === 'X'){
+          let v = Number(columnsRange.value);
+          const max = Number(columnsRange.max);
+          if(v < max){
+            columnsRange.value = String(v + 1);
+            updateColumns();
+          }
           return;
         }
-        if(e.key==='z' || e.key==='Z'){
-          const baseList=getCurrentList();
-          const q=(searchTerm||'').toLowerCase();
-          const list = (isAdmin() && (q==='reported'||q==='hidden')) ? baseList : baseList.filter(matchesSearch);
-          if(list.length>0){
-            const idx=Math.floor(Math.random()*list.length);
+
+        if(e.key === 'z' || e.key === 'Z'){
+          const baseList = getCurrentList();
+          const q = (searchTerm || '').toLowerCase();
+          const list = (isAdmin() && (q === 'reported' || q === 'hidden')) ? baseList : baseList.filter(matchesSearch);
+          if(list.length > 0){
+            const idx = Math.floor(Math.random() * list.length);
             blinkWord(logo);
             openSingle(idx, list);
           }
           return;
         }
-        if(e.key==='p' || e.key==='P'){
-          if(singleScrollView.style.display==='block' && currentSingleList && currentSingleIndex!=null){
-            const btns=singleScrollView.querySelectorAll('.actionBtn');
-            const btn=btns[currentSingleIndex];
+
+        if(e.key === 'p' || e.key === 'P'){
+          if(singleScrollView.style.display === 'block' && currentSingleList && currentSingleIndex != null){
+            const btns = singleScrollView.querySelectorAll('.actionBtn');
+            const btn  = btns[currentSingleIndex];
             if(btn) btn.click();
           }
           return;
         }
-        if(e.key==='i' || e.key==='I'){
+
+        if(e.key === 'i' || e.key === 'I'){
           showLanding(true);
           return;
         }
       }
 
-      if(e.key==='Escape'){
-        if(uploadOverlay.style.display==='flex'){
+      if(e.key === 'Escape'){
+        if(uploadOverlay.style.display === 'flex'){
           pendingImage=null;
-          pendingTags=[];
-          tagInput.value='';
+          pendingTags = [];
+          tagInput.value = '';
           renderTagChips();
           uploadOverlay.style.display='none';
           uploadConfirmStep=0;
           uploadHint.style.display='none';
-        } else if(singleScrollView.style.display==='block'){
+        } else if(singleScrollView.style.display === 'block'){
           closeScroll(null);
-        } else if(contactOverlay.style.display==='flex'){
+        } else if(contactOverlay.style.display === 'flex'){
           contactOverlay.style.display='none';
-        } else if(authOverlay.style.display==='flex'){
+        } else if(authOverlay.style.display === 'flex'){
           authOverlay.style.display='none';
           authName.value='';
           authKey.value='';
-          if(authResolve){ authResolve(false); authResolve=null; }
+          if(authResolve){
+            authResolve(false);
+            authResolve = null;
+          }
         }
-      } else if(singleScrollView.style.display==='block'){
-        if(e.key==='ArrowRight'){
+      } else if(singleScrollView.style.display === 'block'){
+        if(e.key === 'ArrowRight'){
           e.preventDefault();
-          if(currentSingleList && currentSingleIndex!=null){
-            const newIndex=currentSingleIndex+1;
-            if(newIndex>=0 && newIndex<currentSingleList.length){
-              currentSingleIndex=newIndex;
-              const target=singleScrollView.children[newIndex];
+          if(currentSingleList && currentSingleIndex != null){
+            const newIndex = currentSingleIndex + 1;
+            if(newIndex >= 0 && newIndex < currentSingleList.length){
+              currentSingleIndex = newIndex;
+              const target = singleScrollView.children[newIndex];
               if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
             }
           }
-        } else if(e.key==='ArrowLeft'){
+        } else if(e.key === 'ArrowLeft'){
           e.preventDefault();
-          if(currentSingleList && currentSingleIndex!=null){
-            const newIndex=currentSingleIndex-1;
-            if(newIndex>=0 && newIndex<currentSingleList.length){
-              currentSingleIndex=newIndex;
-              const target=singleScrollView.children[newIndex];
+          if(currentSingleList && currentSingleIndex != null){
+            const newIndex = currentSingleIndex - 1;
+            if(newIndex >= 0 && newIndex < currentSingleList.length){
+              currentSingleIndex = newIndex;
+              const target = singleScrollView.children[newIndex];
               if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
             }
           }
@@ -1722,14 +1758,14 @@
 
       landingLogo.addEventListener('click', () => {
         if(!landingHintShown){
-          landingHintShown=true;
-          landingMessage.style.opacity=1;
+          landingHintShown = true;
+          landingMessage.style.opacity = 1;
         } else {
           sessionStorage.setItem('push_landing_ack','1');
           landingOverlay.classList.add('hidden');
           landingOverlay.addEventListener('transitionend', function handler(){
             landingOverlay.removeEventListener('transitionend', handler);
-            landingOverlay.style.display='none';
+            landingOverlay.style.display = 'none';
           });
         }
       });
@@ -1737,97 +1773,66 @@
       if(landingContact){
         landingContact.addEventListener('click', (e)=>{
           e.stopPropagation();
-          contactOverlay.style.display='flex';
+          contactOverlay.style.display = 'flex';
         });
       }
 
       if(!ack){
         showLanding(false);
       } else {
-        landingOverlay.style.display='none';
+        landingOverlay.style.display = 'none';
         landingOverlay.classList.remove('hidden');
-        landingMessage.style.opacity=0;
+        landingMessage.style.opacity = 0;
       }
     })();
 
     if(contactClose){
-      contactClose.addEventListener('click', ()=>{ contactOverlay.style.display='none'; });
+      contactClose.addEventListener('click', ()=>{ contactOverlay.style.display = 'none'; });
     }
-    contactOverlay.addEventListener('click', (e)=>{ if(e.target === contactOverlay) contactOverlay.style.display='none'; });
+    contactOverlay.addEventListener('click', (e)=>{
+      if(e.target === contactOverlay) contactOverlay.style.display = 'none';
+    });
 
-    function openAuthOverlay(){
-      authOverlay.style.display='flex';
-      authName.focus();
-    }
-    function closeAuthOverlay(){
-      authOverlay.style.display='none';
-      authName.value='';
-      authKey.value='';
-    }
-
-    // 2B: show/hide key
-    (function initAuthShowKey(){
-      if(!authShowKey) return;
-      let showing=false;
-      authShowKey.addEventListener('click', ()=>{
-        showing=!showing;
-        authKey.type = showing ? 'text' : 'password';
-        authShowKey.textContent = showing ? 'hide key' : 'show key';
-      });
-    })();
+    // AUTH-Funktionen
+    function openAuthOverlay(){ authOverlay.style.display = 'flex'; authName.focus(); }
+    function closeAuthOverlay(){ authOverlay.style.display = 'none'; authName.value = ''; authKey.value = ''; }
 
     async function handleAuthSubmit(){
       if(authInProgress) return;
-
       const name = (authName.value || '').trim();
-      const key  = (authKey.value || '').trim();
-
+      const key = authKey.value || '';
       if(!name || !key) return;
 
-      // key rules: max 7, only letters/numbers
-      if(!/^[a-z0-9]{1,7}$/i.test(key)){
-        if(authBox){
-          authBox.classList.remove('shake');
-          void authBox.offsetWidth;
-          authBox.classList.add('shake');
-        }
-        return;
-      }
-
-      authInProgress=true;
+      authInProgress = true;
       const email = name.toLowerCase() + '@push.local';
-
       try{
-        let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password:key });
-
+        let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: key });
         if(error){
           const msg = (error.message || '').toLowerCase();
           if(msg.includes('invalid login credentials')){
             const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
-              email,
-              password: key,
-              options: { data: { username: name } }
+              email, password: key, options: { data: { username: name } }
             });
             if(signUpError){
               console.error('signUp error', signUpError);
               alert('login failed');
-              authInProgress=false;
+              authInProgress = false;
               return;
             }
             data = signUpData;
           } else {
             console.error('signIn error', error);
             alert('login failed');
-            authInProgress=false;
+            authInProgress = false;
             return;
           }
         }
-
         const user = data.user;
         authUser = user;
+        const uname = user.user_metadata && user.user_metadata.username ? user.user_metadata.username : name;
 
-        const uname = (user.user_metadata && user.user_metadata.username) ? user.user_metadata.username : name;
         currentUser = { username: uname, userId: user.id };
+        saveCurrentUser();
 
         await loadPullsForCurrentUser();
         await loadUserPullsForOwner(uname);
@@ -1835,14 +1840,13 @@
         renderGallery();
         updateProfile();
         closeAuthOverlay();
-
-        if(authResolve){ authResolve(true); authResolve=null; }
+        if(authResolve){ authResolve(true); authResolve = null; }
       }catch(err){
         console.error('auth exception', err);
         alert('login failed');
-        if(authResolve){ authResolve(false); authResolve=null; }
+        if(authResolve){ authResolve(false); authResolve = null; }
       }finally{
-        authInProgress=false;
+        authInProgress = false;
       }
     }
 
@@ -1852,8 +1856,9 @@
         const { data, error } = await supabaseClient.auth.getUser();
         if(!error && data && data.user){
           authUser = data.user;
-          const uname = (data.user.user_metadata && data.user.user_metadata.username) ? data.user.user_metadata.username : 'user';
+          const uname = data.user.user_metadata && data.user.user_metadata.username ? data.user.user_metadata.username : 'user';
           currentUser = { username: uname, userId: data.user.id };
+          saveCurrentUser();
           await loadPullsForCurrentUser();
           await loadUserPullsForOwner(uname);
           renderGallery();
@@ -1864,17 +1869,17 @@
         console.error('ensureAuth getUser error', e);
       }
       return new Promise(resolve=>{
-        authResolve=resolve;
+        authResolve = resolve;
         openAuthOverlay();
       });
     }
 
     authEnter.addEventListener('click', handleAuthSubmit);
-    authKey.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); handleAuthSubmit(); } });
-    authName.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); authKey.focus(); } });
+    authKey.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); handleAuthSubmit(); }});
+    authName.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); authKey.focus(); }});
     authCancel.addEventListener('click', ()=>{
       closeAuthOverlay();
-      if(authResolve){ authResolve(false); authResolve=null; }
+      if(authResolve){ authResolve(false); authResolve = null; }
     });
 
     async function loadImagesFromSupabase(){
@@ -1882,10 +1887,10 @@
         const { data, error } = await supabaseClient
           .from(SUPABASE_TABLE)
           .select('*')
-          .order('created_at', { ascending:false });
+          .order('created_at', { ascending: false });
 
         if(error){
-          console.error('supabase load error:', error);
+          console.error('Supabase load error:', error);
           return;
         }
         if(!data || data.length === 0) return;
@@ -1899,28 +1904,27 @@
           reportHidden: false
         }));
       }catch(err){
-        console.error('supabase load exception:', err);
+        console.error('Supabase load exception:', err);
       }
     }
 
     async function loadPullsForCurrentUser(){
-      saved=[];
+      saved = [];
       if(!authUser || !currentUser) return;
-
       try{
         const { data: pullRows, error } = await supabaseClient
           .from(SUPABASE_PULLS_TABLE)
           .select('image_id, created_at')
           .eq('user_id', authUser.id)
-          .order('created_at', { ascending:false });
+          .order('created_at', { ascending: false });
 
         if(error){
           console.error('load pulls error:', error);
           return;
         }
-        if(!pullRows || pullRows.length===0) return;
+        if(!pullRows || pullRows.length === 0) return;
 
-        const ids = pullRows.map(r=>r.image_id);
+        const ids = pullRows.map(r => r.image_id);
 
         const { data: imgRows, error: imgError } = await supabaseClient
           .from(SUPABASE_TABLE)
@@ -1933,21 +1937,23 @@
         }
 
         const byId = new Map(imgRows.map(row => [row.id, row]));
-        saved = pullRows.map(pr=>{
-          const row = byId.get(pr.image_id);
-          if(!row) return null;
-          return { src: row.url, imageId: row.id, pulledAt: pr.created_at || null };
-        }).filter(Boolean);
 
-        // ensure current user is inside pullers (local + db)
+        saved = pullRows
+          .map(pr => {
+            const row = byId.get(pr.image_id);
+            if(!row) return null;
+            return { src: row.url, imageId: row.id, pulledAt: pr.created_at || null };
+          })
+          .filter(Boolean);
+
         if(currentUser && images && Array.isArray(images)){
           const bySrc = new Map(images.map(img => [img.src, img]));
           const updates = [];
 
-          saved.forEach(s=>{
+          saved.forEach(s => {
             const base = bySrc.get(s.src);
             if(base && base.id){
-              const arr = Array.isArray(base.pullers) ? base.pullers.slice() : [];
+              let arr = Array.isArray(base.pullers) ? base.pullers.slice() : [];
               if(!arr.includes(currentUser.username)){
                 arr.push(currentUser.username);
                 base.pullers = arr;
@@ -1962,13 +1968,12 @@
                 .from(SUPABASE_TABLE)
                 .update({ pullers: u.pullers })
                 .eq('id', u.id);
-              if(updError) console.error('update pullers error:', updError);
+              if(updError) console.error('loadPullsForCurrentUser update pullers error:', updError);
             }catch(e){
-              console.error('update pullers exception:', e);
+              console.error('loadPullsForCurrentUser update pullers exception:', e);
             }
           }
         }
-
       }catch(err){
         console.error('loadPullsForCurrentUser exception:', err);
       }
@@ -1989,7 +1994,7 @@
         }catch(err){
           console.error('insert pull exception:', err);
         }
-      }else{
+      } else {
         try{
           const { error } = await supabaseClient
             .from(SUPABASE_PULLS_TABLE)
@@ -2003,12 +2008,18 @@
       }
 
       if(shouldPull){
-        if(!isSaved(base.src)) saved.unshift({ src: base.src, imageId: base.id, pulledAt: Date.now() });
-        if(!base.pullers) base.pullers=[];
-        if(!base.pullers.includes(currentUser.username)) base.pullers.push(currentUser.username);
-      }else{
+        if(!isSaved(base.src)){
+          saved.unshift({ src: base.src, imageId: base.id, pulledAt: Date.now() });
+        }
+        if(currentUser){
+          if(!base.pullers) base.pullers = [];
+          if(!base.pullers.includes(currentUser.username)) base.pullers.push(currentUser.username);
+        }
+      } else {
         saved = saved.filter(s => s.src !== base.src);
-        if(base.pullers) base.pullers = base.pullers.filter(u => u !== currentUser.username);
+        if(currentUser && base.pullers){
+          base.pullers = base.pullers.filter(u => u !== currentUser.username);
+        }
       }
 
       try{
@@ -2026,16 +2037,16 @@
       const ok = await ensureAuth();
       if(!ok) return null;
       if(!currentUser || !authUser) return null;
-
       const ownerName = currentUser.username;
       if(!ownerName || ownerName === targetUsername) return null;
 
-      if(!userPulls[ownerName]) userPulls[ownerName]=[];
+      if(!userPulls[ownerName]) userPulls[ownerName] = [];
       const arr = userPulls[ownerName];
       const idx = arr.indexOf(targetUsername);
+      let nowFollowing = false;
 
       if(idx === -1){
-        let removed=null;
+        let removed = null;
         if(arr.length >= 7) removed = arr.pop();
         arr.unshift(targetUsername);
 
@@ -2047,7 +2058,6 @@
             const msg = (error.message || '').toLowerCase();
             if(!msg.includes('duplicate')) console.error('insert user_pull error:', error);
           }
-
           if(removed){
             const { error: delError } = await supabaseClient
               .from(SUPABASE_USER_PULLS_TABLE)
@@ -2059,9 +2069,8 @@
         }catch(err){
           console.error('toggleUserPull insert exception:', err);
         }
-
-        return true;
-      }else{
+        nowFollowing = true;
+      } else {
         arr.splice(idx,1);
         try{
           const { error } = await supabaseClient
@@ -2073,8 +2082,9 @@
         }catch(err){
           console.error('toggleUserPull delete exception:', err);
         }
-        return false;
+        nowFollowing = false;
       }
+      return nowFollowing;
     }
 
     async function initAuth(){
@@ -2082,7 +2092,7 @@
         const { data, error } = await supabaseClient.auth.getUser();
         if(!error && data && data.user){
           authUser = data.user;
-          const uname = (data.user.user_metadata && data.user.user_metadata.username) ? data.user.user_metadata.username : 'user';
+          const uname = data.user.user_metadata && data.user.user_metadata.username ? data.user.user_metadata.username : 'user';
           currentUser = { username: uname, userId: data.user.id };
           await loadUserPullsForOwner(uname);
         }

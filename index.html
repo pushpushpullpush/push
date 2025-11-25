@@ -1622,7 +1622,7 @@ function updateUploadChip(){
         imgObj.src = ev.target.result;
       };
       reader.readAsDataURL(file);
-    }
+    
 
     // file picker support (mobile + desktop)
     fileInput.addEventListener('change', (e)=>{
@@ -1706,11 +1706,9 @@ function updateUploadChip(){
     uploadPush.onclick = async () => {
       if(!pendingImage) return;
 
-      if(uploadConfirmStep === 0){
-        uploadHint.style.display='block';
-        uploadConfirmStep=1;
-        return;
-      }
+      updateUploadChip();
+uploadOverlay.style.display='flex';
+
 
       const tags = pendingTags.slice(0,7);
       const imgObj = await uploadImageToSupabase(pendingImage, tags);

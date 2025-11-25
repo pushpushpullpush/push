@@ -473,107 +473,164 @@
       }
     }
 
-    /* upload overlay (cleaner, centered panel) */
-    #uploadOverlay{
-      position:fixed;
-      inset:0;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      background:#fff;
-      z-index:200;
-    }
-    #uploadPanel{
-      width:min(760px, 92vw);
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-    }
-    #uploadPreview{
-      width:100%;
-      max-height:60vh;
-      object-fit:contain;
-      margin-bottom:16px;
-    }
-    .uploadMeta{
-      width:100%;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      align-items:flex-start;
-    }
-    .uploadMeta input{
-      border:none;
-      border-bottom:1px solid #ddd;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:14px;
-      padding:2px 0;
-      outline:none;
-      width:min(340px, 86vw);
-      background:transparent;
-    }
-    #tagInput::placeholder{
-      color:#555;
-      opacity:1;
-    }
-    .tagChips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      margin-top:6px;
-    }
-    .tagChip{
-      padding:3px 10px;
-      border-radius:999px;
-      border:1px solid #ddd;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:12px;
-      cursor:pointer;
-      user-select:none;
-    }
-    .tagChip:hover{
-      border-color:#aaa;
-      background:#f5f5f5;
-    }
+    /* upload overlay — cleaner + consistent */
+#uploadOverlay{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,0.92);
+  backdrop-filter:blur(8px);
+  z-index:200;
+  padding:24px 12px;
+  box-sizing:border-box;
+}
 
-    #uploadActions{
-      width:100%;
-      margin-top:18px;
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-end;
-      position:relative;
-    }
-    #uploadCancel{
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:16px;
-      color:#444;
-      cursor:pointer;
-    }
-    #uploadPush{
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:16px;
-      color:#444;
-      cursor:pointer;
-    }
+#uploadCard{
+  width:min(820px, 94vw);
+  border:1px solid #eee;
+  border-radius:18px;
+  box-shadow:0 24px 70px rgba(0,0,0,0.06);
+  background:#fff;
+  padding:20px 20px 16px;
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
 
-    /* hint appears near/barely above push button */
-    #uploadHint{
-      position:absolute;
-      right:0;
-      bottom:26px;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:11px;
-      color:#999;
-      line-height:1.4;
-      text-align:right;
-      width:min(520px, 86vw);
-      display:none;
-      pointer-events:none;
-    }
+#uploadHeader{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding-bottom:10px;
+}
 
-    .hideRange #columnsRange{display:none}
+#uploadTitle{
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:12px;
+  letter-spacing:0.08em;
+  text-transform:lowercase;
+  color:#444;
+}
+
+.chipRow{
+  display:flex;
+  gap:6px;
+  align-items:center;
+}
+.chip{
+  padding:3px 10px;
+  border:1px solid #eee;
+  border-radius:999px;
+  font-size:11px;
+  color:#999;
+  user-select:none;
+  white-space:nowrap;
+}
+.chip.muted{
+  color:#bbb;
+  border-color:#f0f0f0;
+}
+
+#uploadPreview{
+  width:100%;
+  max-height:58vh;
+  object-fit:contain;
+  margin:6px 0 10px;
+}
+
+.uploadMeta{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  align-items:flex-start;
+  margin-top:2px;
+}
+
+.uploadMeta input{
+  border:none;
+  border-bottom:1px solid #ddd;
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:14px;
+  padding:2px 0;
+  outline:none;
+  width:min(360px, 86vw);
+  background:transparent;
+}
+
+#tagInput::placeholder{ color:#555; opacity:1; }
+
+.tagChips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:4px;
+}
+.tagChip{
+  padding:3px 10px;
+  border-radius:999px;
+  border:1px solid #ddd;
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:12px;
+  cursor:pointer;
+  user-select:none;
+}
+.tagChip:hover{
+  border-color:#aaa;
+  background:#f5f5f5;
+}
+
+/* hint: centered, directly above push */
+#uploadHint{
+  width:min(520px, 86vw);
+  margin-top:14px;
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:12px;
+  color:#888;
+  line-height:1.45;
+  text-align:center;
+  display:none;
+  pointer-events:none;
+}
+
+/* actions: x left, push right */
+#uploadActions{
+  width:100%;
+  margin-top:14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+}
+
+#uploadCancel{
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:16px;
+  color:#444;
+  cursor:pointer;
+  padding:6px 2px;
+}
+#uploadCancel:hover{ color:#111; }
+
+#uploadPush{
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:16px;
+  color:#444;
+  cursor:pointer;
+  padding:6px 2px;
+}
+#uploadPush:hover{ color:#111; }
+
+@media (max-width:480px){
+  #uploadCard{ padding:18px 14px 14px; }
+  #uploadPreview{ max-height:52vh; }
+}
+
+
+ .hideRange #columnsRange{display:none}
 
     /* Drag & Drop Overlay */
     #dropZone{
@@ -596,7 +653,7 @@
   <div id="landingOverlay">
     <div id="landingLogo">push</div>
     <div id="landingMessage">
-      drag&drop or klick top left to push image into public gallery<br><br>
+      drag&drop or click top left to push image into public gallery<br>
       all images published will be online forever
     </div>
     <div id="landingContact">contact</div>
@@ -653,23 +710,34 @@
   <div id="singleScrollView"></div>
 
   <div id="uploadOverlay">
-    <div id="uploadPanel">
-      <img id="uploadPreview" alt="preview" />
-      <div class="uploadMeta">
-        <input id="tagInput" type="text" placeholder="tags" />
-        <div id="tagChips" class="tagChips"></div>
-      </div>
-
-      <div id="uploadActions">
-        <div id="uploadCancel">✕</div>
-        <div id="uploadHint">
-          i am allowed to share this image<br>
-          i understand that it will be published and online forever
-        </div>
-        <div id="uploadPush">push</div>
+  <div id="uploadCard">
+    <div id="uploadHeader">
+      <div id="uploadTitle">push</div>
+      <div class="chipRow">
+        <div id="uploadChipUser" class="chip">anonymous</div>
+        <div class="chip muted">upload stays anonymous</div>
       </div>
     </div>
+
+    <img id="uploadPreview" alt="preview" />
+
+    <div class="uploadMeta">
+      <input id="tagInput" type="text" placeholder="tags" />
+      <div id="tagChips" class="tagChips"></div>
+    </div>
+
+    <div id="uploadHint">
+      i am allowed to share this image<br>
+      i understand that it will be published and online forever
+    </div>
+
+    <div id="uploadActions">
+      <div id="uploadCancel">✕</div>
+      <div id="uploadPush">push</div>
+    </div>
   </div>
+</div>
+
 
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -772,6 +840,8 @@
     const tagInput          = document.getElementById('tagInput');
     const tagChips          = document.getElementById('tagChips');
     const uploadHint        = document.getElementById('uploadHint');
+    const uploadChipUser = document.getElementById('uploadChipUser');
+
 
     const landingOverlay    = document.getElementById('landingOverlay');
     const landingLogo       = document.getElementById('landingLogo');
@@ -904,6 +974,14 @@
     function blinkWord(el){
       el.style.opacity = '0';
       setTimeout(() => { el.style.opacity = '1'; }, 120);
+    }
+
+function updateUploadChip(){
+  if(!uploadChipUser) return;
+  uploadChipUser.textContent =
+    (currentUser && currentUser.username)
+      ? `logged in: ${currentUser.username}`
+      : 'anonymous';
     }
 
     function updateSearchLabel(){
@@ -1500,6 +1578,14 @@
           pendingTags = [];
           tagInput.value = '';
           renderTagChips();
+          
+          updateUploadChip();
+          if(uploadConfirmStep === 0){
+  uploadHint.style.display='block';
+  uploadConfirmStep=1;
+  blinkWord(uploadPush);
+  return;
+}
 
           uploadOverlay.style.display='flex';
         };

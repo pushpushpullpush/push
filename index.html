@@ -276,16 +276,24 @@
 
     /* Hero: halb breit, rechtsbündig */
     .heroWrap{
-      grid-column:1 / -1;
-      display:flex;
-      justify-content:flex-end;
-    }
+  grid-column:1 / -1;
+  display:flex;
+  justify-content:flex-end;
+  align-items:flex-end;
+}
+
     .heroThumb{
-      width:50%;
-      max-width:50%;
-      display:block;
-      object-fit:cover;
-    }
+  /* feste Höhe, Breite passt sich dem Bildformat an */
+  height: clamp(220px, 34vh, 420px);
+  width: auto;
+
+  /* damit es niemals “zu breit” wird */
+  max-width: min(92vw, 900px);
+
+  display:block;
+  object-fit: contain; /* kein Cropping */
+}
+
 
     /* Empty state */
     .emptyState{
@@ -929,6 +937,17 @@
       setTimeout(() => { el.style.opacity = '1'; }, 120);
     }
 
+let myReported = new Set();
+async function loadMyReports(){
+  myReported = new Set();
+  if(!authUser) return;
+  const { data, error } = await supabaseClient
+    .from('image_reports')
+    .select('image_id')
+    .eq('user_id', authUser.id);
+  if(!error && data) data.forEach(r => myReported.add(String(r.image_id)));
+}
+
     async function refreshReportState(base){
       if(!base || !base.id) return;
       try{
@@ -965,45 +984,36 @@
     }
 
     async function toggleReportForImage(base){
-      const ok = await ensureAuth();
-      if(!ok || !authUser || !base || !base.id) return null;
+  const ok = await ensureAuth();
+  if(!ok || !authUser || !base?.id) return null;
 
-      const userId = authUser.id;
+  const key = String(base.id);
+  const already = myReported.has(key);
 
-      let already = false;
-      try{
-        const { data: existing, error } = await supabaseClient
-          .from(SUPABASE_REPORTS_TABLE)
-          .select('id')
-          .eq('image_id', base.id)
-          .eq('user_id', userId)
-          .limit(1);
-
-        already = (!error && existing && existing.length > 0);
-      }catch(e){ already = false; }
-
-      if(!already){
-        const { error } = await supabaseClient
-          .from(SUPABASE_REPORTS_TABLE)
-          .insert({ image_id: base.id, user_id: userId });
-
-        if(error){
-          const msg = (error.message || '').toLowerCase();
-          if(!msg.includes('duplicate')) console.error('report insert error', error);
-        }
-      } else {
-        const { error } = await supabaseClient
-          .from(SUPABASE_REPORTS_TABLE)
-          .delete()
-          .eq('image_id', base.id)
-          .eq('user_id', userId);
-
-        if(error) console.error('report delete error', error);
-      }
-
-      await refreshReportState(base);
-      return !already; // nowReported
+  if(!already){
+    const { error } = await supabaseClient
+      .from('image_reports')
+      .insert({ image_id: base.id, user_id: authUser.id });
+    if(error){
+      const msg = (error.message || '').toLowerCase();
+      if(!msg.includes('duplicate')) console.error('report insert error', error);
+      // wenn duplicate, betrachten wir es trotzdem als reported
     }
+    myReported.add(key);
+  } else {
+    const { error } = await supabaseClient
+      .from('image_reports')
+      .delete()
+      .eq('image_id', base.id)
+      .eq('user_id', authUser.id);
+    if(error) console.error('report delete error', error);
+    myReported.delete(key);
+  }
+
+  await refreshReportState(base);
+  return !already;
+}
+
 
     async function adminRestoreImage(base){
       if(!isAdmin() || !base || !base.id) return;
@@ -1411,12 +1421,16 @@
           restore.className = 'restoreBtn';
           restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
           restore.onclick = async (e) => {
-            e.stopPropagation();
-            await adminRestoreImage(base);
-            rep.classList.remove('reported');
-            rep.textContent = 'report';
-            renderGallery();
-          };
+  e.stopPropagation();
+  if(!isAdmin()) return;
+
+  const { error } = await supabaseClient.rpc('admin_restore_image', { p_image_id: base.id });
+  if(error){ console.error('admin restore error', error); return; }
+
+  await refreshReportState(base);
+  renderGallery();
+};
+
           wrap.appendChild(restore);
         }
 
@@ -2020,6 +2034,8 @@
 
         await loadPullsForCurrentUser();
         await loadUserPullsForOwner(uname);
+        await loadMyReports();
+
 
         renderGallery();
         updateProfile();
@@ -2045,6 +2061,8 @@
           saveCurrentUser();
           await loadPullsForCurrentUser();
           await loadUserPullsForOwner(uname);
+          await loadMyReports();
+
           renderGallery();
           updateProfile();
           return true;

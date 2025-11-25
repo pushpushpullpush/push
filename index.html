@@ -673,7 +673,9 @@
     <div id="authBox">
       <input id="authName" type="text" placeholder="name" autocomplete="username" />
       <input id="authKey" type="password" placeholder="key" autocomplete="current-password" />
-      <div id="authHint">name + key keep your pulls across browsers. keep them simple.</div>
+      <div id="authHint">enter free name of your choice and connect key (6characters, letters and numbers)<br>
+        create new accounts or remember key for future log-in
+      </div>
       <div id="authEnter">enter</div>
       <div id="authCancel">✕</div>
     </div>
@@ -769,32 +771,7 @@
     const REPORT_THRESHOLD = 5;
 
     // Demo-Fallback-Bilder (falls DB leer ist)
-    let images = [
-      {
-        id: null,
-        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#111'/><circle cx='400' cy='300' r='160' fill='#444'/><text x='50%' y='50%' fill='#fafafa' font-size='36' font-family='Helvetica' text-anchor='middle' dy='12'>luna 01</text></svg>",
-        tags: ["luna","demo","dark"],
-        pullers: ["luna"],
-        reportBy: [],
-        reportHidden: false
-      },
-      {
-        id: null,
-        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#f5f5f5'/><rect x='80' y='60' width='640' height='480' fill='#ddd'/><text x='50%' y='50%' fill='#444' font-size='32' font-family='Helvetica' text-anchor='middle' dy='10'>ghost 01</text></svg>",
-        tags: ["ghost","demo","gray"],
-        pullers: ["ghost"],
-        reportBy: [],
-        reportHidden: false
-      },
-      {
-        id: null,
-        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#002b36'/><rect x='120' y='120' width='560' height='360' fill='#268bd2'/><text x='50%' y='50%' fill='#fdf6e3' font-size='30' font-family='Helvetica' text-anchor='middle' dy='10'>luna & ghost</text></svg>",
-        tags: ["luna","ghost","demo"],
-        pullers: ["luna","ghost"],
-        reportBy: [],
-        reportHidden: false
-      }
-    ];
+    let images = [];
 
     let saved  = [];
     let pendingImage = null;
@@ -942,11 +919,12 @@
       return [...set];
     }
 
-    function isHiddenGlobal(img){
-      if(isAdmin()) return false;
-      const base = images.find(i => i.src === img.src);
-      return !!(base && base.reportHidden);
-    }
+   function isHiddenGlobal(img){
+  if(isAdmin()) return false;
+  const base = images.find(i => i.src === img.src);
+  return !!(base && base.reportHidden);
+}
+
     function updateHiddenFlag(base){
       const count = (base.reportBy || []).length;
       base.reportHidden = count >= REPORT_THRESHOLD;
@@ -976,6 +954,57 @@
       setTimeout(() => { el.style.opacity = '1'; }, 120);
     }
 
+async function refreshReportState(base){
+  if(!base?.id) return;
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .select('report_count, report_hidden')
+    .eq('id', base.id)
+    .single();
+
+  if(!error && data){
+    base.reportCount = data.report_count || 0;
+    base.reportHidden = !!data.report_hidden;
+  }
+}
+
+async function toggleReportForImage(base){
+  const ok = await ensureAuth();
+  if(!ok || !authUser || !base?.id) return null;
+
+  const userId = authUser.id;
+
+  const { data: existing, error: e1 } = await supabaseClient
+    .from('image_reports')
+    .select('id')
+    .eq('image_id', base.id)
+    .eq('user_id', userId)
+    .limit(1);
+
+  const already = (!e1 && existing && existing.length > 0);
+
+  if(!already){
+    const { error } = await supabaseClient
+      .from('image_reports')
+      .insert({ image_id: base.id, user_id: userId });
+    if(error){
+      const msg = (error.message || '').toLowerCase();
+      if(!msg.includes('duplicate')) console.error('report insert error', error);
+    }
+  } else {
+    const { error } = await supabaseClient
+      .from('image_reports')
+      .delete()
+      .eq('image_id', base.id)
+      .eq('user_id', userId);
+    if(error) console.error('report delete error', error);
+  }
+
+  await refreshReportState(base);
+  return !already; // nowReported
+}
+
+    
 function updateUploadChip(){
   if(!uploadChipUser) return;
   uploadChipUser.textContent =
@@ -1010,9 +1039,9 @@ function updateUploadChip(){
       const q = (searchTerm || '').toLowerCase();
 
       if(isAdmin() && q){
-        if(q === 'reported') return images.filter(img => (img.reportBy || []).length > 0);
-        if(q === 'hidden')   return images.filter(img => img.reportHidden);
-      }
+  if(q === 'reported') return images.filter(img => (img.reportCount || 0) > 0);
+  if(q === 'hidden')   return images.filter(img => !!img.reportHidden);
+}
 
       if(!viewOwner && area === 'private'){
         const res = [];
@@ -1312,22 +1341,27 @@ function updateUploadChip(){
         rep.className = 'reportBtn';
         rep.textContent = 'report';
         if(base.reportBy.includes(reporterId)) rep.classList.add('reported');
-        rep.onclick = e => {
-          e.stopPropagation();
-          if(!base.reportBy) base.reportBy = [];
-          const already = base.reportBy.includes(reporterId);
-          if(!already){
-            base.reportBy.push(reporterId);
-          } else {
-            base.reportBy = base.reportBy.filter(id => id !== reporterId);
-          }
-          updateHiddenFlag(base);
-          const nowReported = base.reportBy.includes(reporterId);
-          rep.classList.toggle('reported', nowReported);
-          rep.textContent = nowReported ? 'reported' : 'undo';
-          setTimeout(() => { rep.textContent = 'report'; }, 800);
-          renderGallery();
-        };
+        
+        rep.onclick = async (e) => {
+  e.stopPropagation();
+
+  const nowReported = await toggleReportForImage(base);
+  if(nowReported === null) return;
+
+  rep.classList.toggle('reported', nowReported);
+  rep.textContent = nowReported ? 'reported' : 'undo';
+  setTimeout(() => { rep.textContent = 'report'; }, 800);
+
+  renderGallery();
+
+  // wenn das Bild jetzt hidden ist und du nicht admin bist: raus
+  if(base.reportHidden && !isAdmin()){
+    closeScroll(null);
+  }
+  if(base.reportHidden) { /* optional */ }
+
+};
+
         wrap.appendChild(rep);
 
         if(isAdmin() && base.reportBy.length > 0){
@@ -1580,11 +1614,7 @@ function updateUploadChip(){
           renderTagChips();
           
           updateUploadChip();
-          if(uploadConfirmStep === 0){
-  uploadHint.style.display='block';
-  uploadConfirmStep=1;
-  blinkWord(uploadPush);
-  return;
+          uploadOverlay.style.display='flex'; 
 }
 
           uploadOverlay.style.display='flex';
@@ -1658,13 +1688,14 @@ function updateUploadChip(){
         }
 
         return {
-          id: inserted.id,
-          src: inserted.url,
-          tags: inserted.tags || [],
-          pullers: [],
-          reportBy: [],
-          reportHidden: false
-        };
+  id: inserted.id,
+  src: inserted.url,
+  tags: inserted.tags || [],
+  pullers: [],
+  reportCount: inserted.report_count || 0,
+  reportHidden: !!inserted.report_hidden
+};
+
       }catch(err){
         console.error('Supabase upload exception:', err);
         alert('upload failed (exception)');
@@ -1982,13 +2013,14 @@ function updateUploadChip(){
         if(!data || data.length === 0) return;
 
         images = data.map(row => ({
-          id: row.id,
-          src: row.url,
-          tags: row.tags || [],
-          pullers: row.pullers || [],
-          reportBy: [],
-          reportHidden: false
-        }));
+  id: row.id,
+  src: row.url,
+  tags: row.tags || [],
+  pullers: row.pullers || [],
+  reportCount: row.report_count || 0,
+  reportHidden: !!row.report_hidden
+}));
+
       }catch(err){
         console.error('Supabase load exception:', err);
       }

@@ -464,6 +464,8 @@
       display:none;
       overflow-y:auto;
       padding-right:6px;
+      z-index:3;
+
     }
     .singleUsers div{
       cursor:pointer;
@@ -485,6 +487,7 @@
       bottom:92px;
       height:72px;
       cursor:pointer;
+      z-index:2;
     }
 
     body.touch .hoverLeft{ display:none; }
@@ -565,15 +568,21 @@
     }
 
     #uploadHint{
-      position:absolute;
-      bottom:40px;
-      right:calc(5vw + 120px);
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:11px;
-      color:#999;
-      line-height:1.4;
-      display:none;
-    }
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:11px;
+  color:#999;
+  line-height:1.4;
+  text-align:center;
+  width:min(420px, 84vw);
+  display:none;
+  z-index:999;
+  pointer-events:none;
+}
+
 
     #uploadCancel{
       position:absolute;

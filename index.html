@@ -949,22 +949,74 @@ async function loadMyReports(){
 }
 
     async function refreshReportState(base){
-      if(!base || !base.id) return;
-      try{
-        const { data, error } = await supabaseClient
-          .from(SUPABASE_TABLE)
-          .select('report_count, report_hidden')
-          .eq('id', base.id)
-          .single();
+  if(!base?.id) return;
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .select('report_count, report_hidden')
+    .eq('id', base.id)
+    .single();
 
-        if(!error && data){
-          base.reportCount = data.report_count || 0;
-          base.reportHidden = !!data.report_hidden;
-        }
-      }catch(e){
-        console.error('refreshReportState exception', e);
-      }
+  if(error){
+    console.error('refreshReportState error', error);
+    return;
+  }
+
+  base.reportCount  = data?.report_count || 0;
+  base.reportHidden = !!data?.report_hidden;
+}
+
+async function getMyReportedSet(imageIds){
+  if(!authUser || !imageIds?.length) return new Set();
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_REPORTS_TABLE)
+    .select('image_id')
+    .in('image_id', imageIds)
+    .eq('user_id', authUser.id);
+
+  if(error){
+    console.error('getMyReportedSet error', error);
+    return new Set();
+  }
+  return new Set((data || []).map(r => r.image_id));
+}
+
+async function toggleReportForImage(base){
+  const ok = await ensureAuth();
+  if(!ok || !authUser || !base?.id) return null;
+
+  // Insert first (fast), if duplicate => delete
+  const { error: insErr } = await supabaseClient
+    .from(SUPABASE_REPORTS_TABLE)
+    .insert({ image_id: base.id, user_id: authUser.id });
+
+  let nowReported = true;
+
+  if(insErr){
+    const msg = (insErr.message || '').toLowerCase();
+    const isDupe = msg.includes('duplicate') || msg.includes('unique');
+
+    if(!isDupe){
+      console.error('report insert error', insErr);
+      return null;
     }
+
+    const { error: delErr } = await supabaseClient
+      .from(SUPABASE_REPORTS_TABLE)
+      .delete()
+      .eq('image_id', base.id)
+      .eq('user_id', authUser.id);
+
+    if(delErr){
+      console.error('report delete error', delErr);
+      return null;
+    }
+    nowReported = false;
+  }
+
+  await refreshReportState(base);
+  return nowReported;
+}
+
 
     async function hasUserReported(imageId){
       if(!authUser || !imageId) return false;
@@ -983,36 +1035,7 @@ async function loadMyReports(){
       }
     }
 
-    async function toggleReportForImage(base){
-  const ok = await ensureAuth();
-  if(!ok || !authUser || !base?.id) return null;
-
-  const key = String(base.id);
-  const already = myReported.has(key);
-
-  if(!already){
-    const { error } = await supabaseClient
-      .from('image_reports')
-      .insert({ image_id: base.id, user_id: authUser.id });
-    if(error){
-      const msg = (error.message || '').toLowerCase();
-      if(!msg.includes('duplicate')) console.error('report insert error', error);
-      // wenn duplicate, betrachten wir es trotzdem als reported
-    }
-    myReported.add(key);
-  } else {
-    const { error } = await supabaseClient
-      .from('image_reports')
-      .delete()
-      .eq('image_id', base.id)
-      .eq('user_id', authUser.id);
-    if(error) console.error('report delete error', error);
-    myReported.delete(key);
-  }
-
-  await refreshReportState(base);
-  return !already;
-}
+  
 
 
     async function adminRestoreImage(base){
@@ -1345,7 +1368,8 @@ async function loadMyReports(){
       }
     }
 
-    function openSingle(startIndex, listOverride=null){
+    async function openSingle(startIndex, listOverride=null){
+
       setGridUIVisible(false);
 
       const fullList = getCurrentList();
@@ -1360,6 +1384,18 @@ async function loadMyReports(){
 
       currentSingleList = list;
       currentSingleIndex = startIndex;
+
+// reported-by-me preload (nur wenn eingeloggt)
+let reportedSet = new Set();
+try{
+  if(authUser){
+    const ids = list.map(x => x.id).filter(Boolean);
+    reportedSet = await getMyReportedSet(ids);
+  }
+}catch(e){
+  console.error('preload reportedSet failed', e);
+}
+
 
       const effectiveArea = viewOwner ? 'public' : area;
       const isTouch = window.matchMedia && window.matchMedia('(hover: none)').matches;
@@ -1388,51 +1424,64 @@ async function loadMyReports(){
         wrap.appendChild(im);
 
         const rep = document.createElement('div');
-        rep.className = 'reportBtn';
-        rep.textContent = 'report';
+rep.className = 'reportBtn';
+rep.textContent = 'report';
 
-        // async: mark if user already reported (optional, no crash if table/policy missing)
-        if(authUser && base.id){
-          hasUserReported(base.id).then(flag=>{
-            if(flag) rep.classList.add('reported');
-          }).catch(()=>{});
-        }
+// initial state (wenn eingeloggt)
+if(base.id && reportedSet.has(base.id)) rep.classList.add('reported');
 
-        rep.onclick = async (e) => {
-          e.stopPropagation();
-
-          const nowReported = await toggleReportForImage(base);
-          if(nowReported === null) return;
-
-          rep.classList.toggle('reported', nowReported);
-          rep.textContent = nowReported ? 'reported' : 'undo';
-          setTimeout(() => { rep.textContent = 'report'; }, 800);
-
-          renderGallery();
-
-          if(base.reportHidden && !isAdmin()){
-            closeScroll(null);
-          }
-        };
-        wrap.appendChild(rep);
-
-        if(isAdmin() && ((base.reportCount || 0) > 0 || base.reportHidden)){
-          const restore = document.createElement('div');
-          restore.className = 'restoreBtn';
-          restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
-          restore.onclick = async (e) => {
+rep.onclick = async (e) => {
   e.stopPropagation();
-  if(!isAdmin()) return;
 
-  const { error } = await supabaseClient.rpc('admin_restore_image', { p_image_id: base.id });
-  if(error){ console.error('admin restore error', error); return; }
+  const nowReported = await toggleReportForImage(base);
+  if(nowReported === null) return;
 
-  await refreshReportState(base);
+  if(base.id){
+    if(nowReported) reportedSet.add(base.id);
+    else reportedSet.delete(base.id);
+  }
+
+  rep.classList.toggle('reported', nowReported);
+  rep.textContent = nowReported ? 'reported' : 'undo';
+  setTimeout(() => { rep.textContent = 'report'; }, 800);
+
   renderGallery();
-};
 
-          wrap.appendChild(restore);
-        }
+  // wenn hidden geworden und du bist nicht admin: raus aus single view
+  if(base.reportHidden && !isAdmin()){
+    closeScroll(null);
+  }
+};
+wrap.appendChild(rep);
+
+
+        if(isAdmin() && (base.reportHidden || (base.reportCount || 0) > 0)){
+  const restore = document.createElement('div');
+  restore.className = 'restoreBtn';
+  restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
+
+  restore.onclick = async (e) => {
+    e.stopPropagation();
+
+    const { error } = await supabaseClient.rpc('admin_restore_image', { img_id: base.id });
+    if(error){
+      console.error('admin_restore_image error', error);
+      alert('restore failed');
+      return;
+    }
+
+    await refreshReportState(base);
+
+    // UI updaten
+    reportedSet.delete(base.id);
+    rep.classList.remove('reported');
+    rep.textContent = 'report';
+    renderGallery();
+  };
+
+  wrap.appendChild(restore);
+}
+
 
         const hoverLeft = document.createElement('div');
         hoverLeft.className = 'hoverLeft';

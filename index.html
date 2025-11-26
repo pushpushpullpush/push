@@ -276,24 +276,18 @@
 
     /* Hero: halb breit, rechtsbündig */
     .heroWrap{
-  grid-column:1 / -1;
-  display:flex;
-  justify-content:flex-end;
-  align-items:flex-end;
-}
-
+      grid-column:1 / -1;
+      display:flex;
+      justify-content:flex-end;
+      align-items:flex-end;
+    }
     .heroThumb{
-  /* feste Höhe, Breite passt sich dem Bildformat an */
-  height: clamp(220px, 34vh, 420px);
-  width: auto;
-
-  /* damit es niemals “zu breit” wird */
-  max-width: min(92vw, 900px);
-
-  display:block;
-  object-fit: contain; /* kein Cropping */
-}
-
+      width:auto;
+      max-width:92vw;
+      height:clamp(280px, 44vh, 420px);
+      display:block;
+      object-fit:contain;
+    }
 
     /* Empty state */
     .emptyState{
@@ -703,7 +697,7 @@
     <div id="profileBtn">pull</div>
   </div>
 
-  <input id="fileInput" type="file" accept="image/*" style="display:none" />
+  <input id="fileInput" type="file" accept="image/*,.heic,.HEIC,.heif,.HEIF" style="display:none" />
   <div id="dropZone">drop image here</div>
 
   <div id="gallery"></div>
@@ -747,7 +741,8 @@
     </div>
   </div>
 
-  <!-- Supabase CDN -->
+  <!-- CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/heic2any/dist/heic2any.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
@@ -774,8 +769,6 @@
       for(let i=0;i<len;i++) u8[i] = binary.charCodeAt(i);
       return new Blob([u8], { type: mime });
     }
-
-    const REPORT_THRESHOLD = 5;
 
     // Images array (loaded from Supabase)
     let images = [];
@@ -937,125 +930,72 @@
       setTimeout(() => { el.style.opacity = '1'; }, 120);
     }
 
-let myReported = new Set();
-async function loadMyReports(){
-  myReported = new Set();
-  if(!authUser) return;
-  const { data, error } = await supabaseClient
-    .from('image_reports')
-    .select('image_id')
-    .eq('user_id', authUser.id);
-  if(!error && data) data.forEach(r => myReported.add(String(r.image_id)));
-}
-
     async function refreshReportState(base){
-  if(!base?.id) return;
-  const { data, error } = await supabaseClient
-    .from(SUPABASE_TABLE)
-    .select('report_count, report_hidden')
-    .eq('id', base.id)
-    .single();
+      if(!base?.id) return;
+      const { data, error } = await supabaseClient
+        .from(SUPABASE_TABLE)
+        .select('report_count, report_hidden')
+        .eq('id', base.id)
+        .single();
 
-  if(error){
-    console.error('refreshReportState error', error);
-    return;
-  }
-
-  base.reportCount  = data?.report_count || 0;
-  base.reportHidden = !!data?.report_hidden;
-}
-
-async function getMyReportedSet(imageIds){
-  if(!authUser || !imageIds?.length) return new Set();
-  const { data, error } = await supabaseClient
-    .from(SUPABASE_REPORTS_TABLE)
-    .select('image_id')
-    .in('image_id', imageIds)
-    .eq('user_id', authUser.id);
-
-  if(error){
-    console.error('getMyReportedSet error', error);
-    return new Set();
-  }
-  return new Set((data || []).map(r => r.image_id));
-}
-
-async function toggleReportForImage(base){
-  const ok = await ensureAuth();
-  if(!ok || !authUser || !base?.id) return null;
-
-  // Insert first (fast), if duplicate => delete
-  const { error: insErr } = await supabaseClient
-    .from(SUPABASE_REPORTS_TABLE)
-    .insert({ image_id: base.id, user_id: authUser.id });
-
-  let nowReported = true;
-
-  if(insErr){
-    const msg = (insErr.message || '').toLowerCase();
-    const isDupe = msg.includes('duplicate') || msg.includes('unique');
-
-    if(!isDupe){
-      console.error('report insert error', insErr);
-      return null;
-    }
-
-    const { error: delErr } = await supabaseClient
-      .from(SUPABASE_REPORTS_TABLE)
-      .delete()
-      .eq('image_id', base.id)
-      .eq('user_id', authUser.id);
-
-    if(delErr){
-      console.error('report delete error', delErr);
-      return null;
-    }
-    nowReported = false;
-  }
-
-  await refreshReportState(base);
-  return nowReported;
-}
-
-
-    async function hasUserReported(imageId){
-      if(!authUser || !imageId) return false;
-      try{
-        const { data, error } = await supabaseClient
-          .from(SUPABASE_REPORTS_TABLE)
-          .select('id')
-          .eq('image_id', imageId)
-          .eq('user_id', authUser.id)
-          .limit(1);
-
-        if(error) return false;
-        return !!(data && data.length);
-      }catch(e){
-        return false;
+      if(error){
+        console.error('refreshReportState error', error);
+        return;
       }
+
+      base.reportCount  = data?.report_count || 0;
+      base.reportHidden = !!data?.report_hidden;
     }
 
-  
+    async function getMyReportedSet(imageIds){
+      if(!authUser || !imageIds?.length) return new Set();
+      const { data, error } = await supabaseClient
+        .from(SUPABASE_REPORTS_TABLE)
+        .select('image_id')
+        .in('image_id', imageIds)
+        .eq('user_id', authUser.id);
 
+      if(error){
+        console.error('getMyReportedSet error', error);
+        return new Set();
+      }
+      return new Set((data || []).map(r => r.image_id));
+    }
 
-    async function adminRestoreImage(base){
-      if(!isAdmin() || !base || !base.id) return;
-      try{
-        await supabaseClient
+    async function toggleReportForImage(base){
+      const ok = await ensureAuth();
+      if(!ok || !authUser || !base?.id) return null;
+
+      // Insert first, if duplicate => delete
+      const { error: insErr } = await supabaseClient
+        .from(SUPABASE_REPORTS_TABLE)
+        .insert({ image_id: base.id, user_id: authUser.id });
+
+      let nowReported = true;
+
+      if(insErr){
+        const msg = (insErr.message || '').toLowerCase();
+        const isDupe = msg.includes('duplicate') || msg.includes('unique');
+        if(!isDupe){
+          console.error('report insert error', insErr);
+          return null;
+        }
+
+        const { error: delErr } = await supabaseClient
           .from(SUPABASE_REPORTS_TABLE)
           .delete()
-          .eq('image_id', base.id);
+          .eq('image_id', base.id)
+          .eq('user_id', authUser.id);
 
-        await supabaseClient
-          .from(SUPABASE_TABLE)
-          .update({ report_count: 0, report_hidden: false })
-          .eq('id', base.id);
-
-        base.reportCount = 0;
-        base.reportHidden = false;
-      }catch(e){
-        console.error('adminRestoreImage exception', e);
+        if(delErr){
+          console.error('report delete error', delErr);
+          return null;
+        }
+        nowReported = false;
       }
+
+      await refreshReportState(base);
+      return nowReported;
     }
 
     function updateUploadChip(){
@@ -1369,7 +1309,6 @@ async function toggleReportForImage(base){
     }
 
     async function openSingle(startIndex, listOverride=null){
-
       setGridUIVisible(false);
 
       const fullList = getCurrentList();
@@ -1381,21 +1320,19 @@ async function toggleReportForImage(base){
       );
 
       singleScrollView.innerHTML = '';
-
       currentSingleList = list;
       currentSingleIndex = startIndex;
 
-// reported-by-me preload (nur wenn eingeloggt)
-let reportedSet = new Set();
-try{
-  if(authUser){
-    const ids = list.map(x => x.id).filter(Boolean);
-    reportedSet = await getMyReportedSet(ids);
-  }
-}catch(e){
-  console.error('preload reportedSet failed', e);
-}
-
+      // preload "reported-by-me" (nur wenn eingeloggt)
+      let reportedSet = new Set();
+      try{
+        if(authUser){
+          const ids = list.map(x => x.id).filter(Boolean);
+          reportedSet = await getMyReportedSet(ids);
+        }
+      }catch(e){
+        console.error('preload reportedSet failed', e);
+      }
 
       const effectiveArea = viewOwner ? 'public' : area;
       const isTouch = window.matchMedia && window.matchMedia('(hover: none)').matches;
@@ -1417,6 +1354,12 @@ try{
         if(typeof base.reportCount !== 'number') base.reportCount = 0;
         base.reportHidden = !!base.reportHidden;
 
+        const adminReportLabel = () => {
+          if(!isAdmin()) return 'report';
+          const n = base.reportCount || 0;
+          return n > 0 ? `report ${n}` : 'report';
+        };
+
         const im=document.createElement('img');
         im.src=img.src;
         if(isAdmin() && base.reportHidden) im.classList.add('hiddenAdmin');
@@ -1424,64 +1367,59 @@ try{
         wrap.appendChild(im);
 
         const rep = document.createElement('div');
-rep.className = 'reportBtn';
-rep.textContent = 'report';
+        rep.className = 'reportBtn';
+        rep.textContent = adminReportLabel();
 
-// initial state (wenn eingeloggt)
-if(base.id && reportedSet.has(base.id)) rep.classList.add('reported');
+        if(base.id && reportedSet.has(base.id)) rep.classList.add('reported');
 
-rep.onclick = async (e) => {
-  e.stopPropagation();
+        rep.onclick = async (e) => {
+          e.stopPropagation();
 
-  const nowReported = await toggleReportForImage(base);
-  if(nowReported === null) return;
+          const nowReported = await toggleReportForImage(base);
+          if(nowReported === null) return;
 
-  if(base.id){
-    if(nowReported) reportedSet.add(base.id);
-    else reportedSet.delete(base.id);
-  }
+          if(base.id){
+            if(nowReported) reportedSet.add(base.id);
+            else reportedSet.delete(base.id);
+          }
 
-  rep.classList.toggle('reported', nowReported);
-  rep.textContent = nowReported ? 'reported' : 'undo';
-  setTimeout(() => { rep.textContent = 'report'; }, 800);
+          rep.classList.toggle('reported', nowReported);
+          rep.textContent = nowReported ? 'reported' : 'undo';
 
-  renderGallery();
+          setTimeout(() => { rep.textContent = adminReportLabel(); }, 800);
+          renderGallery();
 
-  // wenn hidden geworden und du bist nicht admin: raus aus single view
-  if(base.reportHidden && !isAdmin()){
-    closeScroll(null);
-  }
-};
-wrap.appendChild(rep);
-
+          if(base.reportHidden && !isAdmin()){
+            closeScroll(null);
+          }
+        };
+        wrap.appendChild(rep);
 
         if(isAdmin() && (base.reportHidden || (base.reportCount || 0) > 0)){
-  const restore = document.createElement('div');
-  restore.className = 'restoreBtn';
-  restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
+          const restore = document.createElement('div');
+          restore.className = 'restoreBtn';
+          restore.textContent = base.reportHidden ? 'restore · hidden' : 'restore';
 
-  restore.onclick = async (e) => {
-    e.stopPropagation();
+          restore.onclick = async (e) => {
+            e.stopPropagation();
 
-    const { error } = await supabaseClient.rpc('admin_restore_image', { img_id: base.id });
-    if(error){
-      console.error('admin_restore_image error', error);
-      alert('restore failed');
-      return;
-    }
+            const { error } = await supabaseClient.rpc('admin_restore_image', { img_id: base.id });
+            if(error){
+              console.error('admin_restore_image error', error);
+              alert('restore failed');
+              return;
+            }
 
-    await refreshReportState(base);
+            await refreshReportState(base);
 
-    // UI updaten
-    reportedSet.delete(base.id);
-    rep.classList.remove('reported');
-    rep.textContent = 'report';
-    renderGallery();
-  };
+            reportedSet.delete(base.id);
+            rep.classList.remove('reported');
+            rep.textContent = adminReportLabel();
+            renderGallery();
+          };
 
-  wrap.appendChild(restore);
-}
-
+          wrap.appendChild(restore);
+        }
 
         const hoverLeft = document.createElement('div');
         hoverLeft.className = 'hoverLeft';
@@ -1684,9 +1622,39 @@ wrap.appendChild(rep);
       renderGallery();
     };
 
-    // --- Upload (fixed) ---
-    function startUploadFromFile(file){
+    async function normalizeImageFile(file){
+      const name = (file?.name || '').toLowerCase();
+      const isHeic =
+        file?.type === 'image/heic' ||
+        file?.type === 'image/heif' ||
+        name.endsWith('.heic') ||
+        name.endsWith('.heif');
+
+      if(!isHeic) return file;
+
+      if(typeof heic2any !== 'function'){
+        throw new Error('heic2any missing');
+      }
+
+      const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+      const blob = Array.isArray(out) ? out[0] : out;
+
+      const newName = (file.name || 'image').replace(/\.(heic|heif)$/i, '.jpg');
+      return new File([blob], newName, { type: 'image/jpeg' });
+    }
+
+    // --- Upload ---
+    async function startUploadFromFile(file){
       if(!file) return;
+
+      try{
+        file = await normalizeImageFile(file);
+      }catch(err){
+        console.error(err);
+        alert('HEIC upload not supported on this browser.');
+        return;
+      }
+
       if(!file.type || !file.type.startsWith('image/')){
         alert('Only images');
         return;
@@ -1714,7 +1682,6 @@ wrap.appendChild(rep);
           pendingImage = canvas.toDataURL('image/jpeg', 0.82);
           uploadPreview.src = pendingImage;
 
-          // reset state
           uploadConfirmStep = 0;
           uploadHint.style.display = 'none';
           pendingTags = [];
@@ -1815,7 +1782,6 @@ wrap.appendChild(rep);
     uploadPush.onclick = async () => {
       if(!pendingImage) return;
 
-      // 1st click: show hint, 2nd click: upload
       if(uploadConfirmStep === 0){
         uploadHint.style.display = 'block';
         uploadConfirmStep = 1;
@@ -2007,7 +1973,6 @@ wrap.appendChild(rep);
         }
       });
 
-      // optional: click outside also proceeds after hint shown (prevents "stuck" feeling)
       landingOverlay.addEventListener('click', () => {
         if(!landingHintShown){
           landingHintShown = true;
@@ -2040,7 +2005,7 @@ wrap.appendChild(rep);
       if(e.target === contactOverlay) contactOverlay.style.display = 'none';
     });
 
-    // AUTH-Funktionen
+    // AUTH
     function openAuthOverlay(){ authOverlay.style.display = 'flex'; authName.focus(); }
     function closeAuthOverlay(){ authOverlay.style.display = 'none'; authName.value = ''; authKey.value = ''; }
 
@@ -2083,8 +2048,6 @@ wrap.appendChild(rep);
 
         await loadPullsForCurrentUser();
         await loadUserPullsForOwner(uname);
-        await loadMyReports();
-
 
         renderGallery();
         updateProfile();
@@ -2110,7 +2073,6 @@ wrap.appendChild(rep);
           saveCurrentUser();
           await loadPullsForCurrentUser();
           await loadUserPullsForOwner(uname);
-          await loadMyReports();
 
           renderGallery();
           updateProfile();

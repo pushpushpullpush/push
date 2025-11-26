@@ -97,11 +97,9 @@
       color:#999;
       cursor:pointer;
     }
-    #contactClose:hover{
-      color:#666;
-    }
+    #contactClose:hover{ color:#666; }
 
-    /* AUTH OVERLAY */
+    /* AUTH OVERLAY (bigger like upload card) */
     #authOverlay{
       position:fixed;
       inset:0;
@@ -110,57 +108,62 @@
       align-items:center;
       justify-content:center;
       z-index:270;
+      padding:24px 12px;
+      box-sizing:border-box;
     }
     #authBox{
       position:relative;
-      padding:18px 22px;
+      width:min(820px, 94vw);
       border:1px solid #eee;
-      border-radius:12px;
-      min-width:220px;
-      text-align:left;
+      border-radius:18px;
+      box-shadow:0 24px 70px rgba(0,0,0,0.06);
       background:#fff;
+      padding:20px 20px 16px;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:10px;
     }
     #authBox input{
       border:none;
       border-bottom:1px solid #ddd;
       font-family:Helvetica,Arial,sans-serif;
-      font-size:13px;
+      font-size:14px;
       padding:4px 0;
       outline:none;
-      width:180px;
+      width:min(360px, 86vw);
       background:transparent;
       display:block;
     }
-    #authBox input + input{
-      margin-top:10px;
-    }
     #authHint{
-      margin-top:10px;
+      margin-top:6px;
       font-family:Helvetica,Arial,sans-serif;
-      font-size:10px;
+      font-size:11px;
       color:#aaa;
-      max-width:220px;
-      line-height:1.4;
+      max-width:520px;
+      line-height:1.45;
     }
     #authEnter{
-      margin-top:14px;
+      margin-top:10px;
       font-family:Helvetica,Arial,sans-serif;
-      font-size:13px;
+      font-size:16px;
       cursor:pointer;
       color:#444;
+      padding:6px 2px;
     }
+    #authEnter:hover{ color:#111; }
     #authCancel{
       position:absolute;
-      top:6px;
-      right:8px;
+      top:10px;
+      right:12px;
       font-family:Helvetica,Arial,sans-serif;
-      font-size:14px;
+      font-size:16px;
       color:#999;
       cursor:pointer;
+      padding:6px 2px;
     }
-    #authCancel:hover{
-      color:#666;
-    }
+    #authCancel:hover{ color:#666; }
 
     /* TOP BAR */
     #topBar{
@@ -284,7 +287,7 @@
     .heroThumb{
       width:auto;
       max-width:92vw;
-      height:clamp(280px, 44vh, 420px);
+      height:clamp(300px, 45vh, 440px);
       display:block;
       object-fit:contain;
     }
@@ -506,35 +509,18 @@
       width:100%;
       display:flex;
       align-items:center;
-      justify-content:space-between;
+      justify-content:center;
       padding-bottom:10px;
     }
 
-    #uploadTitle{
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:12px;
-      letter-spacing:0.08em;
-      text-transform:lowercase;
-      color:#444;
-    }
-
-    .chipRow{
-      display:flex;
-      gap:6px;
-      align-items:center;
-    }
     .chip{
       padding:3px 10px;
-      border:1px solid #eee;
+      border:1px solid #f0f0f0;
       border-radius:999px;
       font-size:11px;
-      color:#999;
+      color:#bbb;
       user-select:none;
       white-space:nowrap;
-    }
-    .chip.muted{
-      color:#bbb;
-      border-color:#f0f0f0;
     }
 
     #uploadPreview{
@@ -629,6 +615,7 @@
     @media (max-width:480px){
       #uploadCard{ padding:18px 14px 14px; }
       #uploadPreview{ max-height:52vh; }
+      #authBox{ padding:18px 14px 14px; }
     }
 
     .hideRange #columnsRange{display:none}
@@ -647,38 +634,6 @@
       color:#666;
       pointer-events:none;
     }
-
-    /* DEBUG PANEL (only if ?debug=1) */
-    #debugPanel{
-      position:fixed;
-      left:8px;
-      bottom:8px;
-      z-index:9999;
-      display:none;
-      max-width:min(380px, 92vw);
-      background:rgba(255,255,255,0.92);
-      border:1px solid #eee;
-      border-radius:14px;
-      padding:10px 12px 10px;
-      box-shadow:0 18px 50px rgba(0,0,0,0.08);
-      backdrop-filter:blur(8px);
-      color:#222;
-      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size:11px;
-      line-height:1.35;
-    }
-    #debugText{ margin:0; white-space:pre-wrap; }
-    #debugClose{
-      position:absolute;
-      top:6px;
-      right:8px;
-      font-family:Helvetica,Arial,sans-serif;
-      font-size:14px;
-      color:#999;
-      cursor:pointer;
-      user-select:none;
-    }
-    #debugClose:hover{ color:#666; }
   </style>
 </head>
 <body>
@@ -706,7 +661,9 @@
     <div id="authBox">
       <input id="authName" type="text" placeholder="name" autocomplete="username" />
       <input id="authKey" type="password" placeholder="key" autocomplete="current-password" />
-      <div id="authHint">enter free name of your choice and connect key<br> (key: min. 6 characters, only letters and numbers)<br>
+      <div id="authHint">
+        enter free name of your choice and connect key<br>
+        (key: min. 6 characters, only letters and numbers)<br>
         keep key for future log-in or create new account
       </div>
       <div id="authEnter">enter</div>
@@ -747,11 +704,7 @@
   <div id="uploadOverlay">
     <div id="uploadCard">
       <div id="uploadHeader">
-        <div id="uploadTitle">push</div>
-        <div class="chipRow">
-          <div id="uploadChipUser" class="chip">anonymous</div>
-          <div class="chip muted">upload stays anonymous</div>
-        </div>
+        <div class="chip">upload is anonymous</div>
       </div>
 
       <img id="uploadPreview" alt="preview" />
@@ -773,13 +726,7 @@
     </div>
   </div>
 
-  <!-- DEBUG PANEL -->
-  <div id="debugPanel">
-    <div id="debugClose">✕</div>
-    <pre id="debugText"></pre>
-  </div>
-
-  <!-- Libraries -->
+  <!-- Supabase + HEIC -->
   <script src="https://cdn.jsdelivr.net/npm/heic2any/dist/heic2any.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -857,7 +804,6 @@
     const tagInput          = document.getElementById('tagInput');
     const tagChips          = document.getElementById('tagChips');
     const uploadHint        = document.getElementById('uploadHint');
-    const uploadChipUser    = document.getElementById('uploadChipUser');
 
     const landingOverlay    = document.getElementById('landingOverlay');
     const landingLogo       = document.getElementById('landingLogo');
@@ -872,11 +818,6 @@
     const authKey           = document.getElementById('authKey');
     const authEnter         = document.getElementById('authEnter');
     const authCancel        = document.getElementById('authCancel');
-
-    // debug elements
-    const debugPanel = document.getElementById('debugPanel');
-    const debugText  = document.getElementById('debugText');
-    const debugClose = document.getElementById('debugClose');
 
     let authResolve = null;
     let authInProgress = false;
@@ -924,21 +865,20 @@
       }
     });
 
+    // ✅ Live search matches ONLY TAGS (no username/pullers)
     function matchesSearch(img){
       if(!searchTerm) return true;
       const raw = searchTerm.trim();
-      if(raw.startsWith('#')){
-        const q = raw.slice(1).toLowerCase().trim();
-        if(!q) return true;
-        const tagsArr = img.tags || [];
-        return tagsArr.some(t => (t || '').toLowerCase().includes(q));
-      }
-      const q       = raw.toLowerCase();
+      const q = raw.startsWith('#')
+        ? raw.slice(1).toLowerCase().trim()
+        : raw.toLowerCase();
+
+      if(!q) return true;
       const tagsStr = (img.tags || []).join(' ').toLowerCase();
-      const pullers = (img.pullers || []).join(' ').toLowerCase();
-      return (tagsStr.includes(q) || pullers.includes(q));
+      return tagsStr.includes(q);
     }
 
+    // Enter on search: exact username -> open wall
     function findUserByQuery(qRaw){
       const q = (qRaw || '').trim().toLowerCase();
       if(!q) return null;
@@ -975,84 +915,6 @@
       setTimeout(() => { el.style.opacity = '1'; }, 120);
     }
 
-    // === DEBUG (?debug=1) ===
-    const DEBUG = (() => {
-      const sp = new URLSearchParams(location.search);
-      const v = sp.get('debug');
-      return v === '1' || v === 'true' || sp.has('debug');
-    })();
-
-    const debugState = { supabase: '…', lastError: '', lastPing: '' };
-
-    function debugSetError(label, err){
-      const msg = (err && (err.message || err.toString())) ? (err.message || err.toString()) : String(err);
-      debugState.lastError = `${label}: ${msg}`.slice(0, 220);
-      refreshDebugPanel();
-    }
-
-    async function debugPingSupabase(){
-      try{
-        const { error, count } = await supabaseClient
-          .from(SUPABASE_TABLE)
-          .select('id', { head: true, count: 'exact' })
-          .limit(1);
-
-        if(error){
-          debugState.supabase = `ERR (${error.code || 'no-code'})`;
-          debugState.lastError = `ping: ${error.message || 'unknown error'}`.slice(0, 220);
-        } else {
-          debugState.supabase = `ok (images=${count ?? '?'})`;
-        }
-      }catch(e){
-        debugState.supabase = 'EXC';
-        debugSetError('ping exception', e);
-      }finally{
-        debugState.lastPing = new Date().toLocaleTimeString();
-        refreshDebugPanel();
-      }
-    }
-
-    function refreshDebugPanel(){
-      if(!DEBUG || !debugPanel || !debugText) return;
-
-      const lines = [];
-      lines.push(`debug=1  ${new Date().toLocaleTimeString()}`);
-      lines.push(`supabase: ${debugState.supabase} @ ${debugState.lastPing || '—'}`);
-      lines.push(`area: ${area}  viewOwner: ${viewOwner || '—'}`);
-      lines.push(`user: ${currentUser?.username || '—'}  auth: ${authUser?.id ? authUser.id.slice(0,8)+'…' : '—'}`);
-      lines.push(`images: ${images?.length ?? 0}  saved: ${saved?.length ?? 0}`);
-      lines.push(`search: ${searchTerm || '—'}`);
-      lines.push(`single: ${singleScrollView?.style?.display === 'block' ? (currentSingleIndex ?? '—') : '—'}`);
-      lines.push(`vw/vh: ${window.innerWidth}×${window.innerHeight}`);
-      if(debugState.lastError) lines.push(`lastError: ${debugState.lastError}`);
-
-      debugText.textContent = lines.join('\n');
-    }
-
-    function initDebug(){
-      if(!DEBUG || !debugPanel) return;
-      debugPanel.style.display = 'block';
-      if(debugClose) debugClose.onclick = () => { debugPanel.style.display = 'none'; };
-      refreshDebugPanel();
-      debugPingSupabase();
-      setInterval(refreshDebugPanel, 900);
-    }
-
-    initDebug();
-
-    // reports
-    let myReported = new Set();
-    async function loadMyReports(){
-      myReported = new Set();
-      if(!authUser) return;
-      const { data, error } = await supabaseClient
-        .from(SUPABASE_REPORTS_TABLE)
-        .select('image_id')
-        .eq('user_id', authUser.id);
-
-      if(!error && data) data.forEach(r => myReported.add(String(r.image_id)));
-    }
-
     async function refreshReportState(base){
       if(!base?.id) return;
       const { data, error } = await supabaseClient
@@ -1063,10 +925,8 @@
 
       if(error){
         console.error('refreshReportState error', error);
-        if(DEBUG) debugSetError('refreshReportState', error);
         return;
       }
-
       base.reportCount  = data?.report_count || 0;
       base.reportHidden = !!data?.report_hidden;
     }
@@ -1081,17 +941,16 @@
 
       if(error){
         console.error('getMyReportedSet error', error);
-        if(DEBUG) debugSetError('getMyReportedSet', error);
         return new Set();
       }
       return new Set((data || []).map(r => String(r.image_id)));
     }
 
-    // NOTE: fixed bug: this function must NOT touch DOM variables like "rep"
     async function toggleReportForImage(base){
       const ok = await ensureAuth();
       if(!ok || !authUser || !base?.id) return null;
 
+      // Insert first; if duplicate => delete
       const { error: insErr } = await supabaseClient
         .from(SUPABASE_REPORTS_TABLE)
         .insert({ image_id: base.id, user_id: authUser.id });
@@ -1101,10 +960,8 @@
       if(insErr){
         const msg = (insErr.message || '').toLowerCase();
         const isDupe = msg.includes('duplicate') || msg.includes('unique');
-
         if(!isDupe){
           console.error('report insert error', insErr);
-          if(DEBUG) debugSetError('report insert', insErr);
           return null;
         }
 
@@ -1116,7 +973,6 @@
 
         if(delErr){
           console.error('report delete error', delErr);
-          if(DEBUG) debugSetError('report delete', delErr);
           return null;
         }
         nowReported = false;
@@ -1124,14 +980,6 @@
 
       await refreshReportState(base);
       return nowReported;
-    }
-
-    function updateUploadChip(){
-      if(!uploadChipUser) return;
-      uploadChipUser.textContent =
-        (currentUser && currentUser.username)
-          ? `logged in: ${currentUser.username}`
-          : 'anonymous';
     }
 
     function updateSearchLabel(){
@@ -1241,6 +1089,7 @@
           const el = document.createElement('img');
           el.src = img.src;
           el.className = 'thumb';
+          el.loading = 'lazy';
           el.onclick = () => openSingle(i, list);
           gallery.appendChild(el);
         });
@@ -1347,6 +1196,7 @@
       const heroImg = document.createElement('img');
       heroImg.src = list[0].src;
       heroImg.className = 'thumb heroThumb';
+      heroImg.loading = 'eager';
       heroImg.onclick = () => openSingle(0, list);
 
       heroWrap.appendChild(heroImg);
@@ -1358,6 +1208,7 @@
         const el = document.createElement('img');
         el.src = list[i].src;
         el.className = 'thumb';
+        el.loading = 'lazy';
         el.onclick = () => openSingle(i, list);
         gallery.appendChild(el);
       }
@@ -1405,14 +1256,12 @@
 
         if(error){
           console.error('load wall order error:', error);
-          if(DEBUG) debugSetError('loadWallOrderForUser', error);
           wallOrders[username] = [];
           return;
         }
         wallOrders[username] = (data || []).map(r => r.image_id);
       }catch(err){
         console.error('load wall order exception:', err);
-        if(DEBUG) debugSetError('loadWallOrderForUser exc', err);
       }
     }
 
@@ -1428,14 +1277,12 @@
 
         if(error){
           console.error('load user pulls error:', error);
-          if(DEBUG) debugSetError('loadUserPullsForOwner', error);
           userPulls[username] = [];
           return;
         }
         userPulls[username] = (data || []).map(r => r.target_username);
       }catch(err){
         console.error('load user pulls exception:', err);
-        if(DEBUG) debugSetError('loadUserPullsForOwner exc', err);
         userPulls[username] = [];
       }
     }
@@ -1456,7 +1303,7 @@
       currentSingleList = list;
       currentSingleIndex = startIndex;
 
-      // reported-by-me preload (nur wenn eingeloggt)
+      // preload "reported by me" for this list (only when logged in)
       let reportedSet = new Set();
       try{
         if(authUser){
@@ -1465,7 +1312,6 @@
         }
       }catch(e){
         console.error('preload reportedSet failed', e);
-        if(DEBUG) debugSetError('preload reportedSet', e);
       }
 
       const effectiveArea = viewOwner ? 'public' : area;
@@ -1478,6 +1324,12 @@
             ? (isSaved(item.src) ? 'push' : 'pull')
             : 'push';
         });
+      }
+
+      function adminReportLabelFor(base){
+        if(!isAdmin()) return 'report';
+        const n = base?.reportCount || 0;
+        return n > 0 ? `report ${n}` : 'report';
       }
 
       list.forEach((img,idx)=>{
@@ -1496,16 +1348,8 @@
 
         const rep = document.createElement('div');
         rep.className = 'reportBtn';
+        rep.textContent = adminReportLabelFor(base);
 
-        const reportLabel = () => {
-          if(!isAdmin()) return 'report';
-          const n = base.reportCount || 0;
-          return n > 0 ? `report ${n}` : 'report';
-        };
-
-        rep.textContent = reportLabel();
-
-        // initial state (wenn eingeloggt)
         if(base.id && reportedSet.has(String(base.id))) rep.classList.add('reported');
 
         rep.onclick = async (e) => {
@@ -1515,18 +1359,17 @@
           if(nowReported === null) return;
 
           if(base.id){
-            if(nowReported) reportedSet.add(String(base.id));
-            else reportedSet.delete(String(base.id));
+            const sid = String(base.id);
+            if(nowReported) reportedSet.add(sid);
+            else reportedSet.delete(sid);
           }
 
           rep.classList.toggle('reported', nowReported);
           rep.textContent = nowReported ? 'reported' : 'undo';
-
-          setTimeout(() => { rep.textContent = reportLabel(); }, 800);
+          setTimeout(() => { rep.textContent = adminReportLabelFor(base); }, 800);
 
           renderGallery();
 
-          // wenn hidden geworden und du bist nicht admin: raus aus single view
           if(base.reportHidden && !isAdmin()){
             closeScroll(null);
           }
@@ -1544,16 +1387,14 @@
             const { error } = await supabaseClient.rpc('admin_restore_image', { img_id: base.id });
             if(error){
               console.error('admin_restore_image error', error);
-              if(DEBUG) debugSetError('admin_restore_image', error);
               alert('restore failed');
               return;
             }
 
             await refreshReportState(base);
-
-            reportedSet.delete(String(base.id));
+            if(base.id) reportedSet.delete(String(base.id));
             rep.classList.remove('reported');
-            rep.textContent = reportLabel();
+            rep.textContent = adminReportLabelFor(base);
             renderGallery();
           };
 
@@ -1691,8 +1532,8 @@
       }
     };
 
-    let logoArmed = false;
-    let logoArmTimer = null;
+    // ✅ Push/Logo: deterministic "every second click opens picker"
+    let logoNextOpensPicker = false;
 
     logo.onclick = () => {
       blinkWord(logo);
@@ -1704,15 +1545,16 @@
         (authOverlay.style.display === 'flex') ||
         (landingOverlay && landingOverlay.style.display === 'flex');
 
-      const canArmPicker = !overlaysOpen && area === 'public' && !viewOwner;
+      const canPick = !overlaysOpen && area === 'public' && !viewOwner;
 
-      if(canArmPicker && logoArmed){
-        logoArmed = false;
-        if(logoArmTimer) clearTimeout(logoArmTimer);
+      // every second click opens file picker
+      if(canPick && logoNextOpensPicker){
+        logoNextOpensPicker = false;
         fileInput.click();
         return;
       }
 
+      // normal "go home"
       area = 'public';
       viewOwner = null;
       ownerMenuOpen = false;
@@ -1724,11 +1566,8 @@
       scrollState.public = 0;
       window.scrollTo({ top: 0, behavior:'auto' });
 
-      if(canArmPicker){
-        logoArmed = true;
-        if(logoArmTimer) clearTimeout(logoArmTimer);
-        logoArmTimer = setTimeout(()=>{ logoArmed = false; }, 900);
-      }
+      // arm next click
+      logoNextOpensPicker = canPick ? true : false;
     };
 
     searchInput.addEventListener('input', e => {
@@ -1741,7 +1580,7 @@
       if(e.key === 'Enter'){
         const raw = searchInput.value.trim();
         if(!raw) return;
-        if(raw.startsWith('#')) return;
+        if(raw.startsWith('#')) return; // tags only
 
         const userName = findUserByQuery(raw);
         if(userName){
@@ -1790,7 +1629,6 @@
         file = await normalizeImageFile(file);
       }catch(err){
         console.error(err);
-        if(DEBUG) debugSetError('normalizeImageFile', err);
         alert('HEIC upload not supported on this browser.');
         return;
       }
@@ -1828,7 +1666,6 @@
           tagInput.value = '';
           renderTagChips();
 
-          updateUploadChip();
           uploadOverlay.style.display = 'flex';
         };
 
@@ -1881,7 +1718,6 @@
 
         if(error){
           console.error('Supabase upload error:', error);
-          if(DEBUG) debugSetError('storage upload', error);
           alert('upload failed');
           return null;
         }
@@ -1901,7 +1737,6 @@
 
         if(insertError){
           console.error('Supabase insert error:', insertError);
-          if(DEBUG) debugSetError('images insert', insertError);
           alert('saving metadata failed');
           return null;
         }
@@ -1916,7 +1751,6 @@
         };
       }catch(err){
         console.error('Supabase upload exception:', err);
-        if(DEBUG) debugSetError('upload exception', err);
         alert('upload failed (exception)');
         return null;
       }
@@ -2117,7 +1951,6 @@
         }
       });
 
-      // optional: click outside also proceeds after hint shown
       landingOverlay.addEventListener('click', () => {
         if(!landingHintShown){
           landingHintShown = true;
@@ -2150,7 +1983,7 @@
       if(e.target === contactOverlay) contactOverlay.style.display = 'none';
     });
 
-    // AUTH
+    // AUTH functions
     function openAuthOverlay(){ authOverlay.style.display = 'flex'; authName.focus(); }
     function closeAuthOverlay(){ authOverlay.style.display = 'none'; authName.value = ''; authKey.value = ''; }
 
@@ -2162,7 +1995,6 @@
 
       authInProgress = true;
       const email = name.toLowerCase() + '@push.local';
-
       try{
         let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: key });
         if(error){
@@ -2173,7 +2005,6 @@
             });
             if(signUpError){
               console.error('signUp error', signUpError);
-              if(DEBUG) debugSetError('signUp', signUpError);
               alert('login failed');
               authInProgress = false;
               return;
@@ -2181,13 +2012,11 @@
             data = signUpData;
           } else {
             console.error('signIn error', error);
-            if(DEBUG) debugSetError('signIn', error);
             alert('login failed');
             authInProgress = false;
             return;
           }
         }
-
         const user = data.user;
         authUser = user;
         const uname = user.user_metadata && user.user_metadata.username ? user.user_metadata.username : name;
@@ -2197,7 +2026,6 @@
 
         await loadPullsForCurrentUser();
         await loadUserPullsForOwner(uname);
-        await loadMyReports();
 
         renderGallery();
         updateProfile();
@@ -2205,7 +2033,6 @@
         if(authResolve){ authResolve(true); authResolve = null; }
       }catch(err){
         console.error('auth exception', err);
-        if(DEBUG) debugSetError('auth exception', err);
         alert('login failed');
         if(authResolve){ authResolve(false); authResolve = null; }
       }finally{
@@ -2224,7 +2051,6 @@
           saveCurrentUser();
           await loadPullsForCurrentUser();
           await loadUserPullsForOwner(uname);
-          await loadMyReports();
 
           renderGallery();
           updateProfile();
@@ -2232,7 +2058,6 @@
         }
       }catch(e){
         console.error('ensureAuth getUser error', e);
-        if(DEBUG) debugSetError('ensureAuth getUser', e);
       }
       return new Promise(resolve=>{
         authResolve = resolve;
@@ -2257,7 +2082,6 @@
 
         if(error){
           console.error('Supabase load error:', error);
-          if(DEBUG) debugSetError('loadImagesFromSupabase', error);
           return;
         }
         if(!data || data.length === 0) return;
@@ -2272,14 +2096,12 @@
         }));
       }catch(err){
         console.error('Supabase load exception:', err);
-        if(DEBUG) debugSetError('loadImagesFromSupabase exc', err);
       }
     }
 
     async function loadPullsForCurrentUser(){
       saved = [];
       if(!authUser || !currentUser) return;
-
       try{
         const { data: pullRows, error } = await supabaseClient
           .from(SUPABASE_PULLS_TABLE)
@@ -2289,7 +2111,6 @@
 
         if(error){
           console.error('load pulls error:', error);
-          if(DEBUG) debugSetError('loadPullsForCurrentUser', error);
           return;
         }
         if(!pullRows || pullRows.length === 0) return;
@@ -2303,7 +2124,6 @@
 
         if(imgError){
           console.error('load pulls images error:', imgError);
-          if(DEBUG) debugSetError('load pulls images', imgError);
           return;
         }
 
@@ -2347,7 +2167,6 @@
         }
       }catch(err){
         console.error('loadPullsForCurrentUser exception:', err);
-        if(DEBUG) debugSetError('loadPullsForCurrentUser exc', err);
       }
     }
 
@@ -2467,11 +2286,9 @@
           const uname = data.user.user_metadata && data.user.user_metadata.username ? data.user.user_metadata.username : 'user';
           currentUser = { username: uname, userId: data.user.id };
           await loadUserPullsForOwner(uname);
-          await loadMyReports();
         }
       }catch(e){
         console.error('initAuth error', e);
-        if(DEBUG) debugSetError('initAuth', e);
       }
     }
 
@@ -2483,7 +2300,6 @@
       updateProfile();
       updateSearchLabel();
       setGridUIVisible(true);
-      refreshDebugPanel();
     }
 
     initApp();

@@ -72,7 +72,6 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
     await loadGallery(profile);
 
     searchEl.value = '';
-    searchEl.readOnly = true;
     searchEl.placeholder = 'search';
 
     await refreshFollowState();
@@ -100,26 +99,18 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
     onOpenSingle(pick.id, images);
   });
 
-  searchEl.addEventListener('click', () => {
-    searchEl.readOnly = false;
-    searchEl.placeholder = '';
-    searchEl.focus();
-  });
   searchEl.addEventListener('input', () => gallery && gallery.filterByTag(searchEl.value));
   searchEl.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       searchEl.value = '';
-      searchEl.readOnly = true;
       searchEl.placeholder = 'search';
       searchEl.blur();
       gallery && gallery.filterByTag('');
     } else if (e.key === 'Enter') {
-      searchEl.readOnly = true;
       searchEl.blur();
     }
   });
   searchEl.addEventListener('blur', () => {
-    searchEl.readOnly = true;
     if (searchEl.value.trim() === '') searchEl.placeholder = 'search';
   });
 

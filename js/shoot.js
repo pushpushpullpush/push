@@ -53,7 +53,12 @@ async function takeShot() {
   }
 }
 
+function isMobile() {
+  return window.matchMedia('(pointer: coarse)').matches;
+}
+
 export function trigger() {
+  if (isMobile()) return; // auf dem Handy bewusst deaktiviert
   if (!armed) {
     armed = true;
     if (shootEl) shootEl.textContent = 'shoot';
@@ -65,6 +70,7 @@ export function trigger() {
 }
 
 export function mountShootWord() {
+  if (isMobile()) return null;
   shootEl = document.createElement('div');
   shootEl.id = 'shoot-word';
   shootEl.className = 'menu-word';

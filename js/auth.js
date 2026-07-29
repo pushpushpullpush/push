@@ -114,7 +114,7 @@ export function initAuth(refs, onSessionChange) {
     loginError.style.display = 'none';
     forgotSentEl.style.display = 'none';
 
-    const username = usernameInput.value.trim();
+    const username = usernameInput.value.trim().toLowerCase();
     if (!username) {
       loginError.textContent = 'error: enter your username first';
       loginError.style.display = 'block';
@@ -138,7 +138,7 @@ export function initAuth(refs, onSessionChange) {
 
   loginBtn.addEventListener('click', async () => {
     loginError.style.display = 'none';
-    const username = usernameInput.value.trim();
+    const username = usernameInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     if (!username || !password) return;
 
@@ -171,7 +171,7 @@ export function initAuth(refs, onSessionChange) {
     usernameTakenEl.style.display = 'none';
     signupError.style.display = 'none';
 
-    const username = usernameInput.value.trim();
+    const username = usernameInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     const email = emailInput.value.trim();
 

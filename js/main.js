@@ -127,29 +127,18 @@ MENU_WORDS.forEach((word) => {
   if (word === 'search') {
     el.type = 'text';
     el.placeholder = 'search';
-    el.readOnly = true;
-    el.addEventListener('click', () => {
-      el.readOnly = false;
-      el.placeholder = '';
-      el.focus();
-    });
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         el.value = '';
-        el.readOnly = true;
         el.placeholder = 'search';
         el.blur();
         gallery.filterByTag('');
         gallery.clearUsernameChips();
       } else if (e.key === 'Enter') {
-        el.readOnly = true;
         el.blur();
       }
     });
     el.addEventListener('blur', () => {
-      // Falls das Feld irgendwie anders als per esc verlassen wird
-      // (z.B. Klick woanders hin): leeres Feld findet sonst niemand wieder.
-      el.readOnly = true;
       if (el.value.trim() === '') {
         el.placeholder = 'search';
       }

@@ -135,8 +135,9 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
   const usernameField = setupExpandableField(
     editUsernameLabel, editUsernameInput, editUsernameConfirm,
     () => getCurrentUser().username,
-    async (newVal) => {
-      if (!/^[a-zA-Z0-9]{2,12}$/.test(newVal)) {
+    async (rawVal) => {
+      const newVal = rawVal.toLowerCase();
+      if (!/^[a-z0-9]{2,12}$/.test(newVal)) {
         showEditError('error: 2–12 letters/numbers', editUsernameInput);
         return false;
       }
@@ -332,7 +333,6 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     await loadGallery(user);
 
     searchEl.value = '';
-    searchEl.readOnly = true;
     searchEl.placeholder = 'search';
 
     enterGallery();
@@ -368,26 +368,18 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     gallery.syncImages(images);
   });
 
-  searchEl.addEventListener('click', () => {
-    searchEl.readOnly = false;
-    searchEl.placeholder = '';
-    searchEl.focus();
-  });
   searchEl.addEventListener('input', () => gallery && gallery.filterByTag(searchEl.value));
   searchEl.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       searchEl.value = '';
-      searchEl.readOnly = true;
       searchEl.placeholder = 'search';
       searchEl.blur();
       gallery && gallery.filterByTag('');
     } else if (e.key === 'Enter') {
-      searchEl.readOnly = true;
       searchEl.blur();
     }
   });
   searchEl.addEventListener('blur', () => {
-    searchEl.readOnly = true;
     if (searchEl.value.trim() === '') searchEl.placeholder = 'search';
   });
 

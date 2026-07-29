@@ -11,6 +11,36 @@ const JPEG_QUALITY = 0.82;
 const MAX_TAGS = 10;
 const MAX_TAG_LENGTH = 21;
 
+// heic2any wird nur bei Bedarf geladen (HEIC-Dateien vom Handy),
+// genau wie html2canvas beim Screenshot-Tool.
+let heic2anyPromise = null;
+function loadHeic2Any() {
+  if (window.heic2any) return Promise.resolve(window.heic2any);
+  if (heic2anyPromise) return heic2anyPromise;
+  heic2anyPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/heic2any/dist/heic2any.min.js';
+    script.onload = () => resolve(window.heic2any);
+    script.onerror = () => reject(new Error('heic2any konnte nicht geladen werden'));
+    document.head.appendChild(script);
+  });
+  return heic2anyPromise;
+}
+
+function isHeicFile(file) {
+  const name = (file.name || '').toLowerCase();
+  return file.type === 'image/heic' || file.type === 'image/heif'
+    || name.endsWith('.heic') || name.endsWith('.heif');
+}
+
+async function normalizeImageFile(file) {
+  if (!isHeicFile(file)) return file;
+  const heic2any = await loadHeic2Any();
+  const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+  const blob = Array.isArray(out) ? out[0] : out;
+  return new File([blob], (file.name || 'image').replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+}
+
 function getClockPoint() {
   const el = document.getElementById('global-clock');
   if (!el) return null;
@@ -73,10 +103,21 @@ export function initUpload(refs, onUploaded) {
     return taken;
   }
 
-  function startUpload(file) {
+  async function startUpload(file) {
+    try {
+      file = await normalizeImageFile(file);
+    } catch (err) {
+      console.error('HEIC-Konvertierung fehlgeschlagen:', err);
+      flashMessage('error: could not read this image');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
+      img.onerror = () => {
+        flashMessage('error: unsupported image format');
+      };
       img.onload = () => {
         const ratio = Math.max(img.width, img.height) / Math.min(img.width, img.height);
         if (ratio > MAX_ASPECT_RATIO) {

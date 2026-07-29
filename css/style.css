@@ -19,13 +19,14 @@ html, body {
 .push-image {
   position: absolute;
   display: block;
+  transition: left 0.3s ease, top 0.3s ease;
 }
 
 #menu-layer {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 500;
+  z-index: 2500;
 }
 
 .menu-word {
@@ -44,6 +45,7 @@ html, body {
   padding: 0;
   margin: 0;
   caret-color: #ffffff;
+  z-index: 2500;
 }
 
 .menu-word::placeholder {
@@ -53,4 +55,297 @@ html, body {
 
 input.menu-word {
   width: 140px;
+}
+
+/* Alle tippbaren Felder: kursiv, sonst identisch zu .menu-word */
+.italic-field {
+  font-style: italic;
+  max-width: 85vw; /* Sicherheitsabstand: darf nie über den Rand hinausragen */
+  box-sizing: border-box;
+}
+.italic-field::placeholder {
+  font-style: italic;
+  color: #ffffff;
+  opacity: 1;
+}
+
+/* Für Inhalte, die andere Nutzer:innen später sehen (Tags, Kommentare) */
+.field-yellow {
+  color: #ffee00;
+  caret-color: #ffee00;
+}
+.field-yellow::placeholder {
+  color: #ffffff; /* Platzhalter bleibt neutral weiß, nur Eingabe wird gelb */
+  opacity: 1;
+}
+
+/* Anzeige von Usernamen (z.B. Puller-Liste) — kein Eingabefeld, daher nicht kursiv */
+.username-color {
+  color: #00d4ff;
+}
+
+/* Für Identitäts-Eingaben (username/password beim Auth) */
+.field-blue {
+  color: #00d4ff;
+  caret-color: #00d4ff;
+}
+.field-blue::placeholder {
+  color: #ffffff; /* Platzhalter bleibt neutral weiß */
+  opacity: 1;
+}
+
+.username-chip {
+  font-size: 18px;
+  font-family: Helvetica, Arial, sans-serif;
+  white-space: nowrap;
+  transition: left 0.3s ease, top 0.3s ease;
+}
+
+/* Wie .menu-word, aber OHNE position:fixed — für Elemente, die normal
+   innerhalb eines Blocks (z.B. #auth-block) untereinanderstehen sollen */
+.plain-word {
+  color: #ffffff;
+  font-size: 20px;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  margin: 0;
+  caret-color: #ffffff;
+}
+.plain-word::placeholder {
+  color: #ffffff;
+  opacity: 1;
+}
+
+.clock {
+  font-size: 16px;
+  cursor: default;
+}
+
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #f00000;
+  z-index: 3000;
+}
+
+.upload-stage {
+  display: none;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#upload-preview {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 70vw;
+  max-height: 55vh;
+  object-fit: contain;
+}
+
+#single-image {
+  position: fixed;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 70vw;
+  max-height: 55vh;
+  object-fit: contain;
+  z-index: 1000; /* immer über den Kommentar-/Puller-Chips, egal wie weit gescrollt wird */
+}
+
+#upload-esc, #upload-esc-2 {
+  position: absolute;
+  top: 20px;
+  right: 28px;
+}
+
+.tag-input {
+  position: absolute;
+  bottom: 120px;
+  left: 60px;
+  width: 220px;
+}
+
+.tag-chips {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.comments-stage {
+  position: relative;
+  width: 100%;
+}
+
+#single-view {
+  overflow-y: auto;
+}
+
+.tag-chip {
+  position: absolute;
+  color: #ffee00;
+  font-size: 16px;
+  font-style: italic;
+  transition: left 0.3s ease, top 0.3s ease;
+}
+
+#upload-next, #upload-submit {
+  position: absolute;
+  bottom: 40px;
+  left: 60px;
+}
+
+.consent-line {
+  display: block;
+  position: relative;
+  color: #ffffff;
+  font-size: 15px;
+  margin: 40px 60px 0 60px;
+  max-width: 500px;
+  cursor: pointer;
+}
+
+.consent-line span {
+  margin-left: 28px;
+  display: inline-block;
+}
+
+.push-checkbox {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #ffffff;
+  background: transparent;
+  cursor: pointer;
+}
+
+.push-checkbox:checked {
+  background: #ffffff;
+}
+
+#contact-email {
+  position: absolute;
+  top: 210px;
+  left: 60px;
+  width: 260px;
+  display: none;
+}
+
+#single-type-input {
+  width: 400px;
+}
+
+#single-report {
+  font-size: 18px;
+}
+
+#edit-delete-input {
+  width: 340px;
+}
+
+#own-gallery-view,
+#foreign-profile-view {
+  overflow-y: auto;
+}
+
+#own-gallery-stage,
+#foreign-profile-stage {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* "*"-Modus: nur Bilder sichtbar. Gilt gezielt für die Bild-Ansichten —
+   reine Textseiten (Login, später v.r.p.) bleiben davon unberührt. */
+body.hide-text #menu-layer .menu-word,
+body.hide-text #single-view .menu-word,
+body.hide-text #single-view .username-color,
+body.hide-text #own-gallery-view .menu-word,
+body.hide-text #foreign-profile-view .menu-word,
+body.hide-text #upload-overlay .menu-word,
+body.hide-text .tag-chip,
+body.hide-text .username-chip,
+body.hide-text #global-clock,
+body.hide-text #shoot-word {
+  display: none !important;
+}
+
+/* Der Stern selbst macht das Gegenteil: unsichtbar im Normalzustand,
+   sichtbar (als Rückweg) sobald der *-Modus aktiv ist. */
+#star-toggle {
+  display: none;
+}
+body.hide-text #star-toggle {
+  display: block;
+}
+
+#vrp-text {
+  position: fixed;
+  top: 100px;
+  left: 60px;
+  right: 60px;
+  max-width: 640px;
+  max-height: 75vh;
+  overflow-y: auto;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #ffffff;
+  white-space: pre-wrap;
+  display: none;
+}
+
+#auth-block {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+#auth-block input.plain-word {
+  width: 200px;
+}
+
+#auth-info-text,
+#auth-username-taken,
+#auth-login-error,
+#auth-signup-error,
+#auth-forgot,
+#auth-forgot-sent,
+#edit-error,
+#edit-success,
+#edit-byebye {
+  font-size: 14px;
+  cursor: default;
+}
+#auth-forgot {
+  cursor: pointer;
+}
+
+#auth-password-toggle {
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#auth-signup-fields {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
 }

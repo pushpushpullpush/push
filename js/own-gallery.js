@@ -2,9 +2,10 @@ import { supabase } from './supabase-client.js';
 import { createGallery } from './gallery.js';
 import { fetchUserImages, fetchFollowing } from './profile-data.js';
 import { randomSpot, clampToViewport } from './position-utils.js';
-import { repositionClock } from './clock.js';
+import { repositionClock, setClockVisible } from './clock.js';
 import { repositionShootWord, setShootWordVisible } from './shoot.js';
 import { flashMessage } from './feedback.js';
+import { showMessage } from './notice-board.js';
 
 export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile) {
   const {
@@ -15,7 +16,6 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     editEmailLabel, editEmailInput, editEmailConfirm,
     editPasswordLabel, editPasswordInput, editPasswordConfirm,
     editDeleteLabel, editDeleteInput, editDeleteConfirm,
-    editSuccessEl, editByebyeEl, editErrorEl,
   } = refs;
 
   let gallery = null;
@@ -68,26 +68,14 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     clampToViewport(el);
   }
 
-  function flashSuccessNear(refEl) {
-    positionBelow(editSuccessEl, refEl);
-    editSuccessEl.style.display = 'block';
-    setTimeout(() => { editSuccessEl.style.display = 'none'; }, 1500);
-  }
-
-  function showEditError(text, nearEl) {
-    editErrorEl.textContent = text;
-    if (nearEl) positionBelow(editErrorEl, nearEl);
-    editErrorEl.style.display = 'block';
-    setTimeout(() => { editErrorEl.style.display = 'none'; }, 2200);
-  }
-
   // ─────────────────────────────────────────────
   // Ein aufklappbares Feld: Label -> Eingabefeld -> "confirm" (nur bei Änderung)
   // Immer nur eins gleichzeitig offen; zweiter Klick auf dasselbe Label schließt wieder.
+  // Erfolg/Fehler laufen über die gemeinsame Meldungs-Konsole.
   // ─────────────────────────────────────────────
   let currentlyOpenCollapse = null;
 
-  function setupExpandableField(labelEl, inputEl, confirmEl, getOriginalValue, onConfirm) {
+  function setupExpandableField(labelEl, inputEl, confirmEl, getOriginalValue, onConfirm, successMessage) {
     let originalValue = '';
     let isOpenNow = false;
 
@@ -125,7 +113,7 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
       const ok = await onConfirm(inputEl.value.trim());
       if (ok) {
         collapse();
-        flashSuccessNear(labelEl);
+        showMessage(successMessage);
       }
     });
 
@@ -138,20 +126,21 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     async (rawVal) => {
       const newVal = rawVal.toLowerCase();
       if (!/^[a-z0-9]{2,12}$/.test(newVal)) {
-        showEditError('error: 2–12 letters/numbers', editUsernameInput);
+        showMessage('error: collection name must be 2–12 letters/numbers');
         return false;
       }
       const user = getCurrentUser();
       const { error } = await supabase.from('profiles').update({ username: newVal }).eq('id', user.id);
       if (error) {
         const msg = (error.message || '').toLowerCase();
-        showEditError(msg.includes('duplicate') || msg.includes('unique') ? 'username taken' : 'error: update failed', editUsernameInput);
+        showMessage(msg.includes('duplicate') || msg.includes('unique') ? 'collection name taken' : 'error: update failed');
         return false;
       }
       user.username = newVal; // teilt sich mit auth.js, da dieselbe Objekt-Referenz
       usernameEl.textContent = newVal;
       return true;
     },
+    'collection name updated',
   );
 
   const emailField = setupExpandableField(
@@ -159,16 +148,17 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     () => '',
     async (newVal) => {
       if (!newVal.includes('@') || !newVal.includes('.')) {
-        showEditError('error: invalid e-mail', editEmailInput);
+        showMessage('error: invalid e-mail');
         return false;
       }
       const { error } = await supabase.auth.updateUser({ email: newVal });
       if (error) {
-        showEditError('error: update failed', editEmailInput);
+        showMessage('error: update failed');
         return false;
       }
       return true;
     },
+    'email updated',
   );
 
   const passwordField = setupExpandableField(
@@ -179,11 +169,12 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
       const { error } = await supabase.auth.updateUser({ password: newVal });
       if (error) {
         const msg = (error.message || '').toLowerCase();
-        showEditError(msg.includes('password') ? 'error: password too short' : 'error: update failed', editPasswordInput);
+        showMessage(msg.includes('password') ? 'error: password too short' : 'error: update failed');
         return false;
       }
       return true;
     },
+    'password updated',
   );
 
   let deleteOpenNow = false;
@@ -227,9 +218,7 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
       return;
     }
     await supabase.auth.signOut();
-    editByebyeEl.textContent = 'bye bye';
-    positionBelow(editByebyeEl, editDeleteLabel);
-    editByebyeEl.style.display = 'block';
+    showMessage('bye bye', 1500);
     setTimeout(() => window.location.reload(), 1500);
   });
 
@@ -238,9 +227,6 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     emailField.collapse();
     passwordField.collapse();
     collapseDelete();
-    editSuccessEl.style.display = 'none';
-    editErrorEl.style.display = 'none';
-    editByebyeEl.style.display = 'none';
   }
 
   // ─────────────────────────────────────────────
@@ -271,6 +257,7 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     zEl.style.display = 'block';
     aEl.style.display = 'block';
     setShootWordVisible(true);
+    setClockVisible(true);
     positionGalleryWords();
   }
 
@@ -278,6 +265,7 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     mode = 'settings';
     hideAllSections();
     setShootWordVisible(false);
+    setClockVisible(false);
     logoutEl.style.display = 'block';
     editEl.style.display = 'block';
     newsletterLine.style.display = 'block';
@@ -290,6 +278,7 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     mode = 'edit';
     hideAllSections();
     setShootWordVisible(false);
+    setClockVisible(false);
     editUsernameLabel.style.display = 'block';
     editEmailLabel.style.display = 'block';
     editPasswordLabel.style.display = 'block';
@@ -333,7 +322,7 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     await loadGallery(user);
 
     searchEl.value = '';
-    searchEl.placeholder = 'search';
+    searchEl.placeholder = 'filter';
 
     enterGallery();
   }
@@ -353,6 +342,19 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     }
   }
 
+  // Für die "pull"-Flug-Animation: Zielposition eines Bildes bzw. eines
+  // Username-Chips innerhalb der (bereits geladenen) eigenen Galerie.
+  function getImageRect(imageId) {
+    if (!gallery) return null;
+    const el = gallery.elements.get(imageId);
+    return el ? el.getBoundingClientRect() : null;
+  }
+
+  function getUsernameChipRect(username) {
+    const chip = [...stage.querySelectorAll('.username-chip')].find((el) => el.textContent === username);
+    return chip ? chip.getBoundingClientRect() : null;
+  }
+
   zEl.addEventListener('click', () => {
     if (!gallery) return;
     const images = gallery.getVisibleImages();
@@ -361,18 +363,16 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     onOpenSingle(pick.id, images);
   });
 
-  aEl.addEventListener('click', async () => {
-    const user = getCurrentUser();
-    if (!user || !gallery) return;
-    const images = await fetchUserImages(user.id);
-    gallery.syncImages(images);
+  aEl.addEventListener('click', () => {
+    if (!gallery) return;
+    gallery.reshuffleImages();
   });
 
   searchEl.addEventListener('input', () => gallery && gallery.filterByTag(searchEl.value));
   searchEl.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       searchEl.value = '';
-      searchEl.placeholder = 'search';
+      searchEl.placeholder = 'filter';
       searchEl.blur();
       gallery && gallery.filterByTag('');
     } else if (e.key === 'Enter') {
@@ -380,7 +380,7 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     }
   });
   searchEl.addEventListener('blur', () => {
-    if (searchEl.value.trim() === '') searchEl.placeholder = 'search';
+    if (searchEl.value.trim() === '') searchEl.placeholder = 'filter';
   });
 
   logoutEl.addEventListener('click', async () => {
@@ -401,8 +401,33 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
       flashMessage('error: could not save preference');
     } else {
       user.newsletter_opt_in = newsletterToggle.checked;
+      showMessage(newsletterToggle.checked ? 'newsletter on' : 'newsletter off');
     }
   });
 
-  return { open, close, removeImageIfPresent, repositionWords: positionGalleryWords };
+  // Für Fenstergrößenänderungen: die zum aktuellen Modus passenden
+  // Textelemente neu anordnen und, falls Bilder sichtbar sind, die eigene
+  // Galerie an die neue Breite anpassen (Bildgrößen bleiben unverändert).
+  function reflow() {
+    if (overlay.style.display !== 'block') return;
+    if (mode === 'gallery') {
+      positionGalleryWords();
+      if (gallery) gallery.relayout();
+    } else if (mode === 'settings') {
+      positionSettingsWords();
+    } else if (mode === 'edit') {
+      positionEditWords();
+    }
+  }
+
+  return {
+    open,
+    close,
+    removeImageIfPresent,
+    repositionWords: positionGalleryWords,
+    hasImages: () => mode === 'gallery',
+    getImageRect,
+    getUsernameChipRect,
+    reflow,
+  };
 }

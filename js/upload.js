@@ -3,8 +3,9 @@ import { MAX_ASPECT_RATIO, computeDisplaySize } from './image-config.js';
 import { randomSpot, clampToViewport, computeContainRect } from './position-utils.js';
 import { repositionClock } from './clock.js';
 import { repositionShootWord } from './shoot.js';
-import { flashTip } from './tips.js';
 import { flashMessage } from './feedback.js';
+import { showRandomHint } from './notice-board.js';
+import { setShootWordVisible } from './shoot.js';
 
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.82;
@@ -161,7 +162,10 @@ export function initUpload(refs, onUploaded) {
         preview.style.transform = 'none';
 
         overlay.style.display = 'block';
+        setShootWordVisible(false);
         repositionWords();
+        // Cursor steht direkt im Tag-Feld, damit man ohne extra Klick tippen kann.
+        requestAnimationFrame(() => tagInput.focus());
       };
       img.src = e.target.result;
     };
@@ -170,6 +174,7 @@ export function initUpload(refs, onUploaded) {
 
   function closeOverlay() {
     overlay.style.display = 'none';
+    setShootWordVisible(true);
     pendingBlob = null;
     pendingTags = [];
     pendingTagSpots = [];
@@ -188,7 +193,7 @@ export function initUpload(refs, onUploaded) {
     deleteWord.style.marginRight = '10px';
 
     const escWord = document.createElement('span');
-    escWord.textContent = 'esc';
+    escWord.textContent = 'b';
     escWord.style.cursor = 'pointer';
 
     chip.appendChild(deleteWord);
@@ -243,6 +248,11 @@ export function initUpload(refs, onUploaded) {
   submitBtn.addEventListener('click', async () => {
     if (!pendingBlob || isUploading) return;
 
+    if (pendingTags.length === 0) {
+      flashMessage('error: insert at least one tag');
+      return;
+    }
+
     isUploading = true;
     submitBtn.style.pointerEvents = 'none';
     submitBtn.style.opacity = '0.3';
@@ -282,7 +292,7 @@ export function initUpload(refs, onUploaded) {
 
       const displaySize = pendingDisplaySize;
       closeOverlay();
-      flashTip();
+      showRandomHint();
 
       onUploaded({
         id: inserted.id,
@@ -297,4 +307,14 @@ export function initUpload(refs, onUploaded) {
       submitBtn.style.opacity = '1';
     }
   });
+
+  return {
+    handleFile: startUpload,
+    // Für Fenstergrößenänderungen: nur die frei positionierten Textelemente
+    // zurück in den sichtbaren Bereich holen — das Vorschaubild behält
+    // seine ursprüngliche Größe.
+    reposition: () => {
+      if (overlay.style.display === 'block') repositionWords();
+    },
+  };
 }

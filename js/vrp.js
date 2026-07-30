@@ -1,5 +1,6 @@
 import { randomSpot, clampToViewport } from './position-utils.js';
 import { setShootWordVisible } from './shoot.js';
+import { setClockVisible } from './clock.js';
 
 const IMPRESSUM_BODY = `Angaben gemäß § 5 TMG / § 18 Abs. 2 MStV
 
@@ -23,7 +24,7 @@ const DATENSCHUTZ_BODY = `Datenschutzerklärung (Entwurf)
 auf dieser Website.
 
 2. Welche Daten werden verarbeitet
-– Beim Anlegen eines Kontos: Username, E-Mail-Adresse, Passwort
+– Beim Anlegen eines Kontos: Collection name, E-Mail-Adresse, Passwort
   (verschlüsselt gespeichert, wir selbst haben keinen Zugriff darauf)
 – Beim Pushen: das hochgeladene Bild, eingegebene Tags, technische
   Bildmaße
@@ -202,12 +203,14 @@ export function initVrp(refs) {
     stack = [];
     overlay.style.display = 'block';
     setShootWordVisible(false);
+    setClockVisible(false);
     render();
   }
 
   function close() {
     overlay.style.display = 'none';
     setShootWordVisible(true);
+    setClockVisible(true);
   }
 
   escBtn.addEventListener('click', () => {
@@ -227,5 +230,9 @@ export function initVrp(refs) {
     close,
     filterJournal: () => setFilter('journal'),
     filterEssay: () => setFilter('essay'),
+    // Für Fenstergrößenänderungen: aktuell sichtbare Wörter neu anordnen.
+    reposition: () => {
+      if (overlay.style.display === 'block') scatterCurrentWords();
+    },
   };
 }

@@ -1,4 +1,4 @@
-import { randomSpot, clampToViewport } from './position-utils.js';
+import { randomSpot, clampToViewport, clampFromRect } from './position-utils.js';
 
 // html2canvas wird erst geladen, wenn das Tool tatsächlich zum ersten
 // Mal benutzt wird — kostet also nichts, solange niemand es anfasst.
@@ -87,6 +87,7 @@ export function repositionShootWord(taken = [], avoidRect = null) {
   const spot = randomSpot(taken, { margin: 60, avoidRect });
   shootEl.style.left = spot.x + 'px';
   shootEl.style.top = spot.y + 'px';
+  clampFromRect(shootEl, avoidRect);
   clampToViewport(shootEl);
   return spot;
 }

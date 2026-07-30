@@ -4,16 +4,19 @@ import {
   isFollowing, follow, unfollow,
 } from './profile-data.js';
 import { randomSpot, clampToViewport } from './position-utils.js';
-import { repositionClock } from './clock.js';
-import { repositionShootWord } from './shoot.js';
+import { repositionClock, setClockVisible } from './clock.js';
+import { repositionShootWord, setShootWordVisible } from './shoot.js';
 import { flashMessage } from './feedback.js';
+import { showMessage } from './notice-board.js';
+import { flyIntoOwnGallery } from './pull-animation.js';
 
-export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenProfile, onNeedsLogin) {
+export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenProfile, onNeedsLogin, getOwnGallery) {
   const { overlay, stage, usernameEl, searchEl, zEl, aEl, escBtn, pullBtn } = refs;
 
   let gallery = null;
   let currentProfile = null; // { id, username }
   let currentlyFollowing = false;
+  let focused = false; // Username-Fokus: nur username + b + pull/release collection sichtbar
 
   function positionWords() {
     const taken = [];
@@ -28,15 +31,39 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
     repositionShootWord(taken);
   }
 
+  function updatePullLabel() {
+    const base = currentlyFollowing ? 'release' : 'pull';
+    pullBtn.textContent = focused ? `${base} collection` : base;
+  }
+
+  /**
+   * Klick auf den fremden Usernamen: blendet alles bis auf den Usernamen
+   * selbst aus und zeigt nur noch "b" und "pull collection"/"release
+   * collection". Erneuter Klick auf den Usernamen (oder auf "b") kehrt zurück.
+   */
+  function setFocused(value) {
+    focused = value;
+    stage.style.display = value ? 'none' : '';
+    searchEl.style.display = value ? 'none' : '';
+    zEl.style.display = value ? 'none' : '';
+    aEl.style.display = value ? 'none' : '';
+    // "pull"/"release" gibt es in der normalen Galerie-Ansicht nicht mehr —
+    // nur noch im Username-Fokus als "pull collection"/"release collection".
+    pullBtn.style.display = value ? '' : 'none';
+    setClockVisible(!value);
+    setShootWordVisible(!value);
+    updatePullLabel();
+  }
+
   async function refreshFollowState() {
     const user = getCurrentUser();
     if (!user || !currentProfile) {
-      pullBtn.textContent = 'pull';
       currentlyFollowing = false;
+      updatePullLabel();
       return;
     }
     currentlyFollowing = await isFollowing(user.id, currentProfile.id);
-    pullBtn.textContent = currentlyFollowing ? 'release' : 'pull';
+    updatePullLabel();
   }
 
   async function loadGallery(profile) {
@@ -68,11 +95,12 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
     usernameEl.textContent = profile.username;
     overlay.style.display = 'block';
     document.body.style.overflow = 'hidden';
+    setFocused(false);
 
     await loadGallery(profile);
 
     searchEl.value = '';
-    searchEl.placeholder = 'search';
+    searchEl.placeholder = 'filter';
 
     await refreshFollowState();
     positionWords();
@@ -82,13 +110,24 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
     overlay.style.display = 'none';
     document.body.style.overflow = '';
     currentProfile = null;
+    focused = false;
+    setClockVisible(true);
+    setShootWordVisible(true);
   }
 
-  escBtn.addEventListener('click', close);
-  aEl.addEventListener('click', async () => {
-    if (!currentProfile || !gallery) return;
-    const images = await fetchUserImages(currentProfile.id);
-    gallery.syncImages(images);
+  escBtn.addEventListener('click', () => {
+    if (focused) setFocused(false);
+    else close();
+  });
+
+  usernameEl.addEventListener('click', () => {
+    if (!currentProfile) return;
+    setFocused(!focused);
+  });
+
+  aEl.addEventListener('click', () => {
+    if (!gallery) return;
+    gallery.reshuffleImages();
   });
 
   zEl.addEventListener('click', () => {
@@ -103,7 +142,7 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
   searchEl.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       searchEl.value = '';
-      searchEl.placeholder = 'search';
+      searchEl.placeholder = 'filter';
       searchEl.blur();
       gallery && gallery.filterByTag('');
     } else if (e.key === 'Enter') {
@@ -111,8 +150,46 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
     }
   });
   searchEl.addEventListener('blur', () => {
-    if (searchEl.value.trim() === '') searchEl.placeholder = 'search';
+    if (searchEl.value.trim() === '') searchEl.placeholder = 'filter';
   });
+
+  let followAnimationRunning = false;
+
+  async function animateFollowIntoGallery(username) {
+    if (followAnimationRunning) return;
+    const ownGallery = getOwnGallery && getOwnGallery();
+    if (!ownGallery) return;
+
+    followAnimationRunning = true;
+    try {
+      const startRect = usernameEl.getBoundingClientRect();
+      const startFontSize = getComputedStyle(usernameEl).fontSize;
+      const clone = document.createElement('div');
+      clone.className = 'username-color';
+      clone.textContent = username;
+      clone.style.fontSize = startFontSize;
+
+      await flyIntoOwnGallery({
+        cloneEl: clone,
+        sourceEl: usernameEl,
+        startRect,
+        applyRect: (el, r) => {
+          el.style.left = r.left + 'px';
+          el.style.top = r.top + 'px';
+          if (r.fontSize) el.style.fontSize = r.fontSize;
+        },
+        transitionCss: 'left 0.4s ease, top 0.4s ease, font-size 0.4s ease',
+        ownGallery,
+        getTargetRect: () => {
+          const rect = ownGallery.getUsernameChipRect(username);
+          if (!rect) return null;
+          return { left: rect.left, top: rect.top, fontSize: '18px' };
+        },
+      });
+    } finally {
+      followAnimationRunning = false;
+    }
+  }
 
   pullBtn.addEventListener('click', async () => {
     const user = getCurrentUser();
@@ -126,7 +203,8 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
       const ok = await unfollow(user.id, currentProfile.id);
       if (ok) {
         currentlyFollowing = false;
-        pullBtn.textContent = 'pull';
+        updatePullLabel();
+        showMessage('collection released');
       } else {
         flashMessage('error: could not release');
       }
@@ -134,12 +212,22 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
       const ok = await follow(user.id, currentProfile.id);
       if (ok) {
         currentlyFollowing = true;
-        pullBtn.textContent = 'release';
+        updatePullLabel();
+        showMessage('collection pulled');
+        animateFollowIntoGallery(currentProfile.username);
       } else {
         flashMessage('error: could not pull');
       }
     }
   });
 
-  return { open, close, repositionWords: positionWords };
+  // Für Fenstergrößenänderungen: Textelemente neu anordnen und die Galerie
+  // an die neue Breite anpassen (Bildgrößen bleiben unverändert).
+  function reflow() {
+    if (overlay.style.display !== 'block') return;
+    positionWords();
+    if (gallery) gallery.relayout();
+  }
+
+  return { open, close, repositionWords: positionWords, reflow };
 }

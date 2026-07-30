@@ -136,6 +136,35 @@ input.menu-word {
   z-index: 3000;
 }
 
+/* Drag & Drop: Datei irgendwo auf die Seite ziehen — dieser Hinweis legt
+   sich über alles (auch über offene Overlays), solange eine Datei über der
+   Seite schwebt. Bewusst zurückhaltend: kein Rahmen, kein Abdunkeln, nur
+   der Text selbst, wie jedes andere Textelement der Seite. pointer-events:
+   none, damit er das drop-Event nicht selbst abfängt (das läuft über
+   document-Listener). */
+#drop-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9800;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+#drop-overlay.active {
+  display: flex;
+}
+#drop-overlay-text {
+  color: #ffffff;
+  font-size: 28px;
+  opacity: 0;
+  animation: drop-fade-in 0.3s ease forwards;
+}
+@keyframes drop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .upload-stage {
   display: none;
   position: relative;
@@ -148,18 +177,18 @@ input.menu-word {
   top: 100px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 70vw;
-  max-height: 55vh;
   object-fit: contain;
 }
 
+/* Kein max-width/max-height in vw/vh hier: die Größe wird einmalig von
+   computeContainRect() in JS berechnet (bereits proportional zum Fenster
+   zum Zeitpunkt des Öffnens) und soll bei einer späteren Fenstergrößen-
+   änderung nicht zusätzlich per CSS mitschrumpfen. */
 #single-image {
   position: fixed;
   top: 100px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 70vw;
-  max-height: 55vh;
   object-fit: contain;
   z-index: 1000; /* immer über den Kommentar-/Puller-Chips, egal wie weit gescrollt wird */
 }
@@ -170,11 +199,12 @@ input.menu-word {
   right: 28px;
 }
 
-.tag-input {
+input.tag-input {
   position: absolute;
   bottom: 120px;
   left: 60px;
-  width: 220px;
+  width: 380px;
+  max-width: 85vw;
 }
 
 .tag-chips {
@@ -252,6 +282,15 @@ input.menu-word {
 
 #single-report {
   font-size: 18px;
+  right: 28px;
+  bottom: 28px;
+  left: auto;
+  top: auto;
+}
+
+#single-views {
+  font-size: 16px;
+  cursor: default;
 }
 
 #edit-delete-input {
@@ -280,7 +319,6 @@ body.hide-text #foreign-profile-view .menu-word,
 body.hide-text #upload-overlay .menu-word,
 body.hide-text .tag-chip,
 body.hide-text .username-chip,
-body.hide-text #global-clock,
 body.hide-text #shoot-word {
   display: none !important;
 }
@@ -325,22 +363,6 @@ body.hide-text #star-toggle {
   width: 300px;
 }
 
-#auth-info-text,
-#auth-username-taken,
-#auth-login-error,
-#auth-signup-error,
-#auth-forgot,
-#auth-forgot-sent,
-#edit-error,
-#edit-success,
-#edit-byebye {
-  font-size: 14px;
-  cursor: default;
-}
-#auth-forgot {
-  cursor: pointer;
-}
-
 #auth-password-toggle {
   font-size: 13px;
   cursor: pointer;
@@ -351,4 +373,17 @@ body.hide-text #star-toggle {
   flex-direction: column;
   align-items: flex-start;
   gap: 14px;
+}
+
+/* "enter" braucht spürbar mehr Abstand zu den Eingabefeldern darüber und
+   dieselbe Schriftgröße wie die übrigen frei schwebenden Textelemente
+   (push, search, pull, ...). */
+#auth-enter {
+  font-size: 28px;
+  margin-top: 26px;
+}
+
+/* Frei schwebend (siehe .menu-word), aber in Uhrzeit-Schriftgröße. */
+#auth-forgot {
+  font-size: 16px;
 }

@@ -1,19 +1,21 @@
 import { supabase } from './supabase-client.js';
-import { randomSpot, clampToViewport } from './position-utils.js';
-import { repositionClock } from './clock.js';
+import { randomSpot, clampToViewport, clampFromRect } from './position-utils.js';
+import { repositionClock, setClockVisible } from './clock.js';
 import { setShootWordVisible } from './shoot.js';
+import { showMessage } from './notice-board.js';
 
 const USERNAME_RE = /^[a-zA-Z0-9]{2,12}$/;
 
 export function initAuth(refs, onSessionChange) {
   const {
     overlay, block, escBtn,
-    usernameInput, passwordInput, passwordToggle, loginBtn, loginError,
+    usernameInput, passwordInput, passwordToggle, enterBtn,
     createToggle, signupFields, emailInput, newsletterToggle,
-    usernameTakenEl, signupError, signupBtn,
+    forgotEl,
   } = refs;
 
   let currentUser = null; // { id, username } oder null
+  let creatingAccount = false; // ersetzt die frühere Checkbox
 
   function setUser(user) {
     currentUser = user;
@@ -38,15 +40,36 @@ export function initAuth(refs, onSessionChange) {
     passwordInput.value = '';
     passwordInput.type = 'password';
     passwordToggle.textContent = 'show';
-    createToggle.checked = false;
+    creatingAccount = false;
+    createToggle.textContent = 'create account';
     signupFields.style.display = 'none';
-    loginBtn.style.display = 'block';
     emailInput.value = '';
     newsletterToggle.checked = true;
-    loginError.style.display = 'none';
-    usernameTakenEl.style.display = 'none';
-    signupError.style.display = 'none';
-    if (forgotSentEl) forgotSentEl.style.display = 'none';
+  }
+
+  /**
+   * "forgot password" und "create account" schweben frei (wie andere
+   * Textelemente der Seite), meiden dabei aber den Login-Block und halten
+   * Mindestabstand zueinander sowie zu esc — sowohl bei der Anfangs-
+   * platzierung als auch, falls der Block durch "create account" später
+   * höher wird.
+   */
+  function repositionFloatingLinks(taken) {
+    const blockRect = block.getBoundingClientRect();
+
+    const forgotSpot = randomSpot(taken, { margin: 60, minDist: 160, avoidRect: blockRect });
+    taken.push(forgotSpot);
+    forgotEl.style.left = forgotSpot.x + 'px';
+    forgotEl.style.top = forgotSpot.y + 'px';
+    clampFromRect(forgotEl, blockRect, 24);
+    clampToViewport(forgotEl);
+
+    const createSpot = randomSpot(taken, { margin: 60, minDist: 160, avoidRect: blockRect });
+    taken.push(createSpot);
+    createToggle.style.left = createSpot.x + 'px';
+    createToggle.style.top = createSpot.y + 'px';
+    clampFromRect(createToggle, blockRect, 24);
+    clampToViewport(createToggle);
   }
 
   function positionBlock() {
@@ -65,6 +88,7 @@ export function initAuth(refs, onSessionChange) {
     clampToViewport(escBtn, 40);
     taken.push(escSpot);
 
+    repositionFloatingLinks(taken);
     repositionClock(taken);
   }
 
@@ -72,23 +96,20 @@ export function initAuth(refs, onSessionChange) {
     resetForm();
     overlay.style.display = 'block';
     setShootWordVisible(false);
+    setClockVisible(false);
     positionBlock();
   }
 
   function close() {
     overlay.style.display = 'none';
     setShootWordVisible(true);
+    setClockVisible(true);
   }
 
   escBtn.addEventListener('click', close);
 
   function handleEnterKey(e) {
-    if (e.key !== 'Enter') return;
-    if (createToggle.checked) {
-      signupBtn.click();
-    } else {
-      loginBtn.click();
-    }
+    if (e.key === 'Enter') enterBtn.click();
   }
   usernameInput.addEventListener('keydown', handleEnterKey);
   passwordInput.addEventListener('keydown', handleEnterKey);
@@ -100,44 +121,46 @@ export function initAuth(refs, onSessionChange) {
     passwordToggle.textContent = showing ? 'show' : 'hide';
   });
 
-  createToggle.addEventListener('change', () => {
-    const creating = createToggle.checked;
-    signupFields.style.display = creating ? 'flex' : 'none';
-    loginBtn.style.display = creating ? 'none' : 'block';
-    // Der Block ist jetzt evtl. deutlich höher geworden — zurück ins Bild rücken, falls nötig.
-    requestAnimationFrame(() => clampToViewport(block, 40));
+  createToggle.addEventListener('click', () => {
+    creatingAccount = !creatingAccount;
+    createToggle.textContent = creatingAccount ? 'enter existing account' : 'create account';
+    signupFields.style.display = creatingAccount ? 'flex' : 'none';
+
+    // Der Block ist jetzt evtl. deutlich höher/niedriger geworden — zurück
+    // ins Bild rücken und die frei schwebenden Links bei Bedarf wegschieben,
+    // ohne sie komplett neu zu würfeln.
+    requestAnimationFrame(() => {
+      clampToViewport(block, 40);
+      const blockRect = block.getBoundingClientRect();
+      [forgotEl, createToggle].forEach((el) => {
+        clampFromRect(el, blockRect, 24);
+        clampToViewport(el);
+      });
+    });
   });
 
-  const { forgotEl, forgotSentEl } = refs;
-
-  forgotEl && forgotEl.addEventListener('click', async () => {
-    loginError.style.display = 'none';
-    forgotSentEl.style.display = 'none';
-
+  forgotEl.addEventListener('click', async () => {
     const username = usernameInput.value.trim().toLowerCase();
     if (!username) {
-      loginError.textContent = 'error: enter your username first';
-      loginError.style.display = 'block';
+      showMessage('error: enter your collection name first');
       return;
     }
 
     const { data: email, error } = await supabase.rpc('get_email_for_username', { uname: username });
     if (error || !email) {
-      loginError.style.display = 'block';
+      showMessage('error: wrong combination');
       return;
     }
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
     if (resetError) {
-      loginError.textContent = 'error: could not send reset mail';
-      loginError.style.display = 'block';
+      showMessage('error: could not send reset mail');
       return;
     }
-    forgotSentEl.style.display = 'block';
+    showMessage('check your inbox');
   });
 
-  loginBtn.addEventListener('click', async () => {
-    loginError.style.display = 'none';
+  async function performLogin() {
     const username = usernameInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     if (!username || !password) return;
@@ -145,13 +168,13 @@ export function initAuth(refs, onSessionChange) {
     const { data: email, error: lookupError } = await supabase.rpc('get_email_for_username', { uname: username });
 
     if (lookupError || !email) {
-      loginError.style.display = 'block';
+      showMessage('error: wrong combination');
       return;
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.session) {
-      loginError.style.display = 'block';
+      showMessage('error: wrong combination');
       return;
     }
 
@@ -165,29 +188,23 @@ export function initAuth(refs, onSessionChange) {
       setUser(profile);
       close();
     }
-  });
+  }
 
-  signupBtn.addEventListener('click', async () => {
-    usernameTakenEl.style.display = 'none';
-    signupError.style.display = 'none';
-
+  async function performSignup() {
     const username = usernameInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     const email = emailInput.value.trim();
 
     if (!USERNAME_RE.test(username)) {
-      signupError.textContent = 'error: username must be 2–12 letters/numbers';
-      signupError.style.display = 'block';
+      showMessage('error: collection name must be 2–12 letters/numbers');
       return;
     }
     if (!password) {
-      signupError.textContent = 'error: password required';
-      signupError.style.display = 'block';
+      showMessage('error: password required');
       return;
     }
     if (!email.includes('@') || !email.includes('.')) {
-      signupError.textContent = 'error: invalid e-mail';
-      signupError.style.display = 'block';
+      showMessage('error: invalid e-mail');
       return;
     }
 
@@ -196,19 +213,17 @@ export function initAuth(refs, onSessionChange) {
     if (error) {
       const msg = (error.message || '').toLowerCase();
       if (msg.includes('already') || msg.includes('registered')) {
-        signupError.textContent = 'error: e-mail already registered';
+        showMessage('error: e-mail already registered');
       } else if (msg.includes('password') || msg.includes('characters')) {
-        signupError.textContent = 'error: password too short';
+        showMessage('error: password too short');
       } else {
-        signupError.textContent = 'error: sign up failed';
+        showMessage('error: sign up failed');
       }
-      signupError.style.display = 'block';
       return;
     }
 
     if (!data.user) {
-      signupError.textContent = 'error: sign up failed';
-      signupError.style.display = 'block';
+      showMessage('error: sign up failed');
       return;
     }
 
@@ -223,16 +238,20 @@ export function initAuth(refs, onSessionChange) {
     if (profileError) {
       const msg = (profileError.message || '').toLowerCase();
       if (msg.includes('duplicate') || msg.includes('unique')) {
-        usernameTakenEl.style.display = 'block';
+        showMessage('collection name taken');
       } else {
-        signupError.textContent = 'error: sign up failed';
-        signupError.style.display = 'block';
+        showMessage('error: sign up failed');
       }
       return;
     }
 
     setUser({ id: data.user.id, username, newsletter_opt_in: newsletterToggle.checked });
     close();
+  }
+
+  enterBtn.addEventListener('click', () => {
+    if (creatingAccount) performSignup();
+    else performLogin();
   });
 
   async function logout() {
@@ -242,5 +261,15 @@ export function initAuth(refs, onSessionChange) {
 
   restoreSession();
 
-  return { open, close, logout, getCurrentUser: () => currentUser };
+  return {
+    open,
+    close,
+    logout,
+    getCurrentUser: () => currentUser,
+    // Für Fenstergrößenänderungen: Login-Block und frei schwebende Links
+    // neu anordnen, nur wenn das Fenster gerade offen ist.
+    reposition: () => {
+      if (overlay.style.display === 'block') positionBlock();
+    },
+  };
 }

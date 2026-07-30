@@ -11,18 +11,26 @@
   <div id="stage"></div>
   <div id="menu-layer"></div>
 
+  <div id="welcome-view" class="overlay">
+    <div class="menu-word" id="welcome-push">push</div>
+  </div>
+
   <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none" />
+
+  <div id="drop-overlay">
+    <div id="drop-overlay-text">drop to push</div>
+  </div>
 
   <div id="upload-overlay" class="overlay">
     <img id="upload-preview" alt="preview" />
-    <div class="menu-word" id="upload-esc">esc</div>
+    <div class="menu-word" id="upload-esc">b</div>
     <input class="menu-word tag-input italic-field field-yellow" id="tag-input" placeholder="tags" />
     <div id="tag-chips" class="tag-chips"></div>
     <div class="menu-word" id="upload-push">push</div>
   </div>
 
   <div id="vrp-view" class="overlay" style="overflow-y:auto;">
-    <div class="menu-word" id="vrp-esc">esc</div>
+    <div class="menu-word" id="vrp-esc">b</div>
     <div id="vrp-list"></div>
     <div id="vrp-text"></div>
   </div>
@@ -30,10 +38,10 @@
   <div id="own-gallery-view" class="overlay">
     <div id="own-gallery-stage"></div>
     <div class="menu-word username-color" id="own-username"></div>
-    <input class="menu-word italic-field field-yellow" id="own-search" placeholder="search" />
+    <input class="menu-word italic-field field-yellow" id="own-search" placeholder="filter" />
     <div class="menu-word" id="own-z">z</div>
     <div class="menu-word" id="own-a">a</div>
-    <div class="menu-word" id="own-esc">esc</div>
+    <div class="menu-word" id="own-esc">b</div>
 
     <div class="menu-word" id="own-logout" style="display:none;">log out</div>
     <div class="menu-word" id="own-edit" style="display:none;">edit data</div>
@@ -42,7 +50,7 @@
       <span>receive updates via mail</span>
     </label>
 
-    <div class="menu-word" id="edit-username-label" style="display:none;">username</div>
+    <div class="menu-word" id="edit-username-label" style="display:none;">collection name</div>
     <input class="menu-word italic-field field-blue" id="edit-username-input" style="display:none;" />
     <div class="menu-word" id="edit-username-confirm" style="display:none;">confirm</div>
 
@@ -57,32 +65,29 @@
     <div class="menu-word" id="edit-delete-label" style="display:none;">delete account</div>
     <input class="menu-word italic-field" id="edit-delete-input" placeholder="type 'delete' to confirm" style="display:none;" />
     <div class="menu-word" id="edit-delete-confirm" style="display:none;">confirm</div>
-
-    <div class="menu-word" id="edit-success" style="display:none;">success</div>
-    <div class="menu-word" id="edit-byebye" style="display:none;">bye bye</div>
-    <div class="menu-word" id="edit-error" style="display:none;"></div>
   </div>
 
   <div id="foreign-profile-view" class="overlay">
     <div id="foreign-profile-stage"></div>
     <div class="menu-word username-color" id="foreign-username"></div>
-    <input class="menu-word italic-field field-yellow" id="foreign-search" placeholder="search" />
+    <input class="menu-word italic-field field-yellow" id="foreign-search" placeholder="filter" />
     <div class="menu-word" id="foreign-z">z</div>
     <div class="menu-word" id="foreign-a">a</div>
     <div class="menu-word" id="foreign-pull">pull</div>
-    <div class="menu-word" id="foreign-esc">esc</div>
+    <div class="menu-word" id="foreign-esc">b</div>
   </div>
 
   <div id="single-view" class="overlay">
     <img id="single-image" alt="" />
-    <div class="menu-word" id="single-esc">esc</div>
+    <div class="menu-word" id="single-esc">b</div>
     <div class="menu-word" id="single-z">z</div>
     <div class="menu-word" id="single-pull">pull</div>
     <div class="menu-word" id="single-comment">c</div>
     <div class="menu-word" id="single-report">r</div>
+    <div class="menu-word" id="single-views"></div>
     <div id="single-comments-layer" class="comments-stage"></div>
 
-    <div class="menu-word" id="single-dim-esc" style="display:none;">esc</div>
+    <div class="menu-word" id="single-dim-esc" style="display:none;">b</div>
     <input class="menu-word italic-field" id="single-type-input" style="display:none;" />
     <div class="menu-word" id="single-submit" style="display:none;"></div>
     <div class="menu-word" id="single-thanks" style="display:none;">thank you</div>
@@ -90,20 +95,11 @@
 
   <div id="auth-view" class="overlay">
     <div id="auth-block">
-      <input class="plain-word italic-field field-blue" id="auth-username" placeholder="username" maxlength="12" />
+      <input class="plain-word italic-field field-blue" id="auth-username" placeholder="collection name" maxlength="12" />
       <div style="display:flex; align-items:center; gap:10px;">
         <input class="plain-word italic-field field-blue" id="auth-password" type="password" placeholder="password" />
         <span id="auth-password-toggle" class="plain-word">show</span>
       </div>
-      <div class="plain-word" id="auth-login">enter</div>
-      <div class="plain-word" id="auth-forgot">forgot password</div>
-      <div class="plain-word" id="auth-forgot-sent" style="display:none;">check your inbox</div>
-      <div class="plain-word" id="auth-login-error" style="display:none;">error: wrong combination</div>
-
-      <label class="consent-line" id="auth-create-line">
-        <input type="checkbox" id="auth-create-toggle" class="push-checkbox" />
-        <span>create account</span>
-      </label>
 
       <div id="auth-signup-fields" style="display:none;">
         <input class="plain-word italic-field" id="auth-email" placeholder="e-mail" />
@@ -111,12 +107,15 @@
           <input type="checkbox" id="auth-newsletter-toggle" class="push-checkbox" checked />
           <span>receive updates via mail</span>
         </label>
-        <div class="plain-word" id="auth-username-taken" style="display:none;">username taken</div>
-        <div class="plain-word" id="auth-signup-error" style="display:none;"></div>
-        <div class="plain-word" id="auth-signup">enter</div>
       </div>
+
+      <div class="plain-word" id="auth-enter">enter</div>
     </div>
-    <div class="menu-word" id="auth-esc">esc</div>
+
+    <div class="menu-word" id="auth-forgot">forgot password</div>
+    <div class="menu-word" id="auth-create-toggle">create account</div>
+
+    <div class="menu-word" id="auth-esc">b</div>
   </div>
 
   <script type="module" src="js/main.js"></script>

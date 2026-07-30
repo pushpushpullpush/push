@@ -45,7 +45,43 @@ export function computeContainRect(naturalWidth, naturalHeight, { maxWidthFrac =
   return { left, top, right: left + width, bottom: top + height, width, height };
 }
 
-export function pointInRect(x, y, rect, pad = 16) {
+/**
+ * Schiebt ein bereits positioniertes und gerendertes Element aus einem
+ * Rechteck (z.B. der Bildfläche) heraus, falls es hineinragt. randomSpot
+ * prüft beim Aussuchen der Position nur den Ankerpunkt (die linke obere
+ * Ecke) gegen avoidRect — reicht die Elementgröße über den Ankerpunkt
+ * hinaus in das Rechteck hinein, bleibt das dort unentdeckt. Dieser Check
+ * arbeitet mit der tatsächlichen, gerenderten Bounding Box und korrigiert
+ * das nachträglich, analog zu clampToViewport für die Bildschirmränder.
+ */
+export function clampFromRect(el, rect, pad = 40) {
+  if (!rect) return;
+  const r = el.getBoundingClientRect();
+  const overlapsX = r.right > rect.left - pad && r.left < rect.right + pad;
+  const overlapsY = r.bottom > rect.top - pad && r.top < rect.bottom + pad;
+  if (!(overlapsX && overlapsY)) return;
+
+  const pushLeft = r.right - (rect.left - pad);
+  const pushRight = (rect.right + pad) - r.left;
+  const pushUp = r.bottom - (rect.top - pad);
+  const pushDown = (rect.bottom + pad) - r.top;
+
+  const options = [
+    { dx: -pushLeft, dy: 0 },
+    { dx: pushRight, dy: 0 },
+    { dx: 0, dy: -pushUp },
+    { dx: 0, dy: pushDown },
+  ];
+  options.sort((a, b) => (Math.abs(a.dx) + Math.abs(a.dy)) - (Math.abs(b.dx) + Math.abs(b.dy)));
+  const { dx, dy } = options[0];
+
+  const currentLeft = parseFloat(el.style.left) || 0;
+  const currentTop = parseFloat(el.style.top) || 0;
+  el.style.left = currentLeft + dx + 'px';
+  el.style.top = currentTop + dy + 'px';
+}
+
+export function pointInRect(x, y, rect, pad = 32) {
   if (!rect) return false;
   return (
     x > rect.left - pad &&

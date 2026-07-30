@@ -3,16 +3,19 @@ import { supabase } from './supabase-client.js';
 import { computeDisplaySize } from './image-config.js';
 import { createGallery } from './gallery.js';
 import { initUpload } from './upload.js';
+import { initDragDrop } from './drag-drop.js';
 import { initSingleView } from './single-view.js';
 import { initAuth } from './auth.js';
 import { initOwnGallery } from './own-gallery.js';
 import { initForeignProfile } from './foreign-profile.js';
 import { initVrp } from './vrp.js';
 import { searchUsernames } from './profile-data.js';
-import { mountClock } from './clock.js';
+import { mountClock, setClockVisible } from './clock.js';
+import { mountNoticeConsole, showRandomHint } from './notice-board.js';
 import { initHideTextMode } from './star-toggle.js';
 import { mountShootWord, repositionShootWord, trigger as triggerShoot } from './shoot.js';
 import { clampToViewport, randomSpot as randomSpotUtil } from './position-utils.js';
+import { initWelcome } from './welcome.js';
 
 const stage = document.getElementById('stage');
 const menuLayer = document.getElementById('menu-layer');
@@ -74,7 +77,7 @@ supabase
     const row = payload.new;
     if (gallery.elements.has(row.id)) return; // eigener, gerade selbst gepushter Eintrag
     const { width, height } = computeDisplaySize(row.natural_width || 1, row.natural_height || 1);
-    gallery.appendImages([{ id: row.id, url: row.url, width, height, tags: row.tags || [] }]);
+    gallery.prependImages([{ id: row.id, url: row.url, width, height, tags: row.tags || [] }]);
   })
   .subscribe();
 
@@ -86,6 +89,7 @@ singleView = initSingleView({
   pullBtn: document.getElementById('single-pull'),
   commentBtn: document.getElementById('single-comment'),
   reportBtn: document.getElementById('single-report'),
+  viewsEl: document.getElementById('single-views'),
   commentsLayer: document.getElementById('single-comments-layer'),
   dimEsc: document.getElementById('single-dim-esc'),
   typeInput: document.getElementById('single-type-input'),
@@ -94,7 +98,7 @@ singleView = initSingleView({
 }, gallery.getVisibleImages, () => auth.getCurrentUser(), () => auth.open(), (imageId, pulled) => {
   // Falls man von der eigenen Galerie aus "release" drückt: Bild dort sofort entfernen.
   if (!pulled && ownGallery) ownGallery.removeImageIfPresent(imageId);
-}, openProfile);
+}, openProfile, () => ownGallery);
 
 // ─────────────────────────────────────────────
 // Fixe Menü-Textelemente: bei jedem vollen Laden neu platziert,
@@ -126,11 +130,11 @@ MENU_WORDS.forEach((word) => {
 
   if (word === 'search') {
     el.type = 'text';
-    el.placeholder = 'search';
+    el.placeholder = 'filter';
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         el.value = '';
-        el.placeholder = 'search';
+        el.placeholder = 'filter';
         el.blur();
         gallery.filterByTag('');
         gallery.clearUsernameChips();
@@ -140,11 +144,13 @@ MENU_WORDS.forEach((word) => {
     });
     el.addEventListener('blur', () => {
       if (el.value.trim() === '') {
-        el.placeholder = 'search';
+        el.placeholder = 'filter';
       }
     });
   } else {
-    el.textContent = word;
+    // Auf der Hauptseite heißt es "collection" — in der Einzelansicht
+    // bleibt es bei "pull", intern heißt der Schlüssel weiterhin "pull".
+    el.textContent = word === 'pull' ? 'collection' : word;
   }
 
   menuLayer.appendChild(el);
@@ -163,6 +169,7 @@ clockEl.style.top = clockSpot.y + 'px';
 clampToViewport(clockEl);
 
 const hideTextMode = initHideTextMode();
+mountNoticeConsole();
 
 mountShootWord();
 const shootSpot = repositionShootWord(placed);
@@ -209,6 +216,7 @@ function repositionMainMenu() {
 }
 
 function repositionClockForMain() {
+  setClockVisible(true);
   const spot = randomSpot();
   clockEl.style.left = spot.x + 'px';
   clockEl.style.top = spot.y + 'px';
@@ -243,17 +251,12 @@ const auth = initAuth({
   usernameInput: document.getElementById('auth-username'),
   passwordInput: document.getElementById('auth-password'),
   passwordToggle: document.getElementById('auth-password-toggle'),
-  loginBtn: document.getElementById('auth-login'),
-  loginError: document.getElementById('auth-login-error'),
+  enterBtn: document.getElementById('auth-enter'),
   createToggle: document.getElementById('auth-create-toggle'),
   signupFields: document.getElementById('auth-signup-fields'),
   emailInput: document.getElementById('auth-email'),
   newsletterToggle: document.getElementById('auth-newsletter-toggle'),
-  usernameTakenEl: document.getElementById('auth-username-taken'),
-  signupError: document.getElementById('auth-signup-error'),
-  signupBtn: document.getElementById('auth-signup'),
   forgotEl: document.getElementById('auth-forgot'),
-  forgotSentEl: document.getElementById('auth-forgot-sent'),
 }, (user) => {
   // "enter" gibt es auf der Hauptseite nicht mehr — push/pull ohne Login
   // führen jetzt direkt zum Login-Bildschirm.
@@ -292,9 +295,6 @@ ownGallery = initOwnGallery({
   editDeleteLabel: document.getElementById('edit-delete-label'),
   editDeleteInput: document.getElementById('edit-delete-input'),
   editDeleteConfirm: document.getElementById('edit-delete-confirm'),
-  editSuccessEl: document.getElementById('edit-success'),
-  editByebyeEl: document.getElementById('edit-byebye'),
-  editErrorEl: document.getElementById('edit-error'),
 }, () => auth.getCurrentUser(), (imageId, list) => singleView.open(imageId, list), openProfile);
 
 foreignProfile = initForeignProfile({
@@ -306,7 +306,7 @@ foreignProfile = initForeignProfile({
   aEl: document.getElementById('foreign-a'),
   escBtn: document.getElementById('foreign-esc'),
   pullBtn: document.getElementById('foreign-pull'),
-}, () => auth.getCurrentUser(), (imageId, list) => singleView.open(imageId, list), openProfile, () => auth.open());
+}, () => auth.getCurrentUser(), (imageId, list) => singleView.open(imageId, list), openProfile, () => auth.open(), () => ownGallery);
 
 // ─────────────────────────────────────────────
 // Push-Upload — echt an Supabase angebunden
@@ -320,7 +320,7 @@ menuEls.push.addEventListener('click', () => {
   }
 });
 
-initUpload({
+const upload = initUpload({
   fileInput,
   overlay: document.getElementById('upload-overlay'),
   preview: document.getElementById('upload-preview'),
@@ -329,6 +329,20 @@ initUpload({
   escBtn: document.getElementById('upload-esc'),
   submitBtn: document.getElementById('upload-push'),
 }, (img) => gallery.addImage(img));
+
+initDragDrop({
+  getCurrentUser: () => auth.getCurrentUser(),
+  onNeedsLogin: () => auth.open(),
+  onFileDropped: (file) => upload.handleFile(file),
+  // Dieselbe Bedingung wie beim [q]-Kurzbefehl für push: nicht auslösen,
+  // während eine andere Vollbild-Ansicht offen ist (Überlagerung von
+  // Overlays). Bereits offenes Upload-Fenster ist erlaubt — ein Drop
+  // ersetzt dann einfach das aktuell ausgewählte Bild.
+  isDropAllowed: () => {
+    const blocking = ['single-view', 'own-gallery-view', 'foreign-profile-view', 'auth-view'];
+    return !blocking.some((id) => document.getElementById(id).style.display === 'block');
+  },
+});
 
 let searchDebounce = null;
 menuEls.search.addEventListener('input', () => {
@@ -344,33 +358,39 @@ menuEls.search.addEventListener('input', () => {
   }, 300);
 });
 
+// [esc] ist in Safari nicht immer zuverlässig auslösbar — [b] ("back") macht
+// dieselbe Funktion zusätzlich verfügbar, ersetzt [esc] aber nicht.
+function closeActiveOverlay() {
+  const dimEscEl = document.getElementById('single-dim-esc');
+  const singleViewEl = document.getElementById('single-view');
+  const uploadEl = document.getElementById('upload-overlay');
+  const authEl = document.getElementById('auth-view');
+  const ownGalleryEl = document.getElementById('own-gallery-view');
+  const foreignEl = document.getElementById('foreign-profile-view');
+  const vrpViewEl = document.getElementById('vrp-view');
+
+  if (dimEscEl.style.display === 'block') {
+    dimEscEl.click();
+  } else if (singleViewEl.style.display === 'block') {
+    document.getElementById('single-esc').click();
+  } else if (uploadEl.style.display === 'block') {
+    document.getElementById('upload-esc').click();
+  } else if (authEl.style.display === 'block') {
+    document.getElementById('auth-esc').click();
+  } else if (ownGalleryEl.style.display === 'block') {
+    document.getElementById('own-esc').click();
+  } else if (foreignEl.style.display === 'block') {
+    document.getElementById('foreign-esc').click();
+  } else if (vrpViewEl.style.display === 'block') {
+    document.getElementById('vrp-esc').click();
+  }
+}
+
 document.addEventListener('keydown', (e) => {
   const typingInInput = document.activeElement && document.activeElement.tagName === 'INPUT';
 
   if (e.key === 'Escape') {
-    const dimEscEl = document.getElementById('single-dim-esc');
-    const singleViewEl = document.getElementById('single-view');
-    const uploadEl = document.getElementById('upload-overlay');
-    const authEl = document.getElementById('auth-view');
-    const ownGalleryEl = document.getElementById('own-gallery-view');
-    const foreignEl = document.getElementById('foreign-profile-view');
-    const vrpViewEl = document.getElementById('vrp-view');
-
-    if (dimEscEl.style.display === 'block') {
-      dimEscEl.click();
-    } else if (singleViewEl.style.display === 'block') {
-      document.getElementById('single-esc').click();
-    } else if (uploadEl.style.display === 'block') {
-      document.getElementById('upload-esc').click();
-    } else if (authEl.style.display === 'block') {
-      document.getElementById('auth-esc').click();
-    } else if (ownGalleryEl.style.display === 'block') {
-      document.getElementById('own-esc').click();
-    } else if (foreignEl.style.display === 'block') {
-      document.getElementById('foreign-esc').click();
-    } else if (vrpViewEl.style.display === 'block') {
-      document.getElementById('vrp-esc').click();
-    }
+    closeActiveOverlay();
     return;
   }
 
@@ -380,9 +400,15 @@ document.addEventListener('keydown', (e) => {
 
   const hidden = document.body.classList.contains('hide-text');
 
+  // [b] nur außerhalb von Texteingaben, sonst würde jedes getippte "b" die
+  // aktuelle Ansicht schließen.
+  if (e.key === 'b' || e.key === 'B') {
+    closeActiveOverlay();
+  }
+
   if (e.key === 'a' || e.key === 'A') {
-    if (isOpen('single-view')) {
-      // "a" existiert in der Einzelansicht nicht
+    if (isOpen('single-view') || isOpen('vrp-view')) {
+      // "a" existiert in der Einzelansicht und auf v.r.p. nicht
     } else if (isOpen('foreign-profile-view')) {
       document.getElementById('foreign-a').click();
     } else if (isOpen('own-gallery-view')) {
@@ -392,7 +418,9 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (e.key === 'z' || e.key === 'Z') {
-    if (isOpen('single-view')) {
+    if (isOpen('vrp-view')) {
+      // "z" existiert auf v.r.p. nicht
+    } else if (isOpen('single-view')) {
       document.getElementById('single-z').click();
     } else if (isOpen('foreign-profile-view')) {
       document.getElementById('foreign-z').click();
@@ -416,6 +444,17 @@ document.addEventListener('keydown', (e) => {
       menuEls.pull.click();
     }
   }
+  if ((e.key === 'f' || e.key === 'F') && !hidden) {
+    // Fokussiert direkt das filter-Feld der jeweils sichtbaren Galerie,
+    // damit man ohne extra Klick sofort tippen kann.
+    if (isOpen('foreign-profile-view')) {
+      document.getElementById('foreign-search').focus();
+    } else if (isOpen('own-gallery-view')) {
+      document.getElementById('own-search').focus();
+    } else if (!isOpen('single-view') && !isOpen('auth-view')) {
+      menuEls.search.focus();
+    }
+  }
   if ((e.key === 'q' || e.key === 'Q') && !hidden) {
     if (isOpen('upload-overlay')) {
       document.getElementById('upload-push').click();
@@ -429,6 +468,47 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === 'e' || e.key === 'E') && isOpen('vrp-view')) {
     vrp.filterEssay();
   }
-  if (e.key === 's' || e.key === 'S') triggerShoot();
-  if (e.key === '*' || e.key === '+' || (e.shiftKey && e.key === '=')) hideTextMode.toggle();
+  if ((e.key === 's' || e.key === 'S') && !isOpen('upload-overlay')) triggerShoot();
+  if ((e.key === 'i' || e.key === 'I') && !hidden) showRandomHint();
+  if (e.key === '*' || e.key === '+' || (e.shiftKey && e.key === '=')) {
+    // Einstieg in den *-Modus nur auf Seiten mit Bildern (Hauptgalerie,
+    // Einzelansicht, Upload, fremdes Profil, eigene Galerie im Bildmodus).
+    // Das Verlassen (bereits aktiv) geht immer.
+    const hasImages = isOpen('own-gallery-view')
+      ? ownGallery.hasImages()
+      : !isOpen('auth-view') && !isOpen('vrp-view');
+    if (hidden || hasImages) hideTextMode.toggle();
+  }
+});
+
+// ─────────────────────────────────────────────
+// Welcome-Seite — nur beim allerersten Besuch (siehe welcome.js)
+// ─────────────────────────────────────────────
+initWelcome({
+  overlay: document.getElementById('welcome-view'),
+  pushEl: document.getElementById('welcome-push'),
+});
+
+// ─────────────────────────────────────────────
+// Fenstergrößenänderung: Die Anordnung passt sich an die neue Breite an —
+// Bild- und Schriftgrößen bleiben dabei unverändert, nur die Positionen
+// reagieren. Debounced, damit während des Ziehens am Fensterrand nicht
+// laufend neu gewürfelt wird.
+// ─────────────────────────────────────────────
+let resizeTimeout = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    const isOpen = (id) => document.getElementById(id).style.display === 'block';
+
+    gallery.relayout();
+    [...Object.values(menuEls), clockEl, vrpEl].forEach((el) => clampToViewport(el));
+
+    if (isOpen('single-view')) singleView.reposition();
+    if (isOpen('upload-overlay')) upload.reposition();
+    if (isOpen('auth-view')) auth.reposition();
+    if (isOpen('own-gallery-view')) ownGallery.reflow();
+    if (isOpen('foreign-profile-view')) foreignProfile.reflow();
+    if (isOpen('vrp-view')) vrp.reposition();
+  }, 250);
 });

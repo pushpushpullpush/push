@@ -8,7 +8,7 @@ export function initHideTextMode() {
   el.textContent = '*';
   el.style.position = 'fixed';
   el.style.right = '24px';
-  el.style.bottom = '24px';
+  el.style.top = '24px';
   el.style.zIndex = '9500';
   el.style.fontSize = '30px';
   document.body.appendChild(el);
@@ -17,7 +17,11 @@ export function initHideTextMode() {
     document.body.classList.toggle('hide-text');
   }
 
+  function isActive() {
+    return document.body.classList.contains('hide-text');
+  }
+
   el.addEventListener('click', toggle);
 
-  return { toggle };
+  return { toggle, isActive };
 }

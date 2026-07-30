@@ -1,14 +1,29 @@
-import { computeFullLayout, placeImage, createHeightmap } from './layout-engine.js';
+import { computeFullLayout, placeImage, createHeightmap, computeChronologicalLayout, EDGE_MARGIN } from './layout-engine.js';
+import { showMessage } from './notice-board.js';
 
 export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
   const els = new Map();
   const images = [...initialImages];
-  let heightmap = createHeightmap();
-  let pushCounter = 1000; // garantiert höher als der normale Zufallsbereich (0–999)
+  let heightmap = createHeightmap(stageEl.clientWidth || 680);
+
+  // 'chronological' (Standard: neueste oben) oder 'random' (Zufalls-Toggle
+  // über [a]). images bleibt intern immer chronologisch sortiert (neueste
+  // zuerst) — nur die Anzeige wechselt.
+  let sortMode = 'chronological';
 
   // Username-Chips müssen VOR dem ersten reshuffleImages()-Aufruf existieren,
   // da dieser sie sofort mit anspricht.
   let usernameChips = []; // { username, width, height, el }
+
+  // Aktueller Tag-Filter (leer = kein Filter). layoutAll() berücksichtigt
+  // das immer, damit z.B. [a] bei aktivem Filter nicht wieder Lücken durch
+  // ausgeblendete Bilder aufreißt.
+  let currentFilterQuery = '';
+
+  function visibleImagesForFilter() {
+    if (!currentFilterQuery) return images;
+    return images.filter((img) => (img.tags || []).some((t) => t.toLowerCase().includes(currentFilterQuery)));
+  }
 
   function makeEl(img) {
     const el = document.createElement(img.url ? 'img' : 'div');
@@ -35,8 +50,14 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
   images.forEach(makeEl);
 
   function updateStageHeight() {
-    const tallest = Math.max(...heightmap) + 40;
+    const tallest = Math.max(...heightmap) + EDGE_MARGIN;
     stageEl.style.minHeight = Math.max(tallest, window.innerHeight) + 'px';
+  }
+
+  function computeLayoutFor(imgList, width) {
+    return sortMode === 'random'
+      ? computeFullLayout(imgList, width)
+      : computeChronologicalLayout(imgList, width);
   }
 
   function placeChip(chip) {
@@ -47,11 +68,21 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
     chip.el.style.zIndex = pos.z;
   }
 
-  function reshuffleImages() {
+  function layoutAll() {
     const width = stageEl.clientWidth || 680;
-    const { positions, heightmap: newHeightmap } = computeFullLayout(images, width);
-    heightmap = newHeightmap;
+    const visible = visibleImagesForFilter();
+    const visibleIds = new Set(visible.map((img) => img.id));
+
     images.forEach((img) => {
+      els.get(img.id).style.display = visibleIds.has(img.id) ? '' : 'none';
+    });
+
+    // Ausgeblendete Bilder sollen keinen Platz belegen — Layout wird nur
+    // für die sichtbaren Bilder berechnet, damit sie zusammenrücken statt
+    // Lücken zu hinterlassen (gilt für Filter UND [a]-Toggle gleichermaßen).
+    const { positions, heightmap: newHeightmap } = computeLayoutFor(visible, width);
+    heightmap = newHeightmap;
+    visible.forEach((img) => {
       const el = els.get(img.id);
       const pos = positions.get(img.id);
       el.style.left = pos.left + 'px';
@@ -62,36 +93,38 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
     updateStageHeight();
   }
 
-  reshuffleImages();
+  /**
+   * [a]: Toggle zwischen chronologischer und zufälliger Reihenfolge.
+   * computeFullLayout mischt bei jedem Aufruf frisch — jeder Wechsel in
+   * den Zufallsmodus ergibt daher automatisch eine neue Anordnung. Zeigt
+   * kurz oben links ein, in welchem Modus man jetzt ist.
+   */
+  function reshuffleImages() {
+    sortMode = sortMode === 'chronological' ? 'random' : 'chronological';
+    layoutAll();
+    showMessage(sortMode, 1600);
+  }
+
+  layoutAll();
 
   /**
-   * Fügt genau ein neu gepushtes Bild hinzu, ohne die bestehende
-   * Anordnung aller anderen Bilder anzufassen. Scrollt dorthin,
-   * damit die pushende Person ihr Bild direkt sieht.
+   * Fügt genau ein neu gepushtes Bild hinzu (immer als neuestes vorn im
+   * Datenmodell). Jeder Push schaltet auf chronologische Anzeige um, damit
+   * das neue Bild sichtbar oben einsortiert erscheint und alle bestehenden
+   * Bilder nach unten rutschen. Scrollt dorthin, damit die pushende Person
+   * ihr Bild direkt sieht.
    */
   function addImage(img) {
-    images.push(img);
+    images.unshift(img);
     const el = makeEl(img);
-    const width = stageEl.clientWidth || 680;
-    const pos = placeImage(img, heightmap, width);
-    el.style.left = pos.left + 'px';
-    el.style.top = pos.top + 'px';
-    el.style.zIndex = 1000 + (pushCounter++ % 1000); // bleibt zwischen 1000–1999, wächst nie unbegrenzt
-    updateStageHeight();
+    sortMode = 'chronological';
+    layoutAll();
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function filterByTag(query) {
-    const q = query.trim().toLowerCase();
-    images.forEach((img) => {
-      const el = els.get(img.id);
-      if (!q) {
-        el.style.display = '';
-        return;
-      }
-      const matches = (img.tags || []).some((t) => t.toLowerCase().includes(q));
-      el.style.display = matches ? '' : 'none';
-    });
+    currentFilterQuery = query.trim().toLowerCase();
+    layoutAll();
   }
 
   function getVisibleImages() {
@@ -125,6 +158,11 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
     usernameChips = [];
   }
 
+  /**
+   * Ältere Bilder beim Nachladen (Scrollen) — gehören chronologisch ans
+   * Ende und werden dort inkrementell platziert, ohne die bestehende
+   * Anordnung anzufassen (kein Voll-Relayout nötig).
+   */
   function appendImages(newImages) {
     const width = stageEl.clientWidth || 680;
     newImages.forEach((img) => {
@@ -135,8 +173,27 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
       el.style.left = pos.left + 'px';
       el.style.top = pos.top + 'px';
       el.style.zIndex = pos.z;
+      const matches = !currentFilterQuery || (img.tags || []).some((t) => t.toLowerCase().includes(currentFilterQuery));
+      if (!matches) el.style.display = 'none';
     });
     updateStageHeight();
+  }
+
+  /**
+   * Neue Pushes von anderen Usern (Realtime) — zählen als neueste und
+   * kommen vorn in die Reihenfolge. Schaltet wie addImage auf
+   * chronologische Anzeige um, damit sie sichtbar oben einsortieren und
+   * alles Bestehende nach unten rutscht.
+   */
+  function prependImages(newImages) {
+    const freshImages = newImages.filter((img) => !els.has(img.id));
+    if (!freshImages.length) return;
+
+    for (let i = freshImages.length - 1; i >= 0; i--) images.unshift(freshImages[i]);
+    freshImages.forEach(makeEl);
+
+    sortMode = 'chronological';
+    layoutAll();
   }
 
   function syncImages(newImages) {
@@ -158,13 +215,14 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
       }
     });
 
-    reshuffleImages();
+    layoutAll();
   }
 
   return {
     reshuffleImages,
     addImage,
     appendImages,
+    prependImages,
     syncImages,
     filterByTag,
     addUsernameChip,
@@ -172,5 +230,8 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
     getImages: () => images,
     getVisibleImages,
     elements: els,
+    // Für Fenstergrößenänderungen: legt die Bilder anhand der aktuellen
+    // Breite neu an (gleicher Modus/Filter wie zuvor, keine Umschaltung).
+    relayout: layoutAll,
   };
 }

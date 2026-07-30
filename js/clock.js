@@ -2,7 +2,7 @@
 // Liegt bewusst über ALLEM (auch über Overlays), damit es auf jeder
 // Seite/Ansicht sichtbar bleibt. Jede Seite ruft nur mountClock() auf.
 
-import { randomSpot, clampToViewport } from './position-utils.js';
+import { randomSpot, clampToViewport, clampFromRect } from './position-utils.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -39,6 +39,16 @@ export function repositionClock(taken = [], avoidRect = null) {
   const spot = randomSpot(taken, { margin: 60, avoidRect });
   el.style.left = spot.x + 'px';
   el.style.top = spot.y + 'px';
+  clampFromRect(el, avoidRect);
   clampToViewport(el);
   return spot;
+}
+
+/**
+ * Uhr nur sichtbar, wo auch Bilder zu sehen sind (Ausnahme: *-Modus, dort
+ * bleibt sie zusätzlich sichtbar — siehe main.js/star-toggle.js).
+ */
+export function setClockVisible(visible) {
+  const el = document.getElementById('global-clock');
+  if (el) el.style.display = visible ? 'block' : 'none';
 }

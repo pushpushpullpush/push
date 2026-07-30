@@ -1,17 +1,24 @@
 import { supabase } from './supabase-client.js';
 import { fetchPullersForImage } from './profile-data.js';
-import { randomSpot, clampToViewport, computeContainRect } from './position-utils.js';
+import { randomSpot, clampToViewport, clampFromRect, computeContainRect } from './position-utils.js';
 import { createHeightmap, placeImage } from './layout-engine.js';
-import { repositionClock } from './clock.js';
-import { repositionShootWord } from './shoot.js';
-import { flashTip } from './tips.js';
+import { repositionClock, setClockVisible } from './clock.js';
+import { repositionShootWord, setShootWordVisible } from './shoot.js';
 import { flashMessage } from './feedback.js';
+import { showMessage, showRandomHint } from './notice-board.js';
+import { flyIntoOwnGallery } from './pull-animation.js';
 
 const CHAR_LIMIT = 37;
 
-export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, onPullToggled, onOpenProfile) {
+// Sicherheitsabstand der frei platzierten Textelemente zur Bildfläche
+// bzw. zum Bildschirmrand — großzügiger als der allgemeine Default,
+// damit in der Einzelansicht nichts ins Bild hineinragt.
+const IMAGE_SAFETY_PAD = 40;
+const EDGE_SAFETY_PAD = 32;
+
+export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, onPullToggled, onOpenProfile, getOwnGallery) {
   const {
-    overlay, imageEl, escBtn, zBtn, pullBtn, commentBtn, reportBtn,
+    overlay, imageEl, escBtn, zBtn, pullBtn, commentBtn, reportBtn, viewsEl,
     commentsLayer, dimEsc, typeInput, submitBtn, thanksEl,
   } = refs;
 
@@ -22,6 +29,43 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
   let mode = 'view'; // 'view' | 'comment' | 'report'
   let commentsHeightmap = createHeightmap();
   const COMMENT_CHIP_HEIGHT = 32;
+  let viewsChannel = null;
+
+  // Globaler Klick-Zähler: erhöht sich atomar serverseitig bei jedem
+  // Öffnen der Einzelansicht, Live-Update per Realtime, falls parallel
+  // jemand anderes dasselbe Bild ansieht.
+  function unsubscribeViews() {
+    if (viewsChannel) {
+      supabase.removeChannel(viewsChannel);
+      viewsChannel = null;
+    }
+  }
+
+  async function trackView(imageId) {
+    unsubscribeViews();
+
+    const { data, error } = await supabase.rpc('increment_image_views', { p_image_id: imageId });
+    if (error) {
+      console.error('View-Zähler fehlgeschlagen:', error);
+    } else if (typeof data === 'number') {
+      viewsEl.textContent = `views: ${data}`;
+      // Der Text kommt erst asynchron nach dem Positionieren an und kann
+      // dadurch breiter werden als angenommen — noch einmal korrigieren.
+      correctElementForImage(viewsEl);
+    }
+
+    viewsChannel = supabase
+      .channel(`image-views-${imageId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'images', filter: `id=eq.${imageId}`,
+      }, (payload) => {
+        if (typeof payload.new.views === 'number') {
+          viewsEl.textContent = `views: ${payload.new.views}`;
+          correctElementForImage(viewsEl);
+        }
+      })
+      .subscribe();
+  }
 
   function resetCommentsStage() {
     commentsLayer.innerHTML = '';
@@ -74,7 +118,7 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
     deleteWord.style.marginRight = '10px';
 
     const escWord = document.createElement('span');
-    escWord.textContent = 'esc';
+    escWord.textContent = 'b';
     escWord.style.cursor = 'pointer';
 
     el.appendChild(deleteWord);
@@ -139,25 +183,63 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
 
   let actionWordSpots = [];
 
+  // Schiebt ein bereits positioniertes Element notfalls vom aktuellen Bild
+  // weg — ohne es komplett neu zu würfeln. Genutzt, wenn die Position
+  // eigentlich gehalten werden soll (z.B. beim Bildwechsel per [z], oder
+  // wenn der views-Text erst nachträglich breiter wird als angenommen).
+  function correctElementForImage(el) {
+    const reportRect = reportBtn.getBoundingClientRect();
+    clampFromRect(el, currentImageRect, IMAGE_SAFETY_PAD);
+    clampFromRect(el, reportRect, 20);
+    clampToViewport(el, EDGE_SAFETY_PAD);
+  }
+
+  function correctPositionsForImage() {
+    [escBtn, zBtn, pullBtn, commentBtn, viewsEl].forEach(correctElementForImage);
+    const clockEl = document.getElementById('global-clock');
+    if (clockEl) correctElementForImage(clockEl);
+    const shootEl = document.getElementById('shoot-word');
+    if (shootEl) correctElementForImage(shootEl);
+  }
+
   function positionActionWords() {
     const taken = [];
-    [escBtn, zBtn, pullBtn, commentBtn, reportBtn].forEach((el) => {
+
+    // reportBtn ist fest unten rechts verankert (siehe CSS) und wird hier
+    // nicht mehr zufällig platziert — andere Textelemente weichen ihm
+    // trotzdem weiterhin aus, damit nichts überlappt.
+    const reportRect = reportBtn.getBoundingClientRect();
+    taken.push({ x: reportRect.left, y: reportRect.top });
+
+    [escBtn, zBtn, pullBtn, commentBtn, viewsEl].forEach((el) => {
       const spot = randomSpot(taken, { margin: 60, avoidRect: currentImageRect });
       taken.push(spot);
       el.style.left = spot.x + 'px';
       el.style.top = spot.y + 'px';
-      clampToViewport(el);
+      correctElementForImage(el);
     });
     actionWordSpots = taken;
     repositionClock(taken, currentImageRect);
     repositionShootWord(taken, currentImageRect);
+
+    const clockEl = document.getElementById('global-clock');
+    if (clockEl) correctElementForImage(clockEl);
+    const shootEl = document.getElementById('shoot-word');
+    if (shootEl) correctElementForImage(shootEl);
+  }
+
+  // "release" (schon gepullt) erscheint kleiner, in Uhrzeit-Schriftgröße —
+  // "pull" (noch nicht gepullt) bleibt normal groß.
+  function updatePullButtonStyle() {
+    pullBtn.textContent = isPulled ? 'release' : 'pull';
+    pullBtn.style.fontSize = isPulled ? '16px' : '';
   }
 
   async function refreshPullState() {
     const user = getCurrentUser();
     if (!user || !currentImage) {
       isPulled = false;
-      pullBtn.textContent = 'pull';
+      updatePullButtonStyle();
       return;
     }
     const { data } = await supabase
@@ -167,7 +249,7 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
       .eq('image_id', currentImage.id)
       .maybeSingle();
     isPulled = !!data;
-    pullBtn.textContent = isPulled ? 'release' : 'pull';
+    updatePullButtonStyle();
   }
 
   async function open(imageId, imagesList) {
@@ -175,6 +257,11 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
     const images = currentContextImages || getImages();
     const img = images.find((i) => i.id === imageId);
     if (!img) return;
+
+    // Nur ein frischer Einstieg aus der Galerie bekommt eine neue zufällige
+    // Anordnung der Textelemente — solange man (z.B. über mehrfaches [z])
+    // in der Einzelansicht bleibt, halten sie ihre Position.
+    const wasAlreadyOpen = overlay.style.display === 'block';
 
     currentImage = img;
     currentImageRect = computeContainRect(img.width, img.height);
@@ -189,15 +276,24 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
     overlay.style.display = 'block';
     overlay.scrollTop = 0;
     document.body.style.overflow = 'hidden';
-    positionActionWords();
+    setClockVisible(true);
+    if (!wasAlreadyOpen) {
+      positionActionWords();
+    } else {
+      // Position halten (siehe [z]-Verhalten), aber vor Überlappung mit dem
+      // neuen — möglicherweise anders geformten — Bild schützen.
+      correctPositionsForImage();
+    }
     resetCommentsStage();
     await refreshPullState();
     await loadComments(img.id);
     await loadPullers(img.id);
+    trackView(img.id);
   }
 
   function close() {
     overlay.style.display = 'none';
+    unsubscribeViews();
     currentImage = null;
     currentImageRect = null;
     currentContextImages = null;
@@ -220,6 +316,39 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
   escBtn.addEventListener('click', close);
   zBtn.addEventListener('click', showRandom);
 
+  let pullAnimationRunning = false;
+
+  async function animatePullImage(imageId) {
+    if (pullAnimationRunning) return;
+    const ownGallery = getOwnGallery && getOwnGallery();
+    if (!ownGallery) return;
+
+    pullAnimationRunning = true;
+    try {
+      const startRect = imageEl.getBoundingClientRect();
+      const clone = document.createElement('img');
+      clone.src = imageEl.src;
+      clone.style.objectFit = 'contain';
+
+      await flyIntoOwnGallery({
+        cloneEl: clone,
+        sourceEl: imageEl,
+        startRect,
+        applyRect: (el, r) => {
+          el.style.left = r.left + 'px';
+          el.style.top = r.top + 'px';
+          el.style.width = r.width + 'px';
+          el.style.height = r.height + 'px';
+        },
+        transitionCss: 'left 0.4s ease, top 0.4s ease, width 0.4s ease, height 0.4s ease',
+        ownGallery,
+        getTargetRect: () => ownGallery.getImageRect(imageId),
+      });
+    } finally {
+      pullAnimationRunning = false;
+    }
+  }
+
   pullBtn.addEventListener('click', async () => {
     const user = getCurrentUser();
     if (!user) {
@@ -240,7 +369,8 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
         return;
       }
       isPulled = false;
-      pullBtn.textContent = 'pull';
+      updatePullButtonStyle();
+      showMessage('image released');
       [...commentsLayer.querySelectorAll('.username-color')]
         .filter((el) => el.textContent === user.username)
         .forEach((el) => el.remove());
@@ -254,8 +384,10 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
         return;
       }
       isPulled = true;
-      pullBtn.textContent = 'release';
+      updatePullButtonStyle();
+      showMessage('image pulled');
       addPullerChip(user.username);
+      animatePullImage(currentImage.id);
     }
 
     if (onPullToggled) onPullToggled(currentImage.id, isPulled);
@@ -265,11 +397,12 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
     mode = newMode;
     const dim = mode !== 'view';
 
-    [imageEl, escBtn, zBtn, pullBtn, commentBtn, reportBtn].forEach((el) => {
+    [imageEl, escBtn, zBtn, pullBtn, commentBtn, reportBtn, viewsEl].forEach((el) => {
       el.style.opacity = dim ? '0.2' : '1';
       el.style.pointerEvents = dim ? 'none' : 'auto';
     });
     commentsLayer.style.opacity = dim ? '0.2' : '1';
+    setShootWordVisible(!dim);
 
     dimEsc.style.display = dim ? 'block' : 'none';
     typeInput.style.display = dim ? 'block' : 'none';
@@ -289,13 +422,15 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
       taken.push(spotEsc);
       dimEsc.style.left = spotEsc.x + 'px';
       dimEsc.style.top = spotEsc.y + 'px';
-      clampToViewport(dimEsc);
+      clampFromRect(dimEsc, currentImageRect, IMAGE_SAFETY_PAD);
+      clampToViewport(dimEsc, EDGE_SAFETY_PAD);
 
       const spotType = randomSpot(taken, { margin: 60, avoidRect: currentImageRect });
       taken.push(spotType);
       typeInput.style.left = spotType.x + 'px';
       typeInput.style.top = spotType.y + 'px';
-      clampToViewport(typeInput);
+      clampFromRect(typeInput, currentImageRect, IMAGE_SAFETY_PAD);
+      clampToViewport(typeInput, EDGE_SAFETY_PAD);
 
       const spotSubmit = randomSpot(taken, {
         margin: 60,
@@ -305,7 +440,8 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
       taken.push(spotSubmit);
       submitBtn.style.left = spotSubmit.x + 'px';
       submitBtn.style.top = spotSubmit.y + 'px';
-      clampToViewport(submitBtn);
+      clampFromRect(submitBtn, currentImageRect, IMAGE_SAFETY_PAD);
+      clampToViewport(submitBtn, EDGE_SAFETY_PAD);
 
       repositionClock(taken, currentImageRect);
 
@@ -338,7 +474,8 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
     const spot = randomSpot([], { margin: 60, avoidRect: currentImageRect });
     thanksEl.style.left = spot.x + 'px';
     thanksEl.style.top = spot.y + 'px';
-    clampToViewport(thanksEl);
+    clampFromRect(thanksEl, currentImageRect, IMAGE_SAFETY_PAD);
+    clampToViewport(thanksEl, EDGE_SAFETY_PAD);
   }
 
   async function submit() {
@@ -365,7 +502,7 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
         }
         addCommentToLayer(inserted);
         enterMode('view');
-        flashTip();
+        showRandomHint();
       } else if (mode === 'report') {
         const { error } = await supabase
           .from('reports')
@@ -379,7 +516,6 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
         typeInput.style.display = 'none';
         submitBtn.style.display = 'none';
         enterMode('view');
-        flashTip();
       }
     } finally {
       isSubmitting = false;
@@ -395,5 +531,14 @@ export function initSingleView(refs, getImages, getCurrentUser, onNeedsLogin, on
     if (e.key === 'Enter' && mode === 'comment') submit();
   });
 
-  return { open, showRandom };
+  return {
+    open,
+    showRandom,
+    // Für Fenstergrößenänderungen: nur die frei positionierten Textelemente
+    // zurück in den sichtbaren Bereich holen — das Bild behält seine
+    // ursprüngliche Größe (wird nicht neu berechnet, soll nicht schrumpfen).
+    reposition: () => {
+      if (overlay.style.display === 'block') positionActionWords();
+    },
+  };
 }

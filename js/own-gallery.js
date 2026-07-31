@@ -6,6 +6,7 @@ import { repositionClock, setClockVisible } from './clock.js';
 import { repositionShootWord, setShootWordVisible } from './shoot.js';
 import { flashMessage } from './feedback.js';
 import { showMessage } from './notice-board.js';
+import { pushRoute, goBack, userPath, HOME_PATH, HOME_TITLE } from './router.js';
 
 export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile) {
   const {
@@ -293,7 +294,12 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
   escBtn.addEventListener('click', () => {
     if (mode === 'edit') enterSettings();
     else if (mode === 'settings') enterGallery();
-    else close();
+    else {
+      // Nur der Ausstieg aus der ganzen Ansicht (nicht der Wechsel zwischen
+      // gallery/settings/edit-Untermodi) ist eine Routing-Navigation.
+      close();
+      goBack();
+    }
   });
 
   editEl.addEventListener('click', () => enterEdit());
@@ -318,6 +324,7 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     usernameEl.textContent = user.username;
     overlay.style.display = 'block';
     document.body.style.overflow = 'hidden';
+    pushRoute(userPath(user.username), `push v.r.p. — u/${user.username}`);
 
     await loadGallery(user);
 
@@ -340,19 +347,6 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
       el.remove();
       gallery.elements.delete(imageId);
     }
-  }
-
-  // Für die "pull"-Flug-Animation: Zielposition eines Bildes bzw. eines
-  // Username-Chips innerhalb der (bereits geladenen) eigenen Galerie.
-  function getImageRect(imageId) {
-    if (!gallery) return null;
-    const el = gallery.elements.get(imageId);
-    return el ? el.getBoundingClientRect() : null;
-  }
-
-  function getUsernameChipRect(username) {
-    const chip = [...stage.querySelectorAll('.username-chip')].find((el) => el.textContent === username);
-    return chip ? chip.getBoundingClientRect() : null;
   }
 
   zEl.addEventListener('click', () => {
@@ -386,6 +380,9 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
   logoutEl.addEventListener('click', async () => {
     await supabase.auth.signOut();
     close();
+    // Sonst würde der Reload gleich wieder /u/<name> laden — als ausgeloggte:r
+    // Nutzer:in landet man dort dann in der fremden statt in keiner Ansicht.
+    pushRoute(HOME_PATH, HOME_TITLE);
     window.location.reload();
   });
 
@@ -426,8 +423,6 @@ export function initOwnGallery(refs, getCurrentUser, onOpenSingle, onOpenProfile
     removeImageIfPresent,
     repositionWords: positionGalleryWords,
     hasImages: () => mode === 'gallery',
-    getImageRect,
-    getUsernameChipRect,
     reflow,
   };
 }

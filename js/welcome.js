@@ -29,7 +29,15 @@ function markVisited() {
   }
 }
 
-export function initWelcome(refs) {
+/**
+ * @param {object} refs
+ * @param {() => void} [onReady] - läuft, sobald die Hauptseite zum Vorschein
+ *   kommt — sofort, falls die Welcome-Seite gar nicht gezeigt wird (bereits
+ *   besucht), sonst erst nach Klick + Auftaktsatz. Genutzt vom Routing in
+ *   main.js, damit eine per URL adressierte Ansicht nicht schon vor dem
+ *   Auftaktsatz sichtbar wird (siehe main.js).
+ */
+export function initWelcome(refs, onReady) {
   const { overlay, pushEl } = refs;
 
   function positionPush() {
@@ -53,12 +61,16 @@ export function initWelcome(refs) {
       overlay.style.display = 'none';
       setClockVisible(true);
       setShootWordVisible(true);
+      if (onReady) onReady();
     }, TAGLINE_DURATION);
   }
 
   pushEl.addEventListener('click', enter);
 
-  if (hasVisitedBefore()) return;
+  if (hasVisitedBefore()) {
+    if (onReady) onReady();
+    return;
+  }
 
   overlay.style.display = 'block';
   pushEl.style.display = 'block';

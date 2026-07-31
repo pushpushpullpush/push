@@ -14,6 +14,10 @@ html, body {
   position: relative;
   width: 100%;
   min-height: 100vh;
+  /* dvh reagiert nicht auf das Ein-/Ausblenden der mobilen Adressleiste beim
+     Scrollen — vermeidet dadurch dort ein leichtes "Wackeln" der Seitenhöhe.
+     Browser ohne dvh-Unterstützung ignorieren diese Zeile und bleiben bei vh. */
+  min-height: 100dvh;
 }
 
 .push-image {
@@ -298,15 +302,18 @@ input.tag-input {
 }
 
 #own-gallery-view,
-#foreign-profile-view {
+#foreign-profile-view,
+#trace-view {
   overflow-y: auto;
 }
 
 #own-gallery-stage,
-#foreign-profile-stage {
+#foreign-profile-stage,
+#trace-stage {
   position: relative;
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* "*"-Modus: nur Bilder sichtbar. Gilt gezielt für die Bild-Ansichten —
@@ -316,6 +323,7 @@ body.hide-text #single-view .menu-word,
 body.hide-text #single-view .username-color,
 body.hide-text #own-gallery-view .menu-word,
 body.hide-text #foreign-profile-view .menu-word,
+body.hide-text #trace-view .menu-word,
 body.hide-text #upload-overlay .menu-word,
 body.hide-text .tag-chip,
 body.hide-text .username-chip,

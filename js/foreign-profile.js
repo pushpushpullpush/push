@@ -8,15 +8,16 @@ import { repositionClock, setClockVisible } from './clock.js';
 import { repositionShootWord, setShootWordVisible } from './shoot.js';
 import { flashMessage } from './feedback.js';
 import { showMessage } from './notice-board.js';
-import { flyIntoOwnGallery } from './pull-animation.js';
+import { flyIntoCollection, getTextCornerRect } from './pull-animation.js';
+import { pushRoute, goBack, userPath } from './router.js';
 
-export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenProfile, onNeedsLogin, getOwnGallery) {
+export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenProfile, onNeedsLogin) {
   const { overlay, stage, usernameEl, searchEl, zEl, aEl, escBtn, pullBtn } = refs;
 
   let gallery = null;
   let currentProfile = null; // { id, username }
   let currentlyFollowing = false;
-  let focused = false; // Username-Fokus: nur username + b + pull/release collection sichtbar
+  let focused = false; // Username-Fokus: nur username + b + collect/drop sichtbar
 
   function positionWords() {
     const taken = [];
@@ -32,14 +33,13 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
   }
 
   function updatePullLabel() {
-    const base = currentlyFollowing ? 'release' : 'pull';
-    pullBtn.textContent = focused ? `${base} collection` : base;
+    pullBtn.textContent = currentlyFollowing ? 'drop' : 'collect';
   }
 
   /**
    * Klick auf den fremden Usernamen: blendet alles bis auf den Usernamen
-   * selbst aus und zeigt nur noch "b" und "pull collection"/"release
-   * collection". Erneuter Klick auf den Usernamen (oder auf "b") kehrt zurück.
+   * selbst aus und zeigt nur noch "b" und "collect"/"drop". Erneuter Klick
+   * auf den Usernamen (oder auf "b") kehrt zurück.
    */
   function setFocused(value) {
     focused = value;
@@ -47,8 +47,8 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
     searchEl.style.display = value ? 'none' : '';
     zEl.style.display = value ? 'none' : '';
     aEl.style.display = value ? 'none' : '';
-    // "pull"/"release" gibt es in der normalen Galerie-Ansicht nicht mehr —
-    // nur noch im Username-Fokus als "pull collection"/"release collection".
+    // "collect"/"drop" gibt es in der normalen Galerie-Ansicht nicht mehr —
+    // nur noch im Username-Fokus.
     pullBtn.style.display = value ? '' : 'none';
     setClockVisible(!value);
     setShootWordVisible(!value);
@@ -96,6 +96,7 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
     overlay.style.display = 'block';
     document.body.style.overflow = 'hidden';
     setFocused(false);
+    pushRoute(userPath(profile.username), `push v.r.p. — u/${profile.username}`);
 
     await loadGallery(profile);
 
@@ -117,7 +118,10 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
 
   escBtn.addEventListener('click', () => {
     if (focused) setFocused(false);
-    else close();
+    else {
+      close();
+      goBack();
+    }
   });
 
   usernameEl.addEventListener('click', () => {
@@ -157,9 +161,6 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
 
   async function animateFollowIntoGallery(username) {
     if (followAnimationRunning) return;
-    const ownGallery = getOwnGallery && getOwnGallery();
-    if (!ownGallery) return;
-
     followAnimationRunning = true;
     try {
       const startRect = usernameEl.getBoundingClientRect();
@@ -169,9 +170,10 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
       clone.textContent = username;
       clone.style.fontSize = startFontSize;
 
-      await flyIntoOwnGallery({
+      const user = getCurrentUser();
+
+      await flyIntoCollection({
         cloneEl: clone,
-        sourceEl: usernameEl,
         startRect,
         applyRect: (el, r) => {
           el.style.left = r.left + 'px';
@@ -179,12 +181,8 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
           if (r.fontSize) el.style.fontSize = r.fontSize;
         },
         transitionCss: 'left 0.4s ease, top 0.4s ease, font-size 0.4s ease',
-        ownGallery,
-        getTargetRect: () => {
-          const rect = ownGallery.getUsernameChipRect(username);
-          if (!rect) return null;
-          return { left: rect.left, top: rect.top, fontSize: '18px' };
-        },
+        getTargetRect: (labelRect) => getTextCornerRect(labelRect),
+        onOpenCollection: () => user && onOpenProfile && onOpenProfile(user.username),
       });
     } finally {
       followAnimationRunning = false;
@@ -204,19 +202,19 @@ export function initForeignProfile(refs, getCurrentUser, onOpenSingle, onOpenPro
       if (ok) {
         currentlyFollowing = false;
         updatePullLabel();
-        showMessage('collection released');
+        showMessage('collection dropped');
       } else {
-        flashMessage('error: could not release');
+        flashMessage('error: could not drop');
       }
     } else {
       const ok = await follow(user.id, currentProfile.id);
       if (ok) {
         currentlyFollowing = true;
         updatePullLabel();
-        showMessage('collection pulled');
+        showMessage('added to collection');
         animateFollowIntoGallery(currentProfile.username);
       } else {
-        flashMessage('error: could not pull');
+        flashMessage('error: could not collect');
       }
     }
   });

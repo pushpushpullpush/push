@@ -59,6 +59,8 @@ export function initUpload(refs, onUploaded) {
   let pendingTagSpots = [];
   let pendingDisplaySize = null;
   let pendingNaturalSize = null;
+  let pendingReproducedFromId = null; // gesetzt nur bei reproduce (siehe openWithBlob)
+  let previewObjectUrl = null; // nur bei openWithBlob gesetzt, muss revoked werden
   let currentImageRect = null;
 
   fileInput.addEventListener('change', () => {
@@ -148,6 +150,11 @@ export function initUpload(refs, onUploaded) {
         // extreme Formate werden von selbst schmal statt dominant.
         pendingDisplaySize = computeDisplaySize(width, height);
 
+        pendingReproducedFromId = null; // normaler Push, keine Reproduktions-Genealogie
+        if (previewObjectUrl) {
+          URL.revokeObjectURL(previewObjectUrl);
+          previewObjectUrl = null;
+        }
         pendingTags = [];
         pendingTagSpots = [];
         renderTags();
@@ -172,6 +179,41 @@ export function initUpload(refs, onUploaded) {
     reader.readAsDataURL(file);
   }
 
+  /**
+   * Wie startUpload(), aber für einen bereits fertig prozessierten Blob
+   * (reproduce in single-view.js) — durchläuft NICHT noch einmal das
+   * Redraw/Re-Encode von startUpload() (das würde die dort absichtlich
+   * gewählte Degradation/den Ausschnitt wieder überschreiben bzw. verwässern),
+   * übernimmt den Blob unverändert. Startet wie ein regulärer Push komplett
+   * ohne Tags — keine Übernahme vom Originalbild. reproducedFromId löst beim
+   * Push die Familien-Wurzel/Generation auf.
+   */
+  function openWithBlob(blob, { width, height, reproducedFromId = null } = {}) {
+    pendingBlob = blob;
+    pendingNaturalSize = { width: Math.round(width), height: Math.round(height) };
+    pendingDisplaySize = computeDisplaySize(width, height);
+    pendingReproducedFromId = reproducedFromId;
+
+    currentImageRect = computeContainRect(width, height);
+    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = URL.createObjectURL(blob);
+    preview.src = previewObjectUrl;
+    preview.style.width = currentImageRect.width + 'px';
+    preview.style.height = currentImageRect.height + 'px';
+    preview.style.left = currentImageRect.left + 'px';
+    preview.style.top = currentImageRect.top + 'px';
+    preview.style.transform = 'none';
+
+    pendingTags = [];
+    pendingTagSpots = [];
+    renderTags();
+
+    overlay.style.display = 'block';
+    setShootWordVisible(false);
+    repositionWords();
+    requestAnimationFrame(() => tagInput.focus());
+  }
+
   function closeOverlay() {
     overlay.style.display = 'none';
     setShootWordVisible(true);
@@ -180,6 +222,11 @@ export function initUpload(refs, onUploaded) {
     pendingTagSpots = [];
     pendingDisplaySize = null;
     pendingNaturalSize = null;
+    pendingReproducedFromId = null;
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
+    }
     currentImageRect = null;
     tagInput.value = '';
   }
@@ -273,6 +320,49 @@ export function initUpload(refs, onUploaded) {
 
       const { data: publicData } = supabase.storage.from('images').getPublicUrl(path);
 
+      // Reproduktions-Genealogie: gemeinsame Familien-Wurzel + Generation
+      // auflösen, BEVOR das neue Bild eingefügt wird — nur relevant, wenn
+      // dieser Push aus "reproduce" in single-view.js kommt (siehe
+      // openWithBlob oben). newGeneration bleibt null (= DB-Default 0), falls
+      // die Wurzel nicht sicher aufgelöst werden konnte — ein Bild ohne
+      // family_root_id soll auch keine Generation > 0 tragen.
+      let familyRootId = null;
+      let newGeneration = null;
+      if (pendingReproducedFromId) {
+        const { data: sourceRow, error: sourceError } = await supabase
+          .from('images')
+          .select('family_root_id, generation')
+          .eq('id', pendingReproducedFromId)
+          .maybeSingle();
+
+        if (sourceError) {
+          console.error('Familien-Wurzel lesen fehlgeschlagen:', sourceError);
+        } else if (sourceRow) {
+          if (sourceRow.family_root_id) {
+            // Ausgangsbild ist bereits Teil einer Familie — dieselbe Wurzel übernehmen.
+            familyRootId = sourceRow.family_root_id;
+          } else {
+            // Ausgangsbild tritt hiermit selbst in eine Familie ein: eigene id als Wurzel.
+            // .select() danach ist Pflicht: eine per RLS blockierte Zeile liefert
+            // sonst error:null UND ein leeres data-Array — ohne diese Prüfung sieht
+            // das wie Erfolg aus, obwohl nichts geschrieben wurde.
+            const { data: rootUpdateData, error: rootUpdateError } = await supabase
+              .from('images')
+              .update({ family_root_id: pendingReproducedFromId })
+              .eq('id', pendingReproducedFromId)
+              .select('id');
+            if (rootUpdateError || !rootUpdateData || rootUpdateData.length === 0) {
+              console.error('Familien-Wurzel setzen fehlgeschlagen:', rootUpdateError || 'keine Zeile betroffen (RLS?)');
+            } else {
+              familyRootId = pendingReproducedFromId;
+            }
+          }
+          if (familyRootId) {
+            newGeneration = (sourceRow.generation || 0) + 1;
+          }
+        }
+      }
+
       const { data: inserted, error: insertError } = await supabase
         .from('images')
         .insert({
@@ -280,6 +370,10 @@ export function initUpload(refs, onUploaded) {
           tags: pendingTags,
           natural_width: pendingNaturalSize.width,
           natural_height: pendingNaturalSize.height,
+          family_root_id: familyRootId,
+          // undefined statt null, damit ohne reproduce-Kontext einfach der
+          // DB-Default (0) greift, statt ihn mit einem expliziten null zu überschreiben.
+          generation: newGeneration === null ? undefined : newGeneration,
         })
         .select()
         .single();
@@ -300,6 +394,8 @@ export function initUpload(refs, onUploaded) {
         width: displaySize.width,
         height: displaySize.height,
         tags: inserted.tags,
+        familyRootId: inserted.family_root_id,
+        generation: inserted.generation,
       });
     } finally {
       isUploading = false;
@@ -310,6 +406,10 @@ export function initUpload(refs, onUploaded) {
 
   return {
     handleFile: startUpload,
+    // Für reproduce in single-view.js: bereits fertig prozessierter Blob
+    // (Fragment/Auflösungsreduktion), keine erneute Größen-/Qualitäts-
+    // Bearbeitung mehr.
+    openWithBlob,
     // Für Fenstergrößenänderungen: nur die frei positionierten Textelemente
     // zurück in den sichtbaren Bereich holen — das Vorschaubild behält
     // seine ursprüngliche Größe.

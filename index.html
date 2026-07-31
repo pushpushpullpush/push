@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>push v.r.p.</title>
   <style>html,body{background:#f00000;margin:0;}</style>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
   <div id="stage"></div>
@@ -73,17 +73,26 @@
     <input class="menu-word italic-field field-yellow" id="foreign-search" placeholder="filter" />
     <div class="menu-word" id="foreign-z">z</div>
     <div class="menu-word" id="foreign-a">a</div>
-    <div class="menu-word" id="foreign-pull">pull</div>
+    <div class="menu-word" id="foreign-pull">collect</div>
     <div class="menu-word" id="foreign-esc">b</div>
+  </div>
+
+  <div id="trace-view" class="overlay">
+    <div id="trace-stage"></div>
+    <div class="menu-word" id="trace-z">z</div>
+    <div class="menu-word" id="trace-a">a</div>
+    <div class="menu-word" id="trace-esc">b</div>
   </div>
 
   <div id="single-view" class="overlay">
     <img id="single-image" alt="" />
     <div class="menu-word" id="single-esc">b</div>
     <div class="menu-word" id="single-z">z</div>
-    <div class="menu-word" id="single-pull">pull</div>
-    <div class="menu-word" id="single-comment">c</div>
-    <div class="menu-word" id="single-report">r</div>
+    <div class="menu-word" id="single-pull">collect</div>
+    <div class="menu-word" id="single-comment">n</div>
+    <div class="menu-word" id="single-report">report</div>
+    <div class="menu-word" id="single-reproduce">reproduce</div>
+    <div class="menu-word" id="single-trace" style="display:none;">trace</div>
     <div class="menu-word" id="single-views"></div>
     <div id="single-comments-layer" class="comments-stage"></div>
 
@@ -118,6 +127,6 @@
     <div class="menu-word" id="auth-esc">b</div>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

@@ -59,7 +59,7 @@ export async function fetchUserImages(userId, limit = 300) {
   // 3. Volle Bilddaten nur für die ausgewählten IDs abrufen
   const { data, error } = await supabase
     .from('images')
-    .select('id, url, tags, natural_width, natural_height')
+    .select('id, url, tags, natural_width, natural_height, family_root_id, generation')
     .in('id', chosenIds);
 
   if (error) {
@@ -71,7 +71,15 @@ export async function fetchUserImages(userId, limit = 300) {
     const nw = img.natural_width || 1;
     const nh = img.natural_height || 1;
     const { width, height } = computeDisplaySize(nw, nh);
-    return { id: img.id, url: img.url, width, height, tags: img.tags || [] };
+    return {
+      id: img.id,
+      url: img.url,
+      width,
+      height,
+      tags: img.tags || [],
+      familyRootId: img.family_root_id,
+      generation: img.generation,
+    };
   });
 }
 

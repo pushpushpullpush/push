@@ -1,6 +1,7 @@
 import { randomSpot, clampToViewport } from './position-utils.js';
 import { setShootWordVisible } from './shoot.js';
 import { setClockVisible } from './clock.js';
+import { pushRoute, goBack, VRP_PATH } from './router.js';
 
 const IMPRESSUM_BODY = `Angaben gemäß § 5 TMG / § 18 Abs. 2 MStV
 
@@ -204,6 +205,7 @@ export function initVrp(refs) {
     overlay.style.display = 'block';
     setShootWordVisible(false);
     setClockVisible(false);
+    pushRoute(VRP_PATH, 'push v.r.p. — v.r.p.');
     render();
   }
 
@@ -221,7 +223,10 @@ export function initVrp(refs) {
       filterMode = 'all';
       render();
     } else {
+      // Nur der Ausstieg aus v.r.p. selbst (nicht das Zurückblättern
+      // innerhalb der Themen/des j/e-Filters) ist eine Routing-Navigation.
       close();
+      goBack();
     }
   });
 

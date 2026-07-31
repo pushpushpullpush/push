@@ -5,7 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>push v.r.p.</title>
   <style>html,body{background:#f00000;margin:0;}</style>
-  <link rel="stylesheet" href="/css/style.css" />
+  <script>
+    // Löst den Redirect aus 404.html auf (siehe dort): stellt den echten
+    // Pfad aus dem Query-String wieder her, BEVOR main.js/router.js die
+    // aktuelle URL auswertet. Auf Hosts mit echtem Server-Rewrite
+    // (Netlify/Vercel) liegt kein "?/"-Query-String vor, hier passiert dann nichts.
+    (function (l) {
+      if (l.search[1] === '/') {
+        var decoded = l.search.slice(1).split('&').map(function (s) {
+          return s.replace(/~and~/g, '&');
+        }).join('?');
+        window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+      }
+    }(window.location));
+  </script>
+  <script>
+    // GitHub Pages hostet Projektseiten unter einem Unterordner
+    // (username.github.io/reponame/) statt der Domain-Wurzel — ein <base>
+    // sorgt dafür, dass die folgenden relativen css/js-Pfade (und die von
+    // router.js erzeugten URLs, siehe dort) trotzdem korrekt auflösen. Auf
+    // Hosts an der Domain-Wurzel (Netlify/Vercel) bleibt es bei "/".
+    (function () {
+      var isGithubPages = /\.github\.io$/.test(location.hostname);
+      var base = document.createElement('base');
+      base.href = isGithubPages
+        ? '/' + location.pathname.replace(/^\//, '').split('/')[0] + '/'
+        : '/';
+      document.head.appendChild(base);
+    }());
+  </script>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <div id="stage"></div>
@@ -127,6 +156,6 @@
     <div class="menu-word" id="auth-esc">b</div>
   </div>
 
-  <script type="module" src="/js/main.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

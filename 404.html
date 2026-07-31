@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>push v.r.p.</title>
+  <script>
+    // Standard-Workaround für SPA-Routing auf GitHub Pages: GitHub Pages
+    // kann keine echten Server-Rewrites (anders als Netlify/Vercel, siehe
+    // netlify.toml/vercel.json) — ein Direktaufruf/Reload von z.B.
+    // /push/image/abc landet daher hier, weil diese Datei nicht existiert.
+    // Wir kodieren den Pfad in den Query-String und leiten zur echten
+    // index.html weiter — dort wird er (siehe index.html) wieder entschlüsselt
+    // und per history.replaceState() als echter Pfad wiederhergestellt, bevor
+    // main.js/router.js die URL auswertet.
+    // Siehe https://github.com/rafgraph/spa-github-pages
+    var pathSegmentsToKeep = 1; // Repo-Name in der URL (z.B. /push/) bleibt erhalten
+
+    var l = window.location;
+    l.replace(
+      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+      (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash
+    );
+  </script>
+</head>
+<body>
+</body>
+</html>

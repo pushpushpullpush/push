@@ -6,9 +6,29 @@
 // Adressierte Ansichten: /image/:id, /u/:username, /vrp — alles andere
 // (inkl. Upload/Auth) bleibt reiner Interaktionszustand ohne eigene URL.
 
-export const HOME_PATH = '/';
+// Manche Hosts (z.B. GitHub-Pages-Projektseiten: username.github.io/repo/)
+// servieren die Seite unter einem Unterordner statt der Domain-Wurzel. Ein
+// root-absoluter Pfad wie "/image/abc" würde dort an der Domain-Wurzel
+// vorbeizielen. index.html setzt in diesem Fall ein <base href="/repo/">
+// (siehe dort) — hier wird derselbe Unterordner ausgelesen und allen
+// erzeugten/geparsten Pfaden vorangestellt, damit beide Seiten (Erzeugen via
+// pushRoute/replaceRoute und Parsen via parseRoute) konsistent bleiben.
+function computeBasePath() {
+  const baseEl = document.querySelector('base');
+  if (!baseEl) return '';
+  try {
+    const path = new URL(baseEl.href).pathname.replace(/\/+$/, '');
+    return path;
+  } catch {
+    return '';
+  }
+}
+
+const BASE_PATH = computeBasePath();
+
+export const HOME_PATH = `${BASE_PATH}/`;
 export const HOME_TITLE = 'push v.r.p.';
-export const VRP_PATH = '/vrp';
+export const VRP_PATH = `${BASE_PATH}/vrp`;
 
 // true, während eine Route nur NACHVOLLZOGEN wird (popstate oder initialer
 // Deep-Link-Aufruf) — die view-open()-Funktionen rufen dabei zwar weiterhin
@@ -36,11 +56,11 @@ export function markOpenedFromDirectLoad() {
 }
 
 export function imagePath(id) {
-  return `/image/${encodeURIComponent(id)}`;
+  return `${BASE_PATH}/image/${encodeURIComponent(id)}`;
 }
 
 export function userPath(username) {
-  return `/u/${encodeURIComponent(username)}`;
+  return `${BASE_PATH}/u/${encodeURIComponent(username)}`;
 }
 
 /**
@@ -90,15 +110,19 @@ export function goBack() {
 
 /**
  * Parst einen Pfad in eine Route. Unbekannte Pfade fallen auf 'home' zurück.
+ * Zieht zuerst BASE_PATH ab (siehe oben), damit main.js weiterhin einfach
+ * location.pathname unverändert hereinreichen kann.
  */
 export function parseRoute(pathname) {
-  const imageMatch = pathname.match(/^\/image\/([^/]+)\/?$/);
+  const relative = BASE_PATH && pathname.startsWith(BASE_PATH) ? pathname.slice(BASE_PATH.length) : pathname;
+
+  const imageMatch = relative.match(/^\/image\/([^/]+)\/?$/);
   if (imageMatch) return { type: 'image', id: decodeURIComponent(imageMatch[1]) };
 
-  const userMatch = pathname.match(/^\/u\/([^/]+)\/?$/);
+  const userMatch = relative.match(/^\/u\/([^/]+)\/?$/);
   if (userMatch) return { type: 'user', username: decodeURIComponent(userMatch[1]) };
 
-  if (pathname === VRP_PATH || pathname === `${VRP_PATH}/`) return { type: 'vrp' };
+  if (relative === '/vrp' || relative === '/vrp/') return { type: 'vrp' };
 
   return { type: 'home' };
 }

@@ -10,6 +10,7 @@ import { showMessage, showRandomHint } from './notice-board.js';
 import { flyIntoCollection, getImageCornerRect } from './pull-animation.js';
 import { pushRoute, replaceRoute, goBack, imagePath } from './router.js';
 import { MAX_ASPECT_RATIO } from './image-config.js';
+import { JPEG_QUALITY } from './upload.js';
 
 const CHAR_LIMIT = 37;
 
@@ -21,16 +22,16 @@ const EDGE_SAFETY_PAD = 32;
 
 // "reproduce": zwei unabhängige Zufallsbereiche für den "Grad des Eingriffs"
 // (keine Regler für den Nutzer) — bei jeder Reproduktion neu gewürfelt.
-const FRAGMENT_AREA_MIN = 0.85; // Zuschnitt behält 85–95% der Originalfläche
-const FRAGMENT_AREA_MAX = 0.95;
-const RESOLUTION_SCALE_MIN = 0.03; // Auflösungspfad skaliert auf 3–8% der Dimensionen
-const RESOLUTION_SCALE_MAX = 0.08; // deutlich aggressiver als der Zuschnitt, beabsichtigt
-// Deutlich unter dem normalen Upload-Wert (0.82, siehe upload.js) — nur für
-// den Auflösungspfad, der Fragment-Pfad degradiert allein durch den Ausschnitt.
-const REPRODUCE_JPEG_QUALITY = 0.35;
-// Ab dieser Generation wird "reproduce" nicht mehr angeboten (die 8. Generation
+const FRAGMENT_AREA_MIN = 0.95; // Zuschnitt behält 95–98% der Originalfläche —
+const FRAGMENT_AREA_MAX = 0.98; // sanfter Rand-Beschnitt, keine harte Kürzung.
+const RESOLUTION_SCALE_MIN = 0.40; // Auflösungspfad skaliert auf 40–65% der Dimensionen —
+const RESOLUTION_SCALE_MAX = 0.65; // dezente, aber sichtbare Verpixelung.
+// Auflösungspfad nutzt bewusst dieselbe Qualität wie ein normaler Push (siehe
+// upload.js) — der Effekt entsteht allein durch die geringere Auflösung,
+// nicht durch zusätzliche Kompressionsartefakte.
+// Ab dieser Generation wird "reproduce" nicht mehr angeboten (die 6. Generation
 // entstünde sonst) — analog zur Sichtbarkeitslogik von "trace".
-const MAX_REPRODUCE_GENERATION = 7;
+const MAX_REPRODUCE_GENERATION = 5;
 
 function randomInRange(min, max) {
   return min + Math.random() * (max - min);
@@ -61,29 +62,30 @@ async function loadImageForCanvas(url) {
 
 /**
  * Zufälliges Ausschnitt-Rechteck für den Fragment-Pfad: Zielfläche zufällig
- * zwischen FRAGMENT_AREA_MIN/MAX der Originalfläche, Ziel-Seitenverhältnis
- * UNABHÄNGIG vom Original zufällig gewählt (Orientierungswechsel möglich —
- * aus Hochformat kann Querformat werden), innerhalb MAX_ASPECT_RATIO. Die
- * Zielfläche hat Vorrang vor dem exakten Wunsch-Seitenverhältnis: passt das
- * ideale Rechteck nicht ins Original (bei sehr länglichen Originalen manchmal
- * unvermeidbar), wird stattdessen das größtmögliche Rechteck mit demselben
- * Seitenverhältnis gewählt, das noch ins Original passt (statt eines
- * ungültigen, zu großen Zuschnitts).
+ * zwischen FRAGMENT_AREA_MIN/MAX der Originalfläche (95–98%, sanfter
+ * Rand-Beschnitt). Das Ziel-Seitenverhältnis bleibt dabei NAH am Original
+ * (leichte Zufallsvariation, ±10%) statt frei/unabhängig gewürfelt zu werden:
+ * bei so hoher Flächenerhaltung ist ein stark abweichendes Seitenverhältnis
+ * geometrisch kaum erreichbar, ohne die Zielfläche drastisch zu unterschreiten
+ * (ein 95%-Ausschnitt mit ganz anderer Orientierung passt bei den meisten
+ * Formaten schlicht nicht ins Original) — das widerspräche dem gewünschten
+ * sanften Effekt. Bleibt zusätzlich innerhalb MAX_ASPECT_RATIO gekappt.
  */
 function computeFragmentRect(width, height) {
   const areaFraction = randomInRange(FRAGMENT_AREA_MIN, FRAGMENT_AREA_MAX);
   const targetArea = width * height * areaFraction;
 
-  const longShortRatio = 1 + Math.random() * (MAX_ASPECT_RATIO - 1);
-  const targetRatio = Math.random() < 0.5 ? longShortRatio : 1 / longShortRatio;
+  const originalRatio = width / height;
+  const ratioJitter = 0.9 + Math.random() * 0.2; // ±10%
+  const targetRatio = Math.min(MAX_ASPECT_RATIO, Math.max(1 / MAX_ASPECT_RATIO, originalRatio * ratioJitter));
 
   let fragW = Math.sqrt(targetArea * targetRatio);
   let fragH = targetArea / fragW;
 
   if (fragW > width || fragH > height) {
-    // Passt nicht ins Original — größtmögliches Rechteck mit targetRatio
-    // nehmen (klassisches "contain"-Fitting), statt die Zielfläche stur
-    // durchzusetzen.
+    // Passt (in seltenen Randfällen, z.B. nach dem Kappen auf MAX_ASPECT_RATIO)
+    // nicht ins Original — größtmögliches Rechteck mit targetRatio nehmen
+    // (klassisches "contain"-Fitting), statt die Zielfläche stur durchzusetzen.
     if (targetRatio >= width / height) {
       fragW = width;
       fragH = width / targetRatio;
@@ -122,7 +124,7 @@ async function createReproduction(sourceUrl) {
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   }
 
-  const quality = useFragment ? undefined : REPRODUCE_JPEG_QUALITY;
+  const quality = useFragment ? undefined : JPEG_QUALITY;
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
   return { blob, width: canvas.width, height: canvas.height };
 }
@@ -183,6 +185,12 @@ export function initSingleView(
   // dort kein weiteres [z]-Browsen und kein "trace" (sonst Endlosschleife
   // trace -> single view -> trace -> ...), siehe open()/showRandom() unten.
   let currentBrowsable = true;
+
+  // Steuert die "versteckte" Wortgruppe (reproduce/trace/collect-drop/note/
+  // report/Shoot-Wort) — per Klick aufs Bild umgeschaltet, siehe weiter unten.
+  // Immer false bei jedem open() (auch beim Bildwechsel per [z]) — die
+  // Uhrzeit/b/z/views-Standardgruppe ist davon unberührt, bleibt immer sichtbar.
+  let controlsVisible = false;
 
   // Erhöht sich bei jedem open()/close() — eine open()-Anfrage, die während
   // des Preloads (siehe preloadImage oben) durch eine neuere Anfrage oder
@@ -414,17 +422,40 @@ export function initSingleView(
   // "trace" ist sichtbar, sobald das aktuelle Bild Teil einer Reproduktions-
   // Familie ist (Original oder Reproduktion — beide haben ein gesetztes
   // family_root_id, siehe upload.js) UND diese Ansicht browsable ist — aus
-  // trace.js selbst geöffnete Bilder zeigen "trace" nie (sonst Endlosschleife).
+  // trace.js selbst geöffnete Bilder zeigen "trace" nie (sonst Endlosschleife)
+  // — UND nur, wenn die Wortgruppe gerade eingeblendet ist (controlsVisible).
   function updateTraceVisibility() {
     const hasFamily = !!(currentImage && currentImage.familyRootId);
-    traceBtn.style.display = hasFamily && currentBrowsable ? 'block' : 'none';
+    traceBtn.style.display = hasFamily && currentBrowsable && controlsVisible ? 'block' : 'none';
   }
 
   // "reproduce" ist ab MAX_REPRODUCE_GENERATION nicht mehr verfügbar — eine
-  // weitere Reproduktion würde die (nicht erlaubte) nächste Generation erzeugen.
+  // weitere Reproduktion würde die (nicht erlaubte) nächste Generation
+  // erzeugen — UND nur sichtbar, wenn die Wortgruppe eingeblendet ist.
   function updateReproduceVisibility() {
     const generation = currentImage ? (currentImage.generation || 0) : 0;
-    reproduceBtn.style.display = generation >= MAX_REPRODUCE_GENERATION ? 'none' : 'block';
+    reproduceBtn.style.display = generation < MAX_REPRODUCE_GENERATION && controlsVisible ? 'block' : 'none';
+  }
+
+  function updateActionButtonsVisibility() {
+    pullBtn.style.display = controlsVisible ? 'block' : 'none';
+    commentBtn.style.display = controlsVisible ? 'block' : 'none';
+    reportBtn.style.display = controlsVisible ? 'block' : 'none';
+  }
+
+  // Shoot-Wort ("s"): bleibt während Comment-/Report-Authoring ausgeblendet
+  // (unverändert), ist sonst jetzt an controlsVisible gekoppelt statt immer an.
+  function updateShootWordVisibility() {
+    setShootWordVisible(mode === 'view' && controlsVisible);
+  }
+
+  // Bündelt alle vier obigen Sichtbarkeits-Regeln — nach jedem Umschalten
+  // von controlsVisible sowie bei jedem open() aufgerufen.
+  function applyControlsVisibility() {
+    updateActionButtonsVisibility();
+    updateReproduceVisibility();
+    updateTraceVisibility();
+    updateShootWordVisibility();
   }
 
   async function open(imageId, imagesList, opts = {}) {
@@ -470,8 +501,6 @@ export function initSingleView(
     setClockVisible(true);
     currentBrowsable = browsable;
     zBtn.style.display = browsable ? 'block' : 'none';
-    updateTraceVisibility();
-    updateReproduceVisibility();
     wasSilentOpen = silent;
     // Nur der frische Einstieg in die Einzelansicht ist ein eigener Schritt
     // im Browser-Verlauf — Bildwechsel währenddessen (z.B. mehrfaches [z])
@@ -486,6 +515,15 @@ export function initSingleView(
         pushRoute(imagePath(img.id), `push v.r.p. — image ${img.id}`);
       }
     }
+
+    // Für die Positionierung/Kollisionsvermeidung unten müssen diese Elemente
+    // kurz messbar sein (display:block) — ein verstecktes Element liefert eine
+    // Nullgröße bei getBoundingClientRect() und würde falsch bzw. überlappend
+    // platziert. Die tatsächliche Sichtbarkeit (controlsVisible, Eignung) wird
+    // gleich danach über applyControlsVisibility() gesetzt.
+    [pullBtn, commentBtn, reportBtn, reproduceBtn, traceBtn].forEach((el) => {
+      el.style.display = 'block';
+    });
     if (!wasAlreadyOpen) {
       positionActionWords();
     } else {
@@ -493,6 +531,11 @@ export function initSingleView(
       // neuen — möglicherweise anders geformten — Bild schützen.
       correctPositionsForImage();
     }
+    // Jedes open() (auch Bildwechsel per [z]) startet mit ausgeblendeter
+    // Wortgruppe — erst ein Klick aufs Bild zeigt sie wieder.
+    controlsVisible = false;
+    applyControlsVisibility();
+
     resetCommentsStage();
     await refreshPullState();
     await loadComments(img.id);
@@ -510,6 +553,7 @@ export function initSingleView(
     mode = 'view';
     wasSilentOpen = false;
     currentBrowsable = true;
+    controlsVisible = false;
 
     const ownOpen = document.getElementById('own-gallery-view').style.display === 'block';
     const foreignOpen = document.getElementById('foreign-profile-view').style.display === 'block';
@@ -546,6 +590,17 @@ export function initSingleView(
   });
   zBtn.addEventListener('click', showRandom);
 
+  // Klick aufs Bild schaltet die "versteckte" Wortgruppe (reproduce/trace/
+  // collect-drop/note/report/Shoot-Wort) um — nur im normalen Betrachtungs-
+  // Zustand, nicht während des gedimmten Comment-/Report-Authorings (dort
+  // ist imageEl ohnehin per pointer-events:none unklickbar, siehe enterMode();
+  // die Prüfung hier ist eine zusätzliche, robuste Absicherung).
+  imageEl.addEventListener('click', () => {
+    if (mode !== 'view') return;
+    controlsVisible = !controlsVisible;
+    applyControlsVisibility();
+  });
+
   let pullAnimationRunning = false;
 
   async function animatePullImage(username) {
@@ -578,7 +633,7 @@ export function initSingleView(
   pullBtn.addEventListener('click', async () => {
     const user = getCurrentUser();
     if (!user) {
-      onNeedsLogin();
+      onNeedsLogin(applyControlsVisibility);
       return;
     }
     if (!currentImage) return;
@@ -628,7 +683,7 @@ export function initSingleView(
       el.style.pointerEvents = dim ? 'none' : 'auto';
     });
     commentsLayer.style.opacity = dim ? '0.2' : '1';
-    setShootWordVisible(!dim);
+    updateShootWordVisibility();
 
     dimEsc.style.display = dim ? 'block' : 'none';
     typeInput.style.display = dim ? 'block' : 'none';
@@ -679,14 +734,14 @@ export function initSingleView(
 
   commentBtn.addEventListener('click', () => {
     if (!getCurrentUser()) {
-      onNeedsLogin();
+      onNeedsLogin(applyControlsVisibility);
       return;
     }
     enterMode('comment');
   });
   reportBtn.addEventListener('click', () => {
     if (!getCurrentUser()) {
-      onNeedsLogin();
+      onNeedsLogin(applyControlsVisibility);
       return;
     }
     enterMode('report');
@@ -697,7 +752,7 @@ export function initSingleView(
 
   reproduceBtn.addEventListener('click', async () => {
     if (!getCurrentUser()) {
-      onNeedsLogin();
+      onNeedsLogin(applyControlsVisibility);
       return;
     }
     if (!currentImage || reproduceRunning) return;
@@ -714,7 +769,19 @@ export function initSingleView(
       goBack();
       // Kein Tag-Übernehmen mehr: das Upload-Overlay startet komplett leer,
       // wie bei einem regulären Push (siehe upload.js).
-      onReproduce && onReproduce(blob, { width, height, reproducedFromId: sourceImage.id });
+      onReproduce && onReproduce(blob, {
+        width,
+        height,
+        reproducedFromId: sourceImage.id,
+        // sourceImage ist dieselbe Objekt-Referenz wie in der jeweiligen
+        // Galerie-Liste (kein Kopieren in open(), siehe dort) — diese Mutation
+        // aktualisiert daher automatisch auch den Galerie-Cache. Ohne das
+        // bliebe familyRootId dort veraltet und "trace" würde beim erneuten
+        // Öffnen dieses Bildes ohne Neuladen der Seite nicht erscheinen.
+        onGenealogyResolved: (familyRootId) => {
+          sourceImage.familyRootId = familyRootId;
+        },
+      });
     } catch (err) {
       console.error('Reproduce fehlgeschlagen:', err);
       flashMessage('error: could not reproduce');

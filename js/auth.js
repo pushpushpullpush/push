@@ -92,18 +92,30 @@ export function initAuth(refs, onSessionChange) {
     repositionClock(taken);
   }
 
-  function open() {
+  // Optionaler Callback: läuft NACH dem eigenen setShootWordVisible(true)
+  // unten in close() — so kann ein Aufrufer (z.B. single-view.js, dessen
+  // Shoot-Wort-Sichtbarkeit an einen eigenen Zustand gekoppelt ist statt
+  // immer "sichtbar sobald nicht am Tippen") diese pauschale Annahme danach
+  // gezielt wieder korrigieren, ohne dass jeder Aufrufer ohne diesen Bedarf
+  // etwas ändern müsste.
+  let pendingOnClosed = null;
+
+  function open(onClosed) {
     resetForm();
     overlay.style.display = 'block';
     setShootWordVisible(false);
     setClockVisible(false);
     positionBlock();
+    pendingOnClosed = onClosed || null;
   }
 
   function close() {
     overlay.style.display = 'none';
     setShootWordVisible(true);
     setClockVisible(true);
+    const onClosed = pendingOnClosed;
+    pendingOnClosed = null;
+    if (onClosed) onClosed();
   }
 
   escBtn.addEventListener('click', close);

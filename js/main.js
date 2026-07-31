@@ -117,7 +117,7 @@ singleView = initSingleView({
   typeInput: document.getElementById('single-type-input'),
   submitBtn: document.getElementById('single-submit'),
   thanksEl: document.getElementById('single-thanks'),
-}, gallery.getVisibleImages, () => auth.getCurrentUser(), () => auth.open(), (imageId, pulled) => {
+}, gallery.getVisibleImages, () => auth.getCurrentUser(), (onClosed) => auth.open(onClosed), (imageId, pulled) => {
   // Falls man von der eigenen Galerie aus "drop" drückt: Bild dort sofort entfernen.
   if (!pulled && ownGallery) ownGallery.removeImageIfPresent(imageId);
 }, openProfile, (blob, opts) => upload.openWithBlob(blob, opts), (familyRootId, returnImageId) => trace.open(familyRootId, returnImageId));
@@ -490,13 +490,16 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (isOpen('single-view')) {
+    // Kein getComputedStyle-Sichtbarkeits-Check mehr nötig: beide Klick-
+    // Handler in single-view.js prüfen ihre Eignung (family_root_id bzw.
+    // Generationslimit) bereits selbst — die Shortcuts funktionieren damit
+    // absichtlich unabhängig vom controlsVisible-Sichtbarkeits-Zustand
+    // der Wortgruppe (siehe single-view.js).
     if (e.key === 'r' || e.key === 'R') {
-      const reproduceEl = document.getElementById('single-reproduce');
-      if (getComputedStyle(reproduceEl).display !== 'none') reproduceEl.click();
+      document.getElementById('single-reproduce').click();
     }
     if (e.key === 't' || e.key === 'T') {
-      const traceEl = document.getElementById('single-trace');
-      if (getComputedStyle(traceEl).display !== 'none') traceEl.click();
+      document.getElementById('single-trace').click();
     }
   }
   if ((e.key === 'f' || e.key === 'F') && !hidden) {

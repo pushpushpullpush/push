@@ -195,6 +195,7 @@ input.menu-word {
   transform: translateX(-50%);
   object-fit: contain;
   z-index: 1000; /* immer über den Kommentar-/Puller-Chips, egal wie weit gescrollt wird */
+  cursor: pointer; /* Klick blendet die Wortgruppe ein/aus, siehe single-view.js */
 }
 
 #upload-esc, #upload-esc-2 {

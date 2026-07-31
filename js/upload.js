@@ -8,7 +8,7 @@ import { showRandomHint } from './notice-board.js';
 import { setShootWordVisible } from './shoot.js';
 
 const MAX_DIMENSION = 1600;
-const JPEG_QUALITY = 0.82;
+export const JPEG_QUALITY = 0.82;
 const MAX_TAGS = 10;
 const MAX_TAG_LENGTH = 21;
 
@@ -60,6 +60,7 @@ export function initUpload(refs, onUploaded) {
   let pendingDisplaySize = null;
   let pendingNaturalSize = null;
   let pendingReproducedFromId = null; // gesetzt nur bei reproduce (siehe openWithBlob)
+  let pendingGenealogyCallback = null; // dito — benachrichtigt single-view.js über das Ergebnis
   let previewObjectUrl = null; // nur bei openWithBlob gesetzt, muss revoked werden
   let currentImageRect = null;
 
@@ -151,6 +152,7 @@ export function initUpload(refs, onUploaded) {
         pendingDisplaySize = computeDisplaySize(width, height);
 
         pendingReproducedFromId = null; // normaler Push, keine Reproduktions-Genealogie
+        pendingGenealogyCallback = null;
         if (previewObjectUrl) {
           URL.revokeObjectURL(previewObjectUrl);
           previewObjectUrl = null;
@@ -186,13 +188,17 @@ export function initUpload(refs, onUploaded) {
    * gewählte Degradation/den Ausschnitt wieder überschreiben bzw. verwässern),
    * übernimmt den Blob unverändert. Startet wie ein regulärer Push komplett
    * ohne Tags — keine Übernahme vom Originalbild. reproducedFromId löst beim
-   * Push die Familien-Wurzel/Generation auf.
+   * Push die Familien-Wurzel/Generation auf; onGenealogyResolved (optional)
+   * wird danach mit dem Ergebnis aufgerufen, damit der Aufrufer (single-view.js)
+   * sein im Speicher gehaltenes Ausgangsbild-Objekt aktualisieren kann — sonst
+   * zeigt "trace" dort erst nach einem Neuladen der Seite.
    */
-  function openWithBlob(blob, { width, height, reproducedFromId = null } = {}) {
+  function openWithBlob(blob, { width, height, reproducedFromId = null, onGenealogyResolved = null } = {}) {
     pendingBlob = blob;
     pendingNaturalSize = { width: Math.round(width), height: Math.round(height) };
     pendingDisplaySize = computeDisplaySize(width, height);
     pendingReproducedFromId = reproducedFromId;
+    pendingGenealogyCallback = onGenealogyResolved;
 
     currentImageRect = computeContainRect(width, height);
     if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
@@ -223,6 +229,7 @@ export function initUpload(refs, onUploaded) {
     pendingDisplaySize = null;
     pendingNaturalSize = null;
     pendingReproducedFromId = null;
+    pendingGenealogyCallback = null;
     if (previewObjectUrl) {
       URL.revokeObjectURL(previewObjectUrl);
       previewObjectUrl = null;
@@ -361,6 +368,10 @@ export function initUpload(refs, onUploaded) {
             newGeneration = (sourceRow.generation || 0) + 1;
           }
         }
+        // Unabhängig vom Ergebnis benachrichtigen (auch bei familyRootId===null,
+        // z.B. RLS-Fehler) — der DB-Schreibzugriff oben ist bereits final passiert,
+        // das im Speicher gehaltene Objekt in single-view.js soll das widerspiegeln.
+        if (pendingGenealogyCallback) pendingGenealogyCallback(familyRootId);
       }
 
       const { data: inserted, error: insertError } = await supabase

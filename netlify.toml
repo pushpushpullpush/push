@@ -1,0 +1,11 @@
+[build]
+  publish = "."
+
+# SPA-Fallback: /image/:id, /u/:username, /vrp existieren nicht als echte
+# Dateien — ohne diese Regel würde ein Direktaufruf (oder Reload) dieser
+# Pfade mit 404 fehlschlagen, statt index.html (und damit das JS-Routing
+# in js/router.js) zu laden.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

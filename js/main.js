@@ -92,6 +92,7 @@ singleView = initSingleView({
   connectionsStage: document.getElementById('single-connections-stage'),
   selectOverlay: document.getElementById('connect-select-view'),
   selectStage: document.getElementById('connect-select-stage'),
+  selectPreview: document.getElementById('connect-select-preview'),
   selectEsc: document.getElementById('connect-select-esc'),
   selectA: document.getElementById('connect-select-a'),
   selectS: document.getElementById('connect-select-s'),

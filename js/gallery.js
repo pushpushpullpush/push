@@ -1,10 +1,12 @@
 import { computeFullLayout, placeImage, createHeightmap, computeChronologicalLayout, EDGE_MARGIN } from './layout-engine.js';
 import { showMessage } from './notice-board.js';
 
-export function createGallery(stageEl, initialImages, { onImageClick, onSortModeChange, initialSortMode = 'chronological' } = {}) {
+export function createGallery(stageEl, initialImages, {
+  onImageClick, onSortModeChange, initialSortMode = 'chronological', reservedArea,
+} = {}) {
   const els = new Map();
   const images = [...initialImages];
-  let heightmap = createHeightmap(stageEl.clientWidth || 680);
+  let heightmap = createHeightmap(stageEl.clientWidth || 680, reservedArea);
 
   // 'chronological' (Startzustand, neueste oben) oder 'random' ([s]-Shuffle).
   // initialSortMode: für Galerien, die von Anfang an im aktuellen Modus der
@@ -43,8 +45,8 @@ export function createGallery(stageEl, initialImages, { onImageClick, onSortMode
 
   function computeLayoutFor(imgList, width) {
     return sortMode === 'random'
-      ? computeFullLayout(imgList, width)
-      : computeChronologicalLayout(imgList, width);
+      ? computeFullLayout(imgList, width, reservedArea)
+      : computeChronologicalLayout(imgList, width, reservedArea);
   }
 
   function layoutAll() {
@@ -118,7 +120,7 @@ export function createGallery(stageEl, initialImages, { onImageClick, onSortMode
       if (els.has(img.id)) return; // schon vorhanden, überspringen
       images.push(img);
       const el = makeEl(img);
-      const pos = placeImage(img, heightmap, width);
+      const pos = placeImage(img, heightmap, width, reservedArea);
       el.style.left = pos.left + 'px';
       el.style.top = pos.top + 'px';
       el.style.zIndex = pos.z;

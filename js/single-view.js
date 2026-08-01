@@ -127,10 +127,17 @@ function preloadImage(url) {
   });
 }
 
+// Reservierte Fläche oben links in der connect-Auswahlgalerie (siehe
+// layout-engine.js) -- größer als das Standard-Konsolenmaß, da hier
+// zusätzlich zum "connect"-Wort noch eine Vorschau des Ausgangsbildes sitzt
+// (siehe #connect-select-preview in style.css, dessen Größe/Position hierzu
+// passen muss).
+const CONNECT_SELECT_RESERVED = { width: 180, height: 220 };
+
 export function initSingleView(refs, getImages, getSortMode) {
   const {
     overlay, imageEl, escBtn, randomBtn, connectBtn, connectionsStage,
-    selectOverlay, selectStage, selectEsc, selectA, selectS,
+    selectOverlay, selectStage, selectEsc, selectA, selectS, selectPreview,
     confirmOverlay, confirmImageA, confirmImageB, confirmWord, confirmEsc,
   } = refs;
 
@@ -378,6 +385,7 @@ export function initSingleView(refs, getImages, getSortMode) {
     const pool = await fetchAllImages();
     if (myGeneration !== openGeneration) return; // zwischenzeitlich geschlossen/weiternavigiert
 
+    selectPreview.src = connectSourceImage.url;
     selectStage.innerHTML = '';
     selectGallery = createGallery(selectStage, pool, {
       onImageClick: (img) => {
@@ -386,6 +394,7 @@ export function initSingleView(refs, getImages, getSortMode) {
       },
       initialSortMode: getSortMode(),
       onSortModeChange: updateSelectAVisibility,
+      reservedArea: CONNECT_SELECT_RESERVED,
     });
     updateSelectAVisibility(selectGallery.getSortMode());
 

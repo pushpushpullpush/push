@@ -155,6 +155,21 @@ html, body {
   cursor: default;
 }
 
+/* Vorschau des Ausgangsbildes, direkt unter dem "connect"-Wort -- ebenfalls
+   fest positioniert (bewegt sich nicht mit beim Scrollen), siehe
+   single-view.js. Die Größe hier muss zur reservierten Fläche in
+   layout-engine.js (CONNECT_SELECT_RESERVED, siehe single-view.js)
+   passen, damit die oberste Bildreihe nicht darunter startet. */
+#connect-select-preview {
+  position: fixed;
+  left: 24px;
+  top: 66px;
+  max-width: 100px;
+  max-height: 100px;
+  object-fit: contain;
+  z-index: 2500;
+}
+
 #connect-confirm-images {
   position: fixed;
   inset: 0;

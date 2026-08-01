@@ -9,12 +9,18 @@ const RESOLUTION = 46; // feine, unsichtbare Positionsraster-Punkte über die Br
 // komplett am Rand kleben (oben, unten, links, rechts).
 export const EDGE_MARGIN = 24;
 
-// Sicherheitsabstand zur Meldungs-Konsole oben links (siehe notice-board.js)
-// — deckt die längsten zu erwartenden Meldungen ab, damit nie ein Bild
-// direkt darunter startet. Nur relevant, wenn containerWidth bekannt ist
-// (die feste Konsole betrifft nur den sichtbaren Anfang der Galerie).
+// Sicherheitsabstand zu einem fest positionierten Element oben links (z.B.
+// die Meldungs-Konsole, siehe notice-board.js) — deckt dessen Fläche ab,
+// damit nie ein Bild direkt darunter startet. Nur relevant, wenn
+// containerWidth bekannt ist (ein fixes Element betrifft nur den sichtbaren
+// Anfang der Galerie). Aufrufer können über den reserved-Parameter (siehe
+// createHeightmap/placeImage/computeChronologicalLayout/computeFullLayout)
+// eine eigene Größe übergeben, z.B. für die connect-Auswahlgalerie in
+// single-view.js, die zusätzlich zum "connect"-Wort noch ein Vorschaubild
+// oben links zeigt und daher mehr Höhe braucht als die normale Konsole.
 const CONSOLE_RESERVED_WIDTH = 480;
 const CONSOLE_RESERVED_HEIGHT = 90;
+const DEFAULT_RESERVED = { width: CONSOLE_RESERVED_WIDTH, height: CONSOLE_RESERVED_HEIGHT };
 
 function pickDelta(height) {
   const r = Math.random();
@@ -23,24 +29,24 @@ function pickDelta(height) {
   return 8 + Math.random() * 36; // echte Lücke
 }
 
-// Anzahl der Spalten, die die Konsolen-Zone abdeckt — dieselbe Formel wird
-// beim Vorbelegen der Heightmap UND bei jeder einzelnen Platzierung
+// Anzahl der Spalten, die die reservierte Zone abdeckt — dieselbe Formel
+// wird beim Vorbelegen der Heightmap UND bei jeder einzelnen Platzierung
 // benutzt, damit beide exakt dieselben Spalten meinen.
-function reservedColumnCount(colWidth) {
+function reservedColumnCount(colWidth, reservedWidth) {
   if (!colWidth) return 0;
   return Math.min(
     Math.ceil(RESOLUTION * 0.6), // nie mehr als ~60% der Breite reservieren
-    Math.ceil(CONSOLE_RESERVED_WIDTH / colWidth),
+    Math.ceil(reservedWidth / colWidth),
   );
 }
 
-export function createHeightmap(containerWidth) {
+export function createHeightmap(containerWidth, reserved = DEFAULT_RESERVED) {
   const heightmap = new Array(RESOLUTION).fill(EDGE_MARGIN);
   if (containerWidth) {
     const usableWidth = Math.max(0, containerWidth - 2 * EDGE_MARGIN);
     const colWidth = usableWidth / RESOLUTION;
-    const reservedCols = reservedColumnCount(colWidth);
-    for (let c = 0; c < reservedCols; c++) heightmap[c] = CONSOLE_RESERVED_HEIGHT;
+    const reservedCols = reservedColumnCount(colWidth, reserved.width);
+    for (let c = 0; c < reservedCols; c++) heightmap[c] = reserved.height;
   }
   return heightmap;
 }
@@ -50,7 +56,7 @@ export function createHeightmap(containerWidth) {
  * ohne andere bereits platzierte Bilder anzufassen.
  * Wird sowohl beim vollen Neumischen als auch bei einem einzelnen Push benutzt.
  */
-export function placeImage(img, heightmap, containerWidth) {
+export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RESERVED) {
   const usableWidth = Math.max(0, containerWidth - 2 * EDGE_MARGIN);
   const colWidth = usableWidth / RESOLUTION;
   const span = Math.min(RESOLUTION - 1, Math.max(1, Math.ceil(img.width / colWidth)));
@@ -59,10 +65,10 @@ export function placeImage(img, heightmap, containerWidth) {
   let base = 0;
   for (let c = startCol; c < startCol + span; c++) base = Math.max(base, heightmap[c]);
 
-  // Ragt die Spanne in die reservierte Konsolen-Zone hinein, muss auch die
-  // zufällige Überlappung (pickDelta, oft stark negativ) davor haltmachen —
-  // sonst zieht sie das Bild trotz reservierter Fläche wieder nach oben.
-  const floor = startCol < reservedColumnCount(colWidth) ? CONSOLE_RESERVED_HEIGHT : EDGE_MARGIN;
+  // Ragt die Spanne in die reservierte Zone hinein, muss auch die zufällige
+  // Überlappung (pickDelta, oft stark negativ) davor haltmachen — sonst
+  // zieht sie das Bild trotz reservierter Fläche wieder nach oben.
+  const floor = startCol < reservedColumnCount(colWidth, reserved.width) ? reserved.height : EDGE_MARGIN;
   const top = Math.max(base + pickDelta(img.height), floor);
   const left = EDGE_MARGIN + startCol * colWidth;
   const bottom = top + img.height;
@@ -84,22 +90,22 @@ export function placeImage(img, heightmap, containerWidth) {
  * Bilder landen im Schnitt weiter oben, ohne dass die Anordnung starr
  * oder klar nachvollziehbar wirkt.
  */
-export function computeChronologicalLayout(images, containerWidth) {
-  const heightmap = createHeightmap(containerWidth);
+export function computeChronologicalLayout(images, containerWidth, reserved = DEFAULT_RESERVED) {
+  const heightmap = createHeightmap(containerWidth, reserved);
   const positions = new Map();
 
   images.forEach((img) => {
-    positions.set(img.id, placeImage(img, heightmap, containerWidth));
+    positions.set(img.id, placeImage(img, heightmap, containerWidth, reserved));
   });
 
   return { positions, heightmap };
 }
 
 /**
- * Volles Neumischen aller Bilder — genutzt vom "r"-Befehl.
+ * Volles Neumischen aller Bilder — genutzt vom "s"-Befehl.
  */
-export function computeFullLayout(images, containerWidth) {
-  const heightmap = createHeightmap(containerWidth);
+export function computeFullLayout(images, containerWidth, reserved = DEFAULT_RESERVED) {
+  const heightmap = createHeightmap(containerWidth, reserved);
   const positions = new Map();
 
   const order = images.map((_, i) => i);
@@ -109,7 +115,7 @@ export function computeFullLayout(images, containerWidth) {
   }
 
   order.forEach((idx) => {
-    positions.set(images[idx].id, placeImage(images[idx], heightmap, containerWidth));
+    positions.set(images[idx].id, placeImage(images[idx], heightmap, containerWidth, reserved));
   });
 
   const totalHeight = Math.max(...heightmap) + EDGE_MARGIN;

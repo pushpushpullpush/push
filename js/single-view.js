@@ -53,6 +53,52 @@ function imageColumnRect(rect) {
   return { left: rect.left, right: rect.right, top: 0, bottom: window.innerHeight };
 }
 
+/**
+ * Erste Platzierung eines Textelements ausschließlich links oder rechts vom
+ * Bild. Bewusst NICHT über randomSpot(avoidRect: imageColumnRect(...)):
+ * randomSpot samplet x über die GESAMTE Fensterbreite und verwirft Treffer
+ * in der Sperrzone -- auf schmalen Bildschirmen (Smartphone) nimmt das Bild
+ * oft fast die ganze Breite ein, sodass der erlaubte Rest so schmal wird,
+ * dass praktisch jeder Versuch scheitert und alle Elemente im selben
+ * Fallback-Punkt kollidieren (beobachtet als "Textelemente überlagern sich
+ * oben links"). Hier wird x stattdessen direkt aus der jeweils verfügbaren
+ * Seiten-Zone gezogen -- bleibt dadurch auch bei sehr wenig seitlichem Platz
+ * zuverlässig gültig.
+ */
+function randomColumnSpot(taken, imageRect, { margin = 24, minDist = 90 } = {}) {
+  const sides = [];
+  if (imageRect.left - margin * 2 > 4) {
+    sides.push({ from: margin, to: imageRect.left - margin });
+  }
+  if (window.innerWidth - imageRect.right - margin * 2 > 4) {
+    sides.push({ from: imageRect.right + margin, to: window.innerWidth - margin });
+  }
+  // Extremfall: kein Fenster ohne nennenswerte seitliche Restfläche (Bild
+  // nimmt praktisch die volle Breite ein) -- notgedrungen ganz am Rand
+  // platzieren, bleibt aber weiterhin über minDist im y voneinander getrennt
+  // (siehe unten), statt komplett zu kollidieren.
+  if (!sides.length) sides.push({ from: margin, to: margin });
+
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const side = sides[Math.floor(Math.random() * sides.length)];
+    const x = side.from + Math.random() * Math.max(0, side.to - side.from);
+    const y = margin + Math.random() * (window.innerHeight - margin * 2);
+    const farEnough = taken.every((p) => Math.hypot(p.x - x, p.y - y) > minDist);
+    if (farEnough) return { x, y };
+  }
+
+  // Kein Punkt mit vollem Mindestabstand gefunden -- wenigstens im y nicht
+  // mit bereits vergebenen Punkten kollidieren (x bleibt innerhalb der
+  // Seiten-Zone, aber ohne Abstandsprüfung).
+  const side = sides[Math.floor(Math.random() * sides.length)];
+  const x = side.from + Math.random() * Math.max(0, side.to - side.from);
+  let y = margin;
+  taken.map((p) => p.y).sort((a, b) => a - b).forEach((usedY) => {
+    if (Math.abs(usedY - y) < minDist) y = usedY + minDist;
+  });
+  return { x, y: Math.min(y, window.innerHeight - margin) };
+}
+
 // Bilder in der Galerie sind loading="lazy" — ein per [r] gezeigtes Bild
 // hat daher oft noch gar nicht angefangen zu laden. Ohne das hier würde das
 // sichtbare <img> sofort auf die neue Größe/URL umgestellt, während die
@@ -123,9 +169,8 @@ export function initSingleView(refs, getImages, getSortMode) {
 
   function positionActionWords() {
     const taken = [];
-    const columnRect = imageColumnRect(currentImageRect);
     [escBtn, randomBtn, connectBtn].forEach((el) => {
-      const spot = randomSpot(taken, { margin: 60, avoidRect: columnRect });
+      const spot = randomColumnSpot(taken, currentImageRect);
       taken.push(spot);
       el.style.left = spot.x + 'px';
       el.style.top = spot.y + 'px';

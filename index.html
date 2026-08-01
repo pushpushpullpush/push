@@ -52,108 +52,39 @@
 
   <div id="upload-overlay" class="overlay">
     <img id="upload-preview" alt="preview" />
-    <div class="menu-word" id="upload-esc">b</div>
-    <input class="menu-word tag-input italic-field field-yellow" id="tag-input" placeholder="tags" />
-    <div id="tag-chips" class="tag-chips"></div>
+    <div class="menu-word" id="upload-esc">z</div>
     <div class="menu-word" id="upload-push">push</div>
   </div>
 
   <div id="vrp-view" class="overlay" style="overflow-y:auto;">
-    <div class="menu-word" id="vrp-esc">b</div>
+    <div class="menu-word" id="vrp-esc">z</div>
     <div id="vrp-list"></div>
     <div id="vrp-text"></div>
   </div>
 
-  <div id="own-gallery-view" class="overlay">
-    <div id="own-gallery-stage"></div>
-    <div class="menu-word username-color" id="own-username"></div>
-    <input class="menu-word italic-field field-yellow" id="own-search" placeholder="filter" />
-    <div class="menu-word" id="own-z">z</div>
-    <div class="menu-word" id="own-a">a</div>
-    <div class="menu-word" id="own-esc">b</div>
-
-    <div class="menu-word" id="own-logout" style="display:none;">log out</div>
-    <div class="menu-word" id="own-edit" style="display:none;">edit data</div>
-    <label class="consent-line" id="own-newsletter-line" style="display:none;">
-      <input type="checkbox" id="own-newsletter-toggle" class="push-checkbox" />
-      <span>receive updates via mail</span>
-    </label>
-
-    <div class="menu-word" id="edit-username-label" style="display:none;">collection name</div>
-    <input class="menu-word italic-field field-blue" id="edit-username-input" style="display:none;" />
-    <div class="menu-word" id="edit-username-confirm" style="display:none;">confirm</div>
-
-    <div class="menu-word" id="edit-email-label" style="display:none;">email</div>
-    <input class="menu-word italic-field" id="edit-email-input" style="display:none;" />
-    <div class="menu-word" id="edit-email-confirm" style="display:none;">confirm</div>
-
-    <div class="menu-word" id="edit-password-label" style="display:none;">password</div>
-    <input class="menu-word italic-field field-blue" id="edit-password-input" style="display:none;" />
-    <div class="menu-word" id="edit-password-confirm" style="display:none;">confirm</div>
-
-    <div class="menu-word" id="edit-delete-label" style="display:none;">delete account</div>
-    <input class="menu-word italic-field" id="edit-delete-input" placeholder="type 'delete' to confirm" style="display:none;" />
-    <div class="menu-word" id="edit-delete-confirm" style="display:none;">confirm</div>
-  </div>
-
-  <div id="foreign-profile-view" class="overlay">
-    <div id="foreign-profile-stage"></div>
-    <div class="menu-word username-color" id="foreign-username"></div>
-    <input class="menu-word italic-field field-yellow" id="foreign-search" placeholder="filter" />
-    <div class="menu-word" id="foreign-z">z</div>
-    <div class="menu-word" id="foreign-a">a</div>
-    <div class="menu-word" id="foreign-pull">collect</div>
-    <div class="menu-word" id="foreign-esc">b</div>
-  </div>
-
-  <div id="trace-view" class="overlay">
-    <div id="trace-stage"></div>
-    <div class="menu-word" id="trace-z">z</div>
-    <div class="menu-word" id="trace-a">a</div>
-    <div class="menu-word" id="trace-esc">b</div>
-  </div>
-
   <div id="single-view" class="overlay">
     <img id="single-image" alt="" />
-    <div class="menu-word" id="single-esc">b</div>
-    <div class="menu-word" id="single-z">z</div>
-    <div class="menu-word" id="single-pull">collect</div>
-    <div class="menu-word" id="single-comment">note</div>
-    <div class="menu-word" id="single-report">report</div>
-    <div class="menu-word" id="single-reproduce">reproduce</div>
-    <div class="menu-word" id="single-trace" style="display:none;">trace</div>
-    <div class="menu-word" id="single-views"></div>
-    <div id="single-comments-layer" class="comments-stage"></div>
-
-    <div class="menu-word" id="single-dim-esc" style="display:none;">b</div>
-    <input class="menu-word italic-field" id="single-type-input" style="display:none;" />
-    <div class="menu-word" id="single-submit" style="display:none;"></div>
-    <div class="menu-word" id="single-thanks" style="display:none;">thank you</div>
+    <div class="menu-word" id="single-esc">z</div>
+    <div class="menu-word" id="single-r">r</div>
+    <div class="menu-word" id="single-connect">c</div>
+    <div id="single-connections-stage" class="connections-stage"></div>
   </div>
 
-  <div id="auth-view" class="overlay">
-    <div id="auth-block">
-      <input class="plain-word italic-field field-blue" id="auth-username" placeholder="collection name" maxlength="12" />
-      <div style="display:flex; align-items:center; gap:10px;">
-        <input class="plain-word italic-field field-blue" id="auth-password" type="password" placeholder="password" />
-        <span id="auth-password-toggle" class="plain-word">show</span>
-      </div>
+  <div id="connect-select-view" class="overlay">
+    <div id="connect-select-stage"></div>
+    <div class="menu-word" id="connect-select-label">connect</div>
+    <div class="menu-word" id="connect-select-esc">z</div>
+    <div class="menu-word" id="connect-select-a" style="display:none;">a</div>
+    <div class="menu-word" id="connect-select-s">s</div>
+  </div>
 
-      <div id="auth-signup-fields" style="display:none;">
-        <input class="plain-word italic-field" id="auth-email" placeholder="e-mail" />
-        <label class="consent-line" id="auth-newsletter-line">
-          <input type="checkbox" id="auth-newsletter-toggle" class="push-checkbox" checked />
-          <span>receive updates via mail</span>
-        </label>
-      </div>
-
-      <div class="plain-word" id="auth-enter">enter</div>
+  <div id="connect-confirm-view" class="overlay">
+    <div id="connect-confirm-images">
+      <img id="connect-confirm-image-a" alt="" />
+      <img id="connect-confirm-image-b" alt="" />
     </div>
-
-    <div class="menu-word" id="auth-forgot">forgot password</div>
-    <div class="menu-word" id="auth-create-toggle">create account</div>
-
-    <div class="menu-word" id="auth-esc">b</div>
+    <div class="menu-word" id="connect-confirm-word">connect</div>
+    <div class="menu-word" id="connect-confirm-esc">z</div>
   </div>
 
   <script type="module" src="js/main.js"></script>

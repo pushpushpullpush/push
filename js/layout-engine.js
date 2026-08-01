@@ -18,7 +18,7 @@ const CONSOLE_RESERVED_HEIGHT = 90;
 
 function pickDelta(height) {
   const r = Math.random();
-  if (r < 0.55) return -height * (0.15 + Math.random() * 0.55); // deutliche Überlappung
+  if (r < 0.55) return -height * (0.05 + Math.random() * 0.15); // leichte Überlappung
   if (r < 0.85) return Math.random() * 10; // fast berührend
   return 8 + Math.random() * 36; // echte Lücke
 }

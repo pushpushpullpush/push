@@ -1,5 +1,4 @@
 import { randomSpot, clampToViewport } from './position-utils.js';
-import { setShootWordVisible } from './shoot.js';
 import { setClockVisible } from './clock.js';
 import { pushRoute, goBack, VRP_PATH } from './router.js';
 
@@ -203,7 +202,6 @@ export function initVrp(refs) {
     filterMode = 'all';
     stack = [];
     overlay.style.display = 'block';
-    setShootWordVisible(false);
     setClockVisible(false);
     pushRoute(VRP_PATH, 'push v.r.p. — v.r.p.');
     render();
@@ -211,7 +209,6 @@ export function initVrp(refs) {
 
   function close() {
     overlay.style.display = 'none';
-    setShootWordVisible(true);
     setClockVisible(true);
   }
 

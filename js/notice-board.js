@@ -59,9 +59,9 @@ function show(text, durationMs, isMessage) {
   }, durationMs);
 }
 
-// Mountet die Konsole schon beim Seitenaufbau (wie Uhr/Screenshot-Wort),
-// muss aber nicht zwingend explizit aufgerufen werden — show() legt das
-// Element bei Bedarf selbst an.
+// Mountet die Konsole schon beim Seitenaufbau (wie die Uhr), muss aber
+// nicht zwingend explizit aufgerufen werden — show() legt das Element bei
+// Bedarf selbst an.
 export function mountNoticeConsole() {
   ensureEl();
 }

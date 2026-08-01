@@ -1,29 +1,16 @@
 import { computeFullLayout, placeImage, createHeightmap, computeChronologicalLayout, EDGE_MARGIN } from './layout-engine.js';
 import { showMessage } from './notice-board.js';
 
-export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
+export function createGallery(stageEl, initialImages, { onImageClick, onSortModeChange, initialSortMode = 'chronological' } = {}) {
   const els = new Map();
   const images = [...initialImages];
   let heightmap = createHeightmap(stageEl.clientWidth || 680);
 
-  // 'chronological' (Standard: neueste oben) oder 'random' (Zufalls-Toggle
-  // über [a]). images bleibt intern immer chronologisch sortiert (neueste
-  // zuerst) — nur die Anzeige wechselt.
-  let sortMode = 'chronological';
-
-  // Username-Chips müssen VOR dem ersten reshuffleImages()-Aufruf existieren,
-  // da dieser sie sofort mit anspricht.
-  let usernameChips = []; // { username, width, height, el }
-
-  // Aktueller Tag-Filter (leer = kein Filter). layoutAll() berücksichtigt
-  // das immer, damit z.B. [a] bei aktivem Filter nicht wieder Lücken durch
-  // ausgeblendete Bilder aufreißt.
-  let currentFilterQuery = '';
-
-  function visibleImagesForFilter() {
-    if (!currentFilterQuery) return images;
-    return images.filter((img) => (img.tags || []).some((t) => t.toLowerCase().includes(currentFilterQuery)));
-  }
+  // 'chronological' (Startzustand, neueste oben) oder 'random' ([s]-Shuffle).
+  // initialSortMode: für Galerien, die von Anfang an im aktuellen Modus der
+  // Hauptgalerie starten sollen (siehe "connect"-Auswahl in single-view.js)
+  // -- setzt den Modus lautlos, ohne die shuffleRandom()-Meldung auszulösen.
+  let sortMode = initialSortMode === 'random' ? 'random' : 'chronological';
 
   function makeEl(img) {
     const el = document.createElement(img.url ? 'img' : 'div');
@@ -60,49 +47,46 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
       : computeChronologicalLayout(imgList, width);
   }
 
-  function placeChip(chip) {
-    const width0 = stageEl.clientWidth || 680;
-    const pos = placeImage({ width: chip.width, height: chip.height }, heightmap, width0);
-    chip.el.style.left = pos.left + 'px';
-    chip.el.style.top = pos.top + 'px';
-    chip.el.style.zIndex = pos.z;
-  }
-
   function layoutAll() {
     const width = stageEl.clientWidth || 680;
-    const visible = visibleImagesForFilter();
-    const visibleIds = new Set(visible.map((img) => img.id));
-
-    images.forEach((img) => {
-      els.get(img.id).style.display = visibleIds.has(img.id) ? '' : 'none';
-    });
-
-    // Ausgeblendete Bilder sollen keinen Platz belegen — Layout wird nur
-    // für die sichtbaren Bilder berechnet, damit sie zusammenrücken statt
-    // Lücken zu hinterlassen (gilt für Filter UND [a]-Toggle gleichermaßen).
-    const { positions, heightmap: newHeightmap } = computeLayoutFor(visible, width);
+    const { positions, heightmap: newHeightmap } = computeLayoutFor(images, width);
     heightmap = newHeightmap;
-    visible.forEach((img) => {
+    images.forEach((img) => {
       const el = els.get(img.id);
       const pos = positions.get(img.id);
       el.style.left = pos.left + 'px';
       el.style.top = pos.top + 'px';
       el.style.zIndex = pos.z;
     });
-    usernameChips.forEach((chip) => placeChip(chip));
     updateStageHeight();
   }
 
+  function notifySortMode() {
+    if (onSortModeChange) onSortModeChange(sortMode);
+  }
+
   /**
-   * [a]: Toggle zwischen chronologischer und zufälliger Reihenfolge.
-   * computeFullLayout mischt bei jedem Aufruf frisch — jeder Wechsel in
-   * den Zufallsmodus ergibt daher automatisch eine neue Anordnung. Zeigt
-   * kurz oben links ein, in welchem Modus man jetzt ist.
+   * [a]: zurück zur chronologischen Reihenfolge (Startzustand) — no-op,
+   * falls bereits chronologisch (computeChronologicalLayout würfelt intern
+   * ebenfalls leicht, ein erneuter Aufruf würde sonst unnötig umsortieren).
    */
-  function reshuffleImages() {
-    sortMode = sortMode === 'chronological' ? 'random' : 'chronological';
+  function sortChronological() {
+    if (sortMode === 'chronological') return;
+    sortMode = 'chronological';
     layoutAll();
-    showMessage(sortMode, 1600);
+    showMessage('chronological', 1600);
+    notifySortMode();
+  }
+
+  /**
+   * [s]: zufällige Reihenfolge — computeFullLayout mischt bei jedem Aufruf
+   * frisch, daher beliebig oft hintereinander auslösbar, jedes Mal neu.
+   */
+  function shuffleRandom() {
+    sortMode = 'random';
+    layoutAll();
+    showMessage('random', 1600);
+    notifySortMode();
   }
 
   layoutAll();
@@ -119,43 +103,8 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
     const el = makeEl(img);
     sortMode = 'chronological';
     layoutAll();
+    notifySortMode();
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  function filterByTag(query) {
-    currentFilterQuery = query.trim().toLowerCase();
-    layoutAll();
-  }
-
-  function getVisibleImages() {
-    return images.filter((img) => {
-      const el = els.get(img.id);
-      return el && el.style.display !== 'none';
-    });
-  }
-
-  function addUsernameChip(username, onClick) {
-    const width = Math.max(90, username.length * 15 + 20);
-    const height = 34;
-
-    const el = document.createElement('div');
-    el.className = 'username-color username-chip';
-    el.textContent = username;
-    el.style.position = 'absolute';
-    el.style.cursor = 'pointer';
-    el.addEventListener('click', () => onClick(username));
-    stageEl.appendChild(el);
-
-    const chip = { username, width, height, el };
-    usernameChips.push(chip);
-    placeChip(chip);
-    updateStageHeight();
-    return el;
-  }
-
-  function clearUsernameChips() {
-    usernameChips.forEach((c) => c.el.remove());
-    usernameChips = [];
   }
 
   /**
@@ -173,8 +122,6 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
       el.style.left = pos.left + 'px';
       el.style.top = pos.top + 'px';
       el.style.zIndex = pos.z;
-      const matches = !currentFilterQuery || (img.tags || []).some((t) => t.toLowerCase().includes(currentFilterQuery));
-      if (!matches) el.style.display = 'none';
     });
     updateStageHeight();
   }
@@ -194,6 +141,7 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
 
     sortMode = 'chronological';
     layoutAll();
+    notifySortMode();
   }
 
   function syncImages(newImages) {
@@ -219,19 +167,17 @@ export function createGallery(stageEl, initialImages, { onImageClick } = {}) {
   }
 
   return {
-    reshuffleImages,
+    sortChronological,
+    shuffleRandom,
     addImage,
     appendImages,
     prependImages,
     syncImages,
-    filterByTag,
-    addUsernameChip,
-    clearUsernameChips,
     getImages: () => images,
-    getVisibleImages,
+    getSortMode: () => sortMode,
     elements: els,
     // Für Fenstergrößenänderungen: legt die Bilder anhand der aktuellen
-    // Breite neu an (gleicher Modus/Filter wie zuvor, keine Umschaltung).
+    // Breite neu an (gleicher Modus wie zuvor, keine Umschaltung).
     relayout: layoutAll,
   };
 }

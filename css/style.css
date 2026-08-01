@@ -52,81 +52,6 @@ html, body {
   z-index: 2500;
 }
 
-.menu-word::placeholder {
-  color: #ffffff;
-  opacity: 1;
-}
-
-input.menu-word {
-  width: 140px;
-}
-
-/* Alle tippbaren Felder: kursiv, sonst identisch zu .menu-word */
-.italic-field {
-  font-style: italic;
-  max-width: 85vw; /* Sicherheitsabstand: darf nie über den Rand hinausragen */
-  box-sizing: border-box;
-}
-.italic-field::placeholder {
-  font-style: italic;
-  color: #ffffff;
-  opacity: 1;
-}
-
-/* Für Inhalte, die andere Nutzer:innen später sehen (Tags, Kommentare) */
-.field-yellow {
-  color: #ffee00;
-  caret-color: #ffee00;
-}
-.field-yellow::placeholder {
-  color: #ffffff; /* Platzhalter bleibt neutral weiß, nur Eingabe wird gelb */
-  opacity: 1;
-}
-
-/* Anzeige von Usernamen (z.B. Puller-Liste) — kein Eingabefeld, daher nicht kursiv */
-.username-color {
-  color: #00d4ff;
-}
-
-/* Für Identitäts-Eingaben (username/password beim Auth) */
-.field-blue {
-  color: #00d4ff;
-  caret-color: #00d4ff;
-}
-.field-blue::placeholder {
-  color: #ffffff; /* Platzhalter bleibt neutral weiß */
-  opacity: 1;
-}
-
-.username-chip {
-  font-size: 18px;
-  font-family: Helvetica, Arial, sans-serif;
-  white-space: nowrap;
-  transition: left 0.3s ease, top 0.3s ease;
-}
-
-/* Wie .menu-word, aber OHNE position:fixed — für Elemente, die normal
-   innerhalb eines Blocks (z.B. #auth-block) untereinanderstehen sollen */
-.plain-word {
-  color: #ffffff;
-  font-size: 20px;
-  cursor: pointer;
-  user-select: none;
-  background: transparent;
-  border: 0;
-  outline: 0;
-  box-shadow: none;
-  -webkit-appearance: none;
-  appearance: none;
-  padding: 0;
-  margin: 0;
-  caret-color: #ffffff;
-}
-.plain-word::placeholder {
-  color: #ffffff;
-  opacity: 1;
-}
-
 .clock {
   font-size: 16px;
   cursor: default;
@@ -169,13 +94,6 @@ input.menu-word {
   to { opacity: 1; }
 }
 
-.upload-stage {
-  display: none;
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
 #upload-preview {
   position: absolute;
   top: 100px;
@@ -188,147 +106,88 @@ input.menu-word {
    computeContainRect() in JS berechnet (bereits proportional zum Fenster
    zum Zeitpunkt des Öffnens) und soll bei einer späteren Fenstergrößen-
    änderung nicht zusätzlich per CSS mitschrumpfen. */
+/* position: absolute statt fixed — relativ zu #single-view (dessen eigene
+   position: fixed via .overlay den Positionierungskontext liefert). Das Bild
+   wird dadurch Teil des normalen Scroll-Flusses und wandert beim Scrollen
+   mit, statt oben stehen zu bleiben (siehe single-view.js -- der Abstand zur
+   Connections-Galerie darunter bleibt über deren marginTop erhalten). */
 #single-image {
-  position: fixed;
+  position: absolute;
   top: 100px;
   left: 50%;
   transform: translateX(-50%);
   object-fit: contain;
-  z-index: 1000; /* immer über den Kommentar-/Puller-Chips, egal wie weit gescrollt wird */
-  cursor: pointer; /* Klick blendet die Wortgruppe ein/aus, siehe single-view.js */
+  z-index: 1000;
 }
 
-#upload-esc, #upload-esc-2 {
+#upload-esc {
   position: absolute;
   top: 20px;
   right: 28px;
-}
-
-input.tag-input {
-  position: absolute;
-  bottom: 120px;
-  left: 60px;
-  width: 380px;
-  max-width: 85vw;
-}
-
-.tag-chips {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-}
-
-.comments-stage {
-  position: relative;
-  width: 100%;
 }
 
 #single-view {
   overflow-y: auto;
 }
 
-.tag-chip {
-  position: absolute;
-  color: #ffee00;
-  font-size: 16px;
-  font-style: italic;
-  transition: left 0.3s ease, top 0.3s ease;
-}
-
-#upload-next, #upload-submit {
-  position: absolute;
-  bottom: 40px;
-  left: 60px;
-}
-
-.consent-line {
-  display: block;
+.connections-stage {
   position: relative;
-  color: #ffffff;
-  font-size: 15px;
-  margin: 40px 60px 0 60px;
-  max-width: 500px;
-  cursor: pointer;
+  width: 100%;
 }
 
-.consent-line span {
-  margin-left: 28px;
-  display: inline-block;
-}
-
-.push-checkbox {
-  position: absolute;
-  left: 0;
-  top: 2px;
-  width: 16px;
-  height: 16px;
-  appearance: none;
-  -webkit-appearance: none;
-  border: 1px solid #ffffff;
-  background: transparent;
-  cursor: pointer;
-}
-
-.push-checkbox:checked {
-  background: #ffffff;
-}
-
-#contact-email {
-  position: absolute;
-  top: 210px;
-  left: 60px;
-  width: 260px;
-  display: none;
-}
-
-#single-type-input {
-  width: 400px;
-}
-
-#single-report {
-  font-size: 18px;
-  right: 28px;
-  bottom: 28px;
-  left: auto;
-  top: auto;
-}
-
-#single-views {
-  font-size: 16px;
-  cursor: default;
-}
-
-#edit-delete-input {
-  width: 340px;
-}
-
-#own-gallery-view,
-#foreign-profile-view,
-#trace-view {
+#connect-select-view,
+#connect-confirm-view {
   overflow-y: auto;
 }
 
-#own-gallery-stage,
-#foreign-profile-stage,
-#trace-stage {
+#connect-select-stage {
   position: relative;
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
 }
 
+/* Moduskennzeichnung, bewusst fest oben links statt frei platziert wie die
+   übrigen Textelemente (siehe randomSpot-Positionierung anderswo). */
+#connect-select-label {
+  left: 24px;
+  top: 24px;
+  cursor: default;
+}
+
+#connect-confirm-images {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  pointer-events: none;
+}
+
+#connect-confirm-image-a,
+#connect-confirm-image-b {
+  max-width: 42vw;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
+/* "Darunter" das Bestätigungswort — fest zentriert unter den Bildern statt
+   frei platziert. */
+#connect-confirm-word {
+  left: 50%;
+  bottom: 15vh;
+  top: auto;
+  transform: translateX(-50%);
+}
+
 /* "*"-Modus: nur Bilder sichtbar. Gilt gezielt für die Bild-Ansichten —
-   reine Textseiten (Login, später v.r.p.) bleiben davon unberührt. */
+   reine Textseiten (später v.r.p.) bleiben davon unberührt. */
 body.hide-text #menu-layer .menu-word,
 body.hide-text #single-view .menu-word,
-body.hide-text #single-view .username-color,
-body.hide-text #own-gallery-view .menu-word,
-body.hide-text #foreign-profile-view .menu-word,
-body.hide-text #trace-view .menu-word,
 body.hide-text #upload-overlay .menu-word,
-body.hide-text .tag-chip,
-body.hide-text .username-chip,
-body.hide-text #shoot-word {
+body.hide-text #connect-select-view .menu-word,
+body.hide-text #connect-confirm-view .menu-word {
   display: none !important;
 }
 
@@ -355,44 +214,4 @@ body.hide-text #star-toggle {
   color: #ffffff;
   white-space: pre-wrap;
   display: none;
-}
-
-#auth-block {
-  position: fixed;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-#auth-block input.plain-word {
-  width: 260px;
-}
-#auth-email {
-  width: 300px;
-}
-
-#auth-password-toggle {
-  font-size: 13px;
-  cursor: pointer;
-}
-
-#auth-signup-fields {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-/* "enter" braucht spürbar mehr Abstand zu den Eingabefeldern darüber und
-   dieselbe Schriftgröße wie die übrigen frei schwebenden Textelemente
-   (push, search, pull, ...). */
-#auth-enter {
-  font-size: 28px;
-  margin-top: 26px;
-}
-
-/* Frei schwebend (siehe .menu-word), aber in Uhrzeit-Schriftgröße. */
-#auth-forgot {
-  font-size: 16px;
 }

@@ -1,10 +1,25 @@
 import { supabase } from './supabase-client.js';
 import { computeDisplaySize } from './image-config.js';
 
+const SELECT_COLS = 'id, url, natural_width, natural_height, created_at';
+
+function mapRow(row) {
+  const nw = row.natural_width || 1;
+  const nh = row.natural_height || 1;
+  const { width, height } = computeDisplaySize(nw, nh);
+  return {
+    id: row.id,
+    url: row.url,
+    width,
+    height,
+    createdAt: row.created_at,
+  };
+}
+
 export async function fetchImages({ limit = 60, before = null } = {}) {
   let query = supabase
     .from('images')
-    .select('id, url, tags, natural_width, natural_height, created_at, family_root_id, generation')
+    .select(SELECT_COLS)
     .eq('report_hidden', false)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -18,21 +33,7 @@ export async function fetchImages({ limit = 60, before = null } = {}) {
     return [];
   }
 
-  return (data || []).map((row) => {
-    const nw = row.natural_width || 1;
-    const nh = row.natural_height || 1;
-    const { width, height } = computeDisplaySize(nw, nh);
-    return {
-      id: row.id,
-      url: row.url,
-      width,
-      height,
-      tags: row.tags || [],
-      createdAt: row.created_at,
-      familyRootId: row.family_root_id,
-      generation: row.generation,
-    };
-  });
+  return (data || []).map(mapRow);
 }
 
 /**
@@ -43,60 +44,34 @@ export async function fetchImages({ limit = 60, before = null } = {}) {
 export async function fetchImageById(id) {
   const { data, error } = await supabase
     .from('images')
-    .select('id, url, tags, natural_width, natural_height, created_at, family_root_id, generation')
+    .select(SELECT_COLS)
     .eq('id', id)
     .eq('report_hidden', false)
     .maybeSingle();
 
   if (error || !data) return null;
 
-  const nw = data.natural_width || 1;
-  const nh = data.natural_height || 1;
-  const { width, height } = computeDisplaySize(nw, nh);
-  return {
-    id: data.id,
-    url: data.url,
-    width,
-    height,
-    tags: data.tags || [],
-    createdAt: data.created_at,
-    familyRootId: data.family_root_id,
-    generation: data.generation,
-  };
+  return mapRow(data);
 }
 
 /**
- * Alle Bilder derselben Reproduktions-Familie (gleiche family_root_id,
- * inklusive der Wurzel selbst — deren eigene family_root_id zeigt ja auf
- * sich selbst, siehe upload.js). Älteste zuerst (Original oben), umgekehrt
- * zur sonst überall üblichen neueste-zuerst-Sortierung — für trace.js.
+ * Der GESAMTE Bildbestand, ohne limit/Pagination — für die connect-Auswahl
+ * (single-view.js), die unabhängig vom Ladezustand der Hauptgalerie (dort
+ * lazy in 60er-Häppchen, siehe fetchImages) immer den vollständigen Bestand
+ * zur Auswahl anbieten soll. Bei sehr großem Bestand später ggf. selbst
+ * paginieren/virtualisieren -- für den aktuellen Umfang unproblematisch.
  */
-export async function fetchFamilyImages(familyRootId) {
+export async function fetchAllImages() {
   const { data, error } = await supabase
     .from('images')
-    .select('id, url, tags, natural_width, natural_height, created_at, family_root_id, generation')
-    .eq('family_root_id', familyRootId)
+    .select(SELECT_COLS)
     .eq('report_hidden', false)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Familie laden fehlgeschlagen:', error);
+    console.error('Bilder laden fehlgeschlagen:', error);
     return [];
   }
 
-  return (data || []).map((row) => {
-    const nw = row.natural_width || 1;
-    const nh = row.natural_height || 1;
-    const { width, height } = computeDisplaySize(nw, nh);
-    return {
-      id: row.id,
-      url: row.url,
-      width,
-      height,
-      tags: row.tags || [],
-      createdAt: row.created_at,
-      familyRootId: row.family_root_id,
-      generation: row.generation,
-    };
-  });
+  return (data || []).map(mapRow);
 }

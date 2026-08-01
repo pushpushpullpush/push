@@ -2,18 +2,13 @@ import { supabase } from './supabase-client.js';
 import { MAX_ASPECT_RATIO, computeDisplaySize } from './image-config.js';
 import { randomSpot, clampToViewport, computeContainRect } from './position-utils.js';
 import { repositionClock } from './clock.js';
-import { repositionShootWord } from './shoot.js';
 import { flashMessage } from './feedback.js';
 import { showRandomHint } from './notice-board.js';
-import { setShootWordVisible } from './shoot.js';
 
 const MAX_DIMENSION = 1600;
-export const JPEG_QUALITY = 0.82;
-const MAX_TAGS = 10;
-const MAX_TAG_LENGTH = 21;
+const JPEG_QUALITY = 0.82;
 
-// heic2any wird nur bei Bedarf geladen (HEIC-Dateien vom Handy),
-// genau wie html2canvas beim Screenshot-Tool.
+// heic2any wird nur bei Bedarf geladen (HEIC-Dateien vom Handy).
 let heic2anyPromise = null;
 function loadHeic2Any() {
   if (window.heic2any) return Promise.resolve(window.heic2any);
@@ -42,26 +37,12 @@ async function normalizeImageFile(file) {
   return new File([blob], (file.name || 'image').replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
 }
 
-function getClockPoint() {
-  const el = document.getElementById('global-clock');
-  if (!el) return null;
-  const r = el.getBoundingClientRect();
-  return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
-}
-
 export function initUpload(refs, onUploaded) {
-  const { fileInput, overlay, preview, tagInput, tagChips, escBtn, submitBtn } = refs;
-
-  tagInput.maxLength = MAX_TAG_LENGTH; // echtes Zeichenlimit, kein Fehlerhinweis nötig
+  const { fileInput, overlay, preview, escBtn, submitBtn } = refs;
 
   let pendingBlob = null;
-  let pendingTags = [];
-  let pendingTagSpots = [];
   let pendingDisplaySize = null;
   let pendingNaturalSize = null;
-  let pendingReproducedFromId = null; // gesetzt nur bei reproduce (siehe openWithBlob)
-  let pendingGenealogyCallback = null; // dito — benachrichtigt single-view.js über das Ergebnis
-  let previewObjectUrl = null; // nur bei openWithBlob gesetzt, muss revoked werden
   let currentImageRect = null;
 
   fileInput.addEventListener('change', () => {
@@ -71,7 +52,7 @@ export function initUpload(refs, onUploaded) {
   });
 
   function repositionWords() {
-    // esc, tags und push bekommen bei jedem neuen Push neue, einander nicht
+    // esc und push bekommen bei jedem neuen Push neue, einander nicht
     // überlappende Positionen — meiden dabei die Bildfläche.
     const taken = [];
 
@@ -81,13 +62,6 @@ export function initUpload(refs, onUploaded) {
     escBtn.style.top = escSpot.y + 'px';
     escBtn.style.right = 'auto';
     clampToViewport(escBtn);
-
-    const tagSpot = randomSpot(taken, { margin: 60, avoidRect: currentImageRect });
-    taken.push(tagSpot);
-    tagInput.style.left = tagSpot.x + 'px';
-    tagInput.style.top = tagSpot.y + 'px';
-    tagInput.style.bottom = 'auto';
-    clampToViewport(tagInput);
 
     const pushSpot = randomSpot(taken, {
       margin: 80,
@@ -102,7 +76,6 @@ export function initUpload(refs, onUploaded) {
     clampToViewport(submitBtn);
 
     repositionClock(taken, currentImageRect);
-    repositionShootWord(taken, currentImageRect);
 
     return taken;
   }
@@ -151,16 +124,6 @@ export function initUpload(refs, onUploaded) {
         // extreme Formate werden von selbst schmal statt dominant.
         pendingDisplaySize = computeDisplaySize(width, height);
 
-        pendingReproducedFromId = null; // normaler Push, keine Reproduktions-Genealogie
-        pendingGenealogyCallback = null;
-        if (previewObjectUrl) {
-          URL.revokeObjectURL(previewObjectUrl);
-          previewObjectUrl = null;
-        }
-        pendingTags = [];
-        pendingTagSpots = [];
-        renderTags();
-
         // Bildfläche berechnet statt gemessen — sofort korrekt, unabhängig
         // vom Ladezustand des Vorschaubilds.
         currentImageRect = computeContainRect(width, height);
@@ -171,129 +134,20 @@ export function initUpload(refs, onUploaded) {
         preview.style.transform = 'none';
 
         overlay.style.display = 'block';
-        setShootWordVisible(false);
         repositionWords();
-        // Cursor steht direkt im Tag-Feld, damit man ohne extra Klick tippen kann.
-        requestAnimationFrame(() => tagInput.focus());
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   }
 
-  /**
-   * Wie startUpload(), aber für einen bereits fertig prozessierten Blob
-   * (reproduce in single-view.js) — durchläuft NICHT noch einmal das
-   * Redraw/Re-Encode von startUpload() (das würde die dort absichtlich
-   * gewählte Degradation/den Ausschnitt wieder überschreiben bzw. verwässern),
-   * übernimmt den Blob unverändert. Startet wie ein regulärer Push komplett
-   * ohne Tags — keine Übernahme vom Originalbild. reproducedFromId löst beim
-   * Push die Familien-Wurzel/Generation auf; onGenealogyResolved (optional)
-   * wird danach mit dem Ergebnis aufgerufen, damit der Aufrufer (single-view.js)
-   * sein im Speicher gehaltenes Ausgangsbild-Objekt aktualisieren kann — sonst
-   * zeigt "trace" dort erst nach einem Neuladen der Seite.
-   */
-  function openWithBlob(blob, { width, height, reproducedFromId = null, onGenealogyResolved = null } = {}) {
-    pendingBlob = blob;
-    pendingNaturalSize = { width: Math.round(width), height: Math.round(height) };
-    pendingDisplaySize = computeDisplaySize(width, height);
-    pendingReproducedFromId = reproducedFromId;
-    pendingGenealogyCallback = onGenealogyResolved;
-
-    currentImageRect = computeContainRect(width, height);
-    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
-    previewObjectUrl = URL.createObjectURL(blob);
-    preview.src = previewObjectUrl;
-    preview.style.width = currentImageRect.width + 'px';
-    preview.style.height = currentImageRect.height + 'px';
-    preview.style.left = currentImageRect.left + 'px';
-    preview.style.top = currentImageRect.top + 'px';
-    preview.style.transform = 'none';
-
-    pendingTags = [];
-    pendingTagSpots = [];
-    renderTags();
-
-    overlay.style.display = 'block';
-    setShootWordVisible(false);
-    repositionWords();
-    requestAnimationFrame(() => tagInput.focus());
-  }
-
   function closeOverlay() {
     overlay.style.display = 'none';
-    setShootWordVisible(true);
     pendingBlob = null;
-    pendingTags = [];
-    pendingTagSpots = [];
     pendingDisplaySize = null;
     pendingNaturalSize = null;
-    pendingReproducedFromId = null;
-    pendingGenealogyCallback = null;
-    if (previewObjectUrl) {
-      URL.revokeObjectURL(previewObjectUrl);
-      previewObjectUrl = null;
-    }
     currentImageRect = null;
-    tagInput.value = '';
   }
-
-  function showTagDeleteConfirm(chip, index) {
-    chip.innerHTML = '';
-
-    const deleteWord = document.createElement('span');
-    deleteWord.textContent = 'delete';
-    deleteWord.style.cursor = 'pointer';
-    deleteWord.style.marginRight = '10px';
-
-    const escWord = document.createElement('span');
-    escWord.textContent = 'b';
-    escWord.style.cursor = 'pointer';
-
-    chip.appendChild(deleteWord);
-    chip.appendChild(escWord);
-
-    escWord.addEventListener('click', (e) => {
-      e.stopPropagation();
-      renderTags();
-    });
-
-    deleteWord.addEventListener('click', (e) => {
-      e.stopPropagation();
-      pendingTags.splice(index, 1);
-      pendingTagSpots.splice(index, 1);
-      renderTags();
-    });
-  }
-
-  function renderTags() {
-    tagChips.innerHTML = '';
-    pendingTags.forEach((t, i) => {
-      const chip = document.createElement('span');
-      chip.className = 'tag-chip';
-      chip.textContent = t;
-      chip.style.left = pendingTagSpots[i].x + 'px';
-      chip.style.top = pendingTagSpots[i].y + 'px';
-      chip.style.cursor = 'pointer';
-      chip.style.pointerEvents = 'auto'; // Container hat pointer-events:none
-      chip.addEventListener('click', () => showTagDeleteConfirm(chip, i));
-      tagChips.appendChild(chip);
-      clampToViewport(chip);
-    });
-  }
-
-  tagInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      const val = tagInput.value.trim().toLowerCase();
-      if (val && pendingTags.length < MAX_TAGS && !pendingTags.includes(val)) {
-        pendingTags.push(val);
-        pendingTagSpots.push(randomSpot([], { margin: 40, avoidRect: currentImageRect }));
-        renderTags();
-      }
-      tagInput.value = '';
-    }
-  });
 
   escBtn.addEventListener('click', closeOverlay);
 
@@ -301,11 +155,6 @@ export function initUpload(refs, onUploaded) {
 
   submitBtn.addEventListener('click', async () => {
     if (!pendingBlob || isUploading) return;
-
-    if (pendingTags.length === 0) {
-      flashMessage('error: insert at least one tag');
-      return;
-    }
 
     isUploading = true;
     submitBtn.style.pointerEvents = 'none';
@@ -327,64 +176,12 @@ export function initUpload(refs, onUploaded) {
 
       const { data: publicData } = supabase.storage.from('images').getPublicUrl(path);
 
-      // Reproduktions-Genealogie: gemeinsame Familien-Wurzel + Generation
-      // auflösen, BEVOR das neue Bild eingefügt wird — nur relevant, wenn
-      // dieser Push aus "reproduce" in single-view.js kommt (siehe
-      // openWithBlob oben). newGeneration bleibt null (= DB-Default 0), falls
-      // die Wurzel nicht sicher aufgelöst werden konnte — ein Bild ohne
-      // family_root_id soll auch keine Generation > 0 tragen.
-      let familyRootId = null;
-      let newGeneration = null;
-      if (pendingReproducedFromId) {
-        const { data: sourceRow, error: sourceError } = await supabase
-          .from('images')
-          .select('family_root_id, generation')
-          .eq('id', pendingReproducedFromId)
-          .maybeSingle();
-
-        if (sourceError) {
-          console.error('Familien-Wurzel lesen fehlgeschlagen:', sourceError);
-        } else if (sourceRow) {
-          if (sourceRow.family_root_id) {
-            // Ausgangsbild ist bereits Teil einer Familie — dieselbe Wurzel übernehmen.
-            familyRootId = sourceRow.family_root_id;
-          } else {
-            // Ausgangsbild tritt hiermit selbst in eine Familie ein: eigene id als Wurzel.
-            // .select() danach ist Pflicht: eine per RLS blockierte Zeile liefert
-            // sonst error:null UND ein leeres data-Array — ohne diese Prüfung sieht
-            // das wie Erfolg aus, obwohl nichts geschrieben wurde.
-            const { data: rootUpdateData, error: rootUpdateError } = await supabase
-              .from('images')
-              .update({ family_root_id: pendingReproducedFromId })
-              .eq('id', pendingReproducedFromId)
-              .select('id');
-            if (rootUpdateError || !rootUpdateData || rootUpdateData.length === 0) {
-              console.error('Familien-Wurzel setzen fehlgeschlagen:', rootUpdateError || 'keine Zeile betroffen (RLS?)');
-            } else {
-              familyRootId = pendingReproducedFromId;
-            }
-          }
-          if (familyRootId) {
-            newGeneration = (sourceRow.generation || 0) + 1;
-          }
-        }
-        // Unabhängig vom Ergebnis benachrichtigen (auch bei familyRootId===null,
-        // z.B. RLS-Fehler) — der DB-Schreibzugriff oben ist bereits final passiert,
-        // das im Speicher gehaltene Objekt in single-view.js soll das widerspiegeln.
-        if (pendingGenealogyCallback) pendingGenealogyCallback(familyRootId);
-      }
-
       const { data: inserted, error: insertError } = await supabase
         .from('images')
         .insert({
           url: publicData.publicUrl,
-          tags: pendingTags,
           natural_width: pendingNaturalSize.width,
           natural_height: pendingNaturalSize.height,
-          family_root_id: familyRootId,
-          // undefined statt null, damit ohne reproduce-Kontext einfach der
-          // DB-Default (0) greift, statt ihn mit einem expliziten null zu überschreiben.
-          generation: newGeneration === null ? undefined : newGeneration,
         })
         .select()
         .single();
@@ -404,9 +201,6 @@ export function initUpload(refs, onUploaded) {
         url: inserted.url,
         width: displaySize.width,
         height: displaySize.height,
-        tags: inserted.tags,
-        familyRootId: inserted.family_root_id,
-        generation: inserted.generation,
       });
     } finally {
       isUploading = false;
@@ -417,10 +211,6 @@ export function initUpload(refs, onUploaded) {
 
   return {
     handleFile: startUpload,
-    // Für reproduce in single-view.js: bereits fertig prozessierter Blob
-    // (Fragment/Auflösungsreduktion), keine erneute Größen-/Qualitäts-
-    // Bearbeitung mehr.
-    openWithBlob,
     // Für Fenstergrößenänderungen: nur die frei positionierten Textelemente
     // zurück in den sichtbaren Bereich holen — das Vorschaubild behält
     // seine ursprüngliche Größe.

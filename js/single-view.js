@@ -1,18 +1,11 @@
-import { supabase } from './supabase-client.js';
-import { fetchImageById } from './images-repo.js';
-import { fetchPullersForImage } from './profile-data.js';
+import { fetchImageById, fetchAllImages } from './images-repo.js';
+import { createConnection, fetchConnectedImages } from './connections-repo.js';
+import { createGallery } from './gallery.js';
+import { computeChronologicalLayout, EDGE_MARGIN } from './layout-engine.js';
 import { randomSpot, clampToViewport, clampFromRect, computeContainRect } from './position-utils.js';
-import { createHeightmap, placeImage } from './layout-engine.js';
 import { repositionClock, setClockVisible } from './clock.js';
-import { repositionShootWord, setShootWordVisible } from './shoot.js';
-import { flashMessage } from './feedback.js';
-import { showMessage, showRandomHint } from './notice-board.js';
-import { flyIntoCollection, getImageCornerRect } from './pull-animation.js';
 import { pushRoute, replaceRoute, goBack, imagePath } from './router.js';
-import { MAX_ASPECT_RATIO } from './image-config.js';
-import { JPEG_QUALITY } from './upload.js';
-
-const CHAR_LIMIT = 37;
+import { flashMessage } from './feedback.js';
 
 // Sicherheitsabstand der frei platzierten Textelemente zur Bildfläche
 // bzw. zum Bildschirmrand — großzügiger als der allgemeine Default,
@@ -20,116 +13,47 @@ const CHAR_LIMIT = 37;
 const IMAGE_SAFETY_PAD = 40;
 const EDGE_SAFETY_PAD = 32;
 
-// "reproduce": zwei unabhängige Zufallsbereiche für den "Grad des Eingriffs"
-// (keine Regler für den Nutzer) — bei jeder Reproduktion neu gewürfelt.
-const FRAGMENT_AREA_MIN = 0.95; // Zuschnitt behält 95–98% der Originalfläche —
-const FRAGMENT_AREA_MAX = 0.98; // sanfter Rand-Beschnitt, keine harte Kürzung.
-const RESOLUTION_SCALE_MIN = 0.40; // Auflösungspfad skaliert auf 40–65% der Dimensionen —
-const RESOLUTION_SCALE_MAX = 0.65; // dezente, aber sichtbare Verpixelung.
-// Auflösungspfad nutzt bewusst dieselbe Qualität wie ein normaler Push (siehe
-// upload.js) — der Effekt entsteht allein durch die geringere Auflösung,
-// nicht durch zusätzliche Kompressionsartefakte.
-// Ab dieser Generation wird "reproduce" nicht mehr angeboten (die 6. Generation
-// entstünde sonst) — analog zur Sichtbarkeitslogik von "trace".
-const MAX_REPRODUCE_GENERATION = 5;
+// "connect": geräte-/sitzungsbasierte Abklingzeit (localStorage, unabhängig
+// vom jeweiligen Bild) -- innerhalb der 10s bleibt "c" ausgeblendet.
+const CONNECT_COOLDOWN_MS = 10000;
+const CONNECT_COOLDOWN_KEY = 'push_connect_last';
 
-function randomInRange(min, max) {
-  return min + Math.random() * (max - min);
+function connectCooldownRemaining() {
+  const last = parseInt(localStorage.getItem(CONNECT_COOLDOWN_KEY) || '0', 10);
+  return Math.max(0, CONNECT_COOLDOWN_MS - (Date.now() - last));
+}
+
+function markConnectCooldown() {
+  localStorage.setItem(CONNECT_COOLDOWN_KEY, String(Date.now()));
+}
+
+function unionRect(a, b) {
+  return {
+    left: Math.min(a.left, b.left),
+    top: Math.min(a.top, b.top),
+    right: Math.max(a.right, b.right),
+    bottom: Math.max(a.bottom, b.bottom),
+  };
 }
 
 /**
- * Cross-Origin-Bilder (Supabase Storage) dürfen nicht direkt vom <img>-Element
- * gezeichnet werden — das markiert den Canvas als "tainted", toBlob()/
- * getImageData() schlagen dann fehl. Stattdessen als Blob laden und daraus
- * ein Offscreen-<img> bauen, von dem gefahrlos gezeichnet werden kann.
+ * Die frei schwebenden Textelemente der Einzelansicht (z, r, c) sollen
+ * ausschließlich links oder rechts vom Bild landen, nie darüber/darunter.
+ * Dazu wird nicht die Bildfläche selbst als Sperrzone an randomSpot()/
+ * clampFromRect() übergeben, sondern eine virtuelle "Spalte" mit derselben
+ * x-Spanne wie das Bild, aber über die GESAMTE Fensterhöhe (statt nur über
+ * die Bildhöhe) -- jede y-Koordinate innerhalb dieser x-Spanne gilt damit
+ * als gesperrt, nicht nur die y-Koordinaten, die das Bild tatsächlich
+ * einnimmt. clampFromRect() wählt bei der Korrektur immer die kürzeste
+ * Ausweichrichtung -- bei einer randlos hohen Sperrzone ist das automatisch
+ * immer links oder rechts, nie hoch/runter.
  */
-async function loadImageForCanvas(url) {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const img = new Image();
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = objectUrl;
-    });
-    return img;
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
+function imageColumnRect(rect) {
+  if (!rect) return null;
+  return { left: rect.left, right: rect.right, top: 0, bottom: window.innerHeight };
 }
 
-/**
- * Zufälliges Ausschnitt-Rechteck für den Fragment-Pfad: Zielfläche zufällig
- * zwischen FRAGMENT_AREA_MIN/MAX der Originalfläche (95–98%, sanfter
- * Rand-Beschnitt). Das Ziel-Seitenverhältnis bleibt dabei NAH am Original
- * (leichte Zufallsvariation, ±10%) statt frei/unabhängig gewürfelt zu werden:
- * bei so hoher Flächenerhaltung ist ein stark abweichendes Seitenverhältnis
- * geometrisch kaum erreichbar, ohne die Zielfläche drastisch zu unterschreiten
- * (ein 95%-Ausschnitt mit ganz anderer Orientierung passt bei den meisten
- * Formaten schlicht nicht ins Original) — das widerspräche dem gewünschten
- * sanften Effekt. Bleibt zusätzlich innerhalb MAX_ASPECT_RATIO gekappt.
- */
-function computeFragmentRect(width, height) {
-  const areaFraction = randomInRange(FRAGMENT_AREA_MIN, FRAGMENT_AREA_MAX);
-  const targetArea = width * height * areaFraction;
-
-  const originalRatio = width / height;
-  const ratioJitter = 0.9 + Math.random() * 0.2; // ±10%
-  const targetRatio = Math.min(MAX_ASPECT_RATIO, Math.max(1 / MAX_ASPECT_RATIO, originalRatio * ratioJitter));
-
-  let fragW = Math.sqrt(targetArea * targetRatio);
-  let fragH = targetArea / fragW;
-
-  if (fragW > width || fragH > height) {
-    // Passt (in seltenen Randfällen, z.B. nach dem Kappen auf MAX_ASPECT_RATIO)
-    // nicht ins Original — größtmögliches Rechteck mit targetRatio nehmen
-    // (klassisches "contain"-Fitting), statt die Zielfläche stur durchzusetzen.
-    if (targetRatio >= width / height) {
-      fragW = width;
-      fragH = width / targetRatio;
-    } else {
-      fragH = height;
-      fragW = height * targetRatio;
-    }
-  }
-
-  const x = Math.random() * Math.max(0, width - fragW);
-  const y = Math.random() * Math.max(0, height - fragH);
-  return { x, y, width: fragW, height: fragH };
-}
-
-/**
- * Erzeugt aus dem Ausgangsbild per Zufall (50/50, dem Nutzer nicht angezeigt)
- * entweder eine Auflösungs-/Qualitätsreduktion oder ein Fragment. Der Grad
- * des Eingriffs wird pro Reproduktion neu innerhalb der jeweiligen
- * Zufallsbereiche gewürfelt (siehe Konstanten oben).
- */
-async function createReproduction(sourceUrl) {
-  const img = await loadImageForCanvas(sourceUrl);
-  const useFragment = Math.random() < 0.5;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  if (useFragment) {
-    const rect = computeFragmentRect(img.naturalWidth, img.naturalHeight);
-    canvas.width = Math.max(1, Math.round(rect.width));
-    canvas.height = Math.max(1, Math.round(rect.height));
-    ctx.drawImage(img, rect.x, rect.y, rect.width, rect.height, 0, 0, canvas.width, canvas.height);
-  } else {
-    const scale = randomInRange(RESOLUTION_SCALE_MIN, RESOLUTION_SCALE_MAX);
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  }
-
-  const quality = useFragment ? undefined : JPEG_QUALITY;
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
-  return { blob, width: canvas.width, height: canvas.height };
-}
-
-// Bilder in der Galerie sind loading="lazy" — ein per [z] gezeigtes Bild
+// Bilder in der Galerie sind loading="lazy" — ein per [r] gezeigtes Bild
 // hat daher oft noch gar nicht angefangen zu laden. Ohne das hier würde das
 // sichtbare <img> sofort auf die neue Größe/URL umgestellt, während die
 // Bilddaten noch unterwegs sind — kurz sichtbar als "springt auf kleiner,
@@ -157,309 +81,113 @@ function preloadImage(url) {
   });
 }
 
-export function initSingleView(
-  refs, getImages, getCurrentUser, onNeedsLogin, onPullToggled, onOpenProfile, onReproduce, onOpenTrace,
-) {
+export function initSingleView(refs, getImages, getSortMode) {
   const {
-    overlay, imageEl, escBtn, zBtn, pullBtn, commentBtn, reportBtn, viewsEl,
-    reproduceBtn, traceBtn,
-    commentsLayer, dimEsc, typeInput, submitBtn, thanksEl,
+    overlay, imageEl, escBtn, randomBtn, connectBtn, connectionsStage,
+    selectOverlay, selectStage, selectEsc, selectA, selectS,
+    confirmOverlay, confirmImageA, confirmImageB, confirmWord, confirmEsc,
   } = refs;
 
   let currentImage = null;
   let currentImageRect = null;
-  let currentContextImages = null; // welche Liste "z" gerade durchsucht
-  let isPulled = false;
-  let mode = 'view'; // 'view' | 'comment' | 'report'
-  let commentsHeightmap = createHeightmap();
-  const COMMENT_CHIP_HEIGHT = 32;
-  let viewsChannel = null;
-
-  // true, wenn die aktuell offene Ansicht über trace.js (bzw. allgemein
-  // "still", ohne eigenen Schritt im Browser-Verlauf) geöffnet wurde — dann
-  // löst escBtn kein goBack() aus, sondern legt nur die darunterliegende
-  // trace-Ansicht wieder frei (siehe escBtn-Handler unten).
-  let wasSilentOpen = false;
-
-  // false nur für Einzelbilder, die aus trace.js heraus geöffnet wurden:
-  // dort kein weiteres [z]-Browsen und kein "trace" (sonst Endlosschleife
-  // trace -> single view -> trace -> ...), siehe open()/showRandom() unten.
-  let currentBrowsable = true;
-
-  // Steuert die "versteckte" Wortgruppe (reproduce/trace/collect-drop/note/
-  // report/Shoot-Wort) — per Klick aufs Bild umgeschaltet, siehe weiter unten.
-  // Immer false bei jedem open() (auch beim Bildwechsel per [z]) — die
-  // Uhrzeit/b/z/views-Standardgruppe ist davon unberührt, bleibt immer sichtbar.
-  let controlsVisible = false;
+  let currentContextImages = null; // welche Liste "r" gerade durchsucht
 
   // Erhöht sich bei jedem open()/close() — eine open()-Anfrage, die während
-  // des Preloads (siehe preloadImage oben) durch eine neuere Anfrage oder
-  // ein zwischenzeitliches close() überholt wurde, erkennt das daran und
-  // wendet ihr (dann veraltetes) Ergebnis nicht mehr an.
+  // des Preloads (siehe preloadImage oben) oder des asynchronen Nachladens
+  // der verbundenen Bilder durch eine neuere Anfrage oder ein zwischen-
+  // zeitliches close() überholt wurde, erkennt das daran und wendet ihr
+  // (dann veraltetes) Ergebnis nicht mehr an.
   let openGeneration = 0;
 
-  // Globaler Klick-Zähler: erhöht sich atomar serverseitig bei jedem
-  // Öffnen der Einzelansicht, Live-Update per Realtime, falls parallel
-  // jemand anderes dasselbe Bild ansieht.
-  function unsubscribeViews() {
-    if (viewsChannel) {
-      supabase.removeChannel(viewsChannel);
-      viewsChannel = null;
-    }
-  }
-
-  async function trackView(imageId) {
-    unsubscribeViews();
-
-    const { data, error } = await supabase.rpc('increment_image_views', { p_image_id: imageId });
-    if (error) {
-      console.error('View-Zähler fehlgeschlagen:', error);
-    } else if (typeof data === 'number') {
-      viewsEl.textContent = `views: ${data}`;
-      // Der Text kommt erst asynchron nach dem Positionieren an und kann
-      // dadurch breiter werden als angenommen — noch einmal korrigieren.
-      correctElementForImage(viewsEl);
-    }
-
-    viewsChannel = supabase
-      .channel(`image-views-${imageId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'images', filter: `id=eq.${imageId}`,
-      }, (payload) => {
-        if (typeof payload.new.views === 'number') {
-          viewsEl.textContent = `views: ${payload.new.views}`;
-          correctElementForImage(viewsEl);
-        }
-      })
-      .subscribe();
-  }
-
-  function resetCommentsStage() {
-    commentsLayer.innerHTML = '';
-    commentsHeightmap = createHeightmap();
-    // Bühne beginnt exakt unterhalb des Bildes — beim ersten Laden ist
-    // dadurch garantiert nichts vom Bild verdeckt.
-    commentsLayer.style.marginTop = (currentImageRect.bottom + 30) + 'px';
-    commentsLayer.style.minHeight = '0px';
-  }
-
-  function updateCommentsStageHeight() {
-    const tallest = Math.max(...commentsHeightmap);
-    commentsLayer.style.minHeight = (tallest + 40) + 'px';
-  }
-
-  function placeChip(el, width) {
-    const stageWidth = commentsLayer.clientWidth || window.innerWidth;
-    const pos = placeImage({ width, height: COMMENT_CHIP_HEIGHT }, commentsHeightmap, stageWidth);
-    el.style.left = pos.left + 'px';
-    el.style.top = pos.top + 'px';
-    updateCommentsStageHeight();
-  }
-
-  async function loadComments(imageId) {
-    const { data, error } = await supabase
-      .from('comments')
-      .select('id, body, user_id')
-      .eq('image_id', imageId)
-      .eq('report_hidden', false)
-      .order('created_at', { ascending: false })
-      .limit(200);
-
-    if (error) {
-      console.error('Kommentare laden fehlgeschlagen:', error);
-      flashMessage('error: could not load notes');
-      return;
-    }
-    (data || []).reverse().forEach((c) => addCommentToLayer(c));
-  }
-
-  function showDeleteConfirm(el, comment) {
-    const originalText = el.textContent;
-
-    el.innerHTML = '';
-    el.style.cursor = 'default';
-
-    const deleteWord = document.createElement('span');
-    deleteWord.textContent = 'delete';
-    deleteWord.style.cursor = 'pointer';
-    deleteWord.style.marginRight = '10px';
-
-    const escWord = document.createElement('span');
-    escWord.textContent = 'b';
-    escWord.style.cursor = 'pointer';
-
-    el.appendChild(deleteWord);
-    el.appendChild(escWord);
-
-    escWord.addEventListener('click', (e) => {
-      e.stopPropagation();
-      el.innerHTML = '';
-      el.textContent = originalText;
-      el.style.cursor = 'pointer';
-    });
-
-    deleteWord.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const { error } = await supabase.from('comments').delete().eq('id', comment.id);
-      if (error) {
-        console.error('Kommentar löschen fehlgeschlagen:', error);
-        flashMessage('error: could not delete');
-        return;
-      }
-      el.remove();
-    });
-  }
-
-  function addCommentToLayer(comment) {
-    const el = document.createElement('div');
-    el.className = 'tag-chip'; // gleiche gelb-kursive Optik wie die Tags
-    el.style.position = 'absolute';
-    el.textContent = comment.body;
-    commentsLayer.appendChild(el);
-    placeChip(el, Math.max(90, comment.body.length * 8 + 20));
-
-    const user = getCurrentUser();
-    const isMine = user && comment.user_id === user.id;
-    if (isMine) {
-      el.style.cursor = 'pointer';
-      el.style.pointerEvents = 'auto'; // Container hat pointer-events:none, hier gezielt aufheben
-      el.addEventListener('click', () => showDeleteConfirm(el, comment));
-    }
-  }
-
-  function addPullerChip(username) {
-    const el = document.createElement('div');
-    el.className = 'username-color';
-    el.style.position = 'absolute';
-    el.style.fontSize = '16px';
-    el.style.cursor = 'pointer';
-    el.style.pointerEvents = 'auto'; // Container hat pointer-events:none
-    el.textContent = username;
-    el.addEventListener('click', () => {
-      close();
-      onOpenProfile && onOpenProfile(username);
-    });
-    commentsLayer.appendChild(el);
-    placeChip(el, Math.max(90, username.length * 9 + 20));
-  }
-
-  async function loadPullers(imageId) {
-    const pullers = await fetchPullersForImage(imageId);
-    pullers.forEach((username) => addPullerChip(username));
-  }
-
-  let actionWordSpots = [];
+  let connectCooldownTimer = null;
+  let connectSourceImage = null; // Ausgangsbild des gerade laufenden connect-Vorgangs
+  let connectTargetImage = null; // in Schritt 3 gewähltes Bild
+  let isConnecting = false;
+  let selectGallery = null; // Galerie-Instanz des Auswahl-Modus (Schritt 3)
 
   // Schiebt ein bereits positioniertes Element notfalls vom aktuellen Bild
   // weg — ohne es komplett neu zu würfeln. Genutzt, wenn die Position
-  // eigentlich gehalten werden soll (z.B. beim Bildwechsel per [z], oder
-  // wenn der views-Text erst nachträglich breiter wird als angenommen).
+  // eigentlich gehalten werden soll (z.B. beim Bildwechsel per [r]). Nutzt
+  // die volle Spalte (siehe imageColumnRect), nicht nur die Bildfläche
+  // selbst -- landet dadurch nie oberhalb/unterhalb des Bildes.
   function correctElementForImage(el) {
-    const reportRect = reportBtn.getBoundingClientRect();
-    clampFromRect(el, currentImageRect, IMAGE_SAFETY_PAD);
-    clampFromRect(el, reportRect, 20);
+    clampFromRect(el, imageColumnRect(currentImageRect), IMAGE_SAFETY_PAD);
     clampToViewport(el, EDGE_SAFETY_PAD);
   }
 
   function correctPositionsForImage() {
-    [escBtn, zBtn, pullBtn, commentBtn, reproduceBtn, traceBtn, viewsEl].forEach(correctElementForImage);
+    [escBtn, randomBtn, connectBtn].forEach(correctElementForImage);
     const clockEl = document.getElementById('global-clock');
     if (clockEl) correctElementForImage(clockEl);
-    const shootEl = document.getElementById('shoot-word');
-    if (shootEl) correctElementForImage(shootEl);
   }
 
   function positionActionWords() {
     const taken = [];
-
-    // reportBtn ist fest unten rechts verankert (siehe CSS) und wird hier
-    // nicht mehr zufällig platziert — andere Textelemente weichen ihm
-    // trotzdem weiterhin aus, damit nichts überlappt.
-    const reportRect = reportBtn.getBoundingClientRect();
-    taken.push({ x: reportRect.left, y: reportRect.top });
-
-    [escBtn, zBtn, pullBtn, commentBtn, reproduceBtn, traceBtn, viewsEl].forEach((el) => {
-      const spot = randomSpot(taken, { margin: 60, avoidRect: currentImageRect });
+    const columnRect = imageColumnRect(currentImageRect);
+    [escBtn, randomBtn, connectBtn].forEach((el) => {
+      const spot = randomSpot(taken, { margin: 60, avoidRect: columnRect });
       taken.push(spot);
       el.style.left = spot.x + 'px';
       el.style.top = spot.y + 'px';
       correctElementForImage(el);
     });
-    actionWordSpots = taken;
     repositionClock(taken, currentImageRect);
-    repositionShootWord(taken, currentImageRect);
-
     const clockEl = document.getElementById('global-clock');
     if (clockEl) correctElementForImage(clockEl);
-    const shootEl = document.getElementById('shoot-word');
-    if (shootEl) correctElementForImage(shootEl);
   }
 
-  // "drop" (schon gesammelt) erscheint kleiner, in Uhrzeit-Schriftgröße —
-  // "collect" (noch nicht gesammelt) bleibt normal groß.
-  function updatePullButtonStyle() {
-    pullBtn.textContent = isPulled ? 'drop' : 'collect';
-    pullBtn.style.fontSize = isPulled ? '16px' : '';
-  }
-
-  async function refreshPullState() {
-    const user = getCurrentUser();
-    if (!user || !currentImage) {
-      isPulled = false;
-      updatePullButtonStyle();
-      return;
+  // "c" ist ausgeblendet, solange die geräteweite Abklingzeit noch läuft
+  // (unabhängig vom aktuell gezeigten Bild) — plant sich selbst neu ein,
+  // damit "c" auch ohne erneutes open() automatisch wieder erscheint.
+  function updateConnectVisibility() {
+    const remaining = connectCooldownRemaining();
+    connectBtn.style.display = remaining > 0 ? 'none' : 'block';
+    if (connectCooldownTimer) clearTimeout(connectCooldownTimer);
+    if (remaining > 0) {
+      connectCooldownTimer = setTimeout(updateConnectVisibility, remaining);
     }
-    const { data } = await supabase
-      .from('pulls')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('image_id', currentImage.id)
-      .maybeSingle();
-    isPulled = !!data;
-    updatePullButtonStyle();
   }
 
-  // "trace" ist sichtbar, sobald das aktuelle Bild Teil einer Reproduktions-
-  // Familie ist (Original oder Reproduktion — beide haben ein gesetztes
-  // family_root_id, siehe upload.js) UND diese Ansicht browsable ist — aus
-  // trace.js selbst geöffnete Bilder zeigen "trace" nie (sonst Endlosschleife)
-  // — UND nur, wenn die Wortgruppe gerade eingeblendet ist (controlsVisible).
-  function updateTraceVisibility() {
-    const hasFamily = !!(currentImage && currentImage.familyRootId);
-    traceBtn.style.display = hasFamily && currentBrowsable && controlsVisible ? 'block' : 'none';
+  function clearConnectionsStage() {
+    connectionsStage.innerHTML = '';
+    connectionsStage.style.marginTop = (currentImageRect.bottom + 60) + 'px';
+    connectionsStage.style.minHeight = '0px';
   }
 
-  // "reproduce" ist ab MAX_REPRODUCE_GENERATION nicht mehr verfügbar — eine
-  // weitere Reproduktion würde die (nicht erlaubte) nächste Generation
-  // erzeugen — UND nur sichtbar, wenn die Wortgruppe eingeblendet ist.
-  function updateReproduceVisibility() {
-    const generation = currentImage ? (currentImage.generation || 0) : 0;
-    reproduceBtn.style.display = generation < MAX_REPRODUCE_GENERATION && controlsVisible ? 'block' : 'none';
+  // Wiederverwendet computeChronologicalLayout (dieselbe organische
+  // Anordnung wie die Hauptgalerie), aber ohne Shuffle-Möglichkeit -- die
+  // übergebene Liste ist bereits älteste-Verbindung-zuerst sortiert (siehe
+  // connections-repo.js), computeChronologicalLayout verarbeitet sie einfach
+  // in der gegebenen Reihenfolge.
+  function renderConnectedImages(images) {
+    clearConnectionsStage();
+    if (!images.length) return;
+
+    const width = connectionsStage.clientWidth || window.innerWidth;
+    const { positions, heightmap } = computeChronologicalLayout(images, width);
+    images.forEach((img) => {
+      const el = document.createElement('img');
+      el.className = 'push-image';
+      el.dataset.imageId = img.id;
+      el.loading = 'lazy';
+      el.decoding = 'async';
+      el.src = img.url;
+      el.style.width = img.width + 'px';
+      el.style.height = img.height + 'px';
+      const pos = positions.get(img.id);
+      el.style.left = pos.left + 'px';
+      el.style.top = pos.top + 'px';
+      el.style.zIndex = pos.z;
+      el.style.cursor = 'pointer';
+      // Volle Einzelansicht des verbundenen Bildes -- keine Einschränkung
+      // der weiteren Navigation (eigenes [c], eigene verbundenen Bilder).
+      el.addEventListener('click', () => open(img.id));
+      connectionsStage.appendChild(el);
+    });
+    connectionsStage.style.minHeight = (Math.max(...heightmap) + EDGE_MARGIN) + 'px';
   }
 
-  function updateActionButtonsVisibility() {
-    pullBtn.style.display = controlsVisible ? 'block' : 'none';
-    commentBtn.style.display = controlsVisible ? 'block' : 'none';
-    reportBtn.style.display = controlsVisible ? 'block' : 'none';
-  }
-
-  // Shoot-Wort ("s"): bleibt während Comment-/Report-Authoring ausgeblendet
-  // (unverändert), ist sonst jetzt an controlsVisible gekoppelt statt immer an.
-  function updateShootWordVisibility() {
-    setShootWordVisible(mode === 'view' && controlsVisible);
-  }
-
-  // Bündelt alle vier obigen Sichtbarkeits-Regeln — nach jedem Umschalten
-  // von controlsVisible sowie bei jedem open() aufgerufen.
-  function applyControlsVisibility() {
-    updateActionButtonsVisibility();
-    updateReproduceVisibility();
-    updateTraceVisibility();
-    updateShootWordVisibility();
-  }
-
-  async function open(imageId, imagesList, opts = {}) {
-    const { silent = false, browsable = true } = opts;
+  async function open(imageId, imagesList) {
     if (imagesList) currentContextImages = imagesList;
     const images = currentContextImages || getImages();
     let img = images.find((i) => i.id === imageId);
@@ -471,18 +199,19 @@ export function initSingleView(
     }
 
     const myGeneration = ++openGeneration;
-    // Galerie-Bilder sind loading="lazy" — bei [z] auf ein Bild, das noch nie
+    // Galerie-Bilder sind loading="lazy" — bei [r] auf ein Bild, das noch nie
     // im Sichtbereich war, hat der Browser die Daten oft noch gar nicht
     // geladen. Ohne dieses Warten würde die Größe/URL des <img> sofort
     // umgestellt, während die Bilddaten noch unterwegs sind — sichtbar als
     // kurzes "springt auf falsche Größe, bevor das Bild da ist". Bis das neue
     // Bild bereitsteht, bleibt einfach das alte unverändert stehen.
     await preloadImage(img.url);
-    if (myGeneration !== openGeneration) return; // zwischenzeitlich überholt (neueres [z] oder geschlossen)
+    if (myGeneration !== openGeneration) return; // zwischenzeitlich überholt (neueres [r] oder geschlossen)
 
     // Nur ein frischer Einstieg aus der Galerie bekommt eine neue zufällige
-    // Anordnung der Textelemente — solange man (z.B. über mehrfaches [z])
-    // in der Einzelansicht bleibt, halten sie ihre Position.
+    // Anordnung der Textelemente — solange man (z.B. über mehrfaches [r]
+    // oder über verbundene Bilder) in der Einzelansicht bleibt, halten sie
+    // ihre Position.
     const wasAlreadyOpen = overlay.style.display === 'block';
 
     currentImage = img;
@@ -499,370 +228,236 @@ export function initSingleView(
     overlay.scrollTop = 0;
     document.body.style.overflow = 'hidden';
     setClockVisible(true);
-    currentBrowsable = browsable;
-    zBtn.style.display = browsable ? 'block' : 'none';
-    wasSilentOpen = silent;
     // Nur der frische Einstieg in die Einzelansicht ist ein eigener Schritt
-    // im Browser-Verlauf — Bildwechsel währenddessen (z.B. mehrfaches [z])
-    // aktualisieren nur die URL (Reload/Teilen-Link), ohne eigenen Eintrag,
-    // damit [b] direkt zur übergeordneten Seite zurückführt. "silent" (aus
-    // trace.js): gar keine History-Interaktion — dort läuft die Navigation
-    // komplett lokal (siehe escBtn-Handler und trace.js).
-    if (!silent) {
-      if (wasAlreadyOpen) {
-        replaceRoute(imagePath(img.id), `push v.r.p. — image ${img.id}`);
-      } else {
-        pushRoute(imagePath(img.id), `push v.r.p. — image ${img.id}`);
-      }
+    // im Browser-Verlauf — jeder Bildwechsel währenddessen (mehrfaches [r],
+    // Klick auf ein verbundenes Bild, Rückkehr aus einem connect-Vorgang)
+    // aktualisiert nur die URL (Reload/Teilen-Link) per replaceRoute, ohne
+    // eigenen History-Eintrag. Dadurch bleibt es bei GENAU einem Eintrag für
+    // eine ganze Einzelansicht-"Sitzung", egal wie viele Bilder darin
+    // besucht wurden — [z] (goBack()) führt daher immer direkt zurück zur
+    // Hauptgalerie, nie zu einem vorherigen Bild einer Kette.
+    if (wasAlreadyOpen) {
+      replaceRoute(imagePath(img.id), `push v.r.p. — image ${img.id}`);
+    } else {
+      pushRoute(imagePath(img.id), `push v.r.p. — image ${img.id}`);
     }
 
-    // Für die Positionierung/Kollisionsvermeidung unten müssen diese Elemente
-    // kurz messbar sein (display:block) — ein verstecktes Element liefert eine
-    // Nullgröße bei getBoundingClientRect() und würde falsch bzw. überlappend
-    // platziert. Die tatsächliche Sichtbarkeit (controlsVisible, Eignung) wird
-    // gleich danach über applyControlsVisibility() gesetzt.
-    [pullBtn, commentBtn, reportBtn, reproduceBtn, traceBtn].forEach((el) => {
-      el.style.display = 'block';
-    });
     if (!wasAlreadyOpen) {
       positionActionWords();
     } else {
-      // Position halten (siehe [z]-Verhalten), aber vor Überlappung mit dem
+      // Position halten (siehe [r]-Verhalten), aber vor Überlappung mit dem
       // neuen — möglicherweise anders geformten — Bild schützen.
       correctPositionsForImage();
     }
-    // Jedes open() (auch Bildwechsel per [z]) startet mit ausgeblendeter
-    // Wortgruppe — erst ein Klick aufs Bild zeigt sie wieder.
-    controlsVisible = false;
-    applyControlsVisibility();
+    updateConnectVisibility();
 
-    resetCommentsStage();
-    await refreshPullState();
-    await loadComments(img.id);
-    await loadPullers(img.id);
-    trackView(img.id);
+    clearConnectionsStage();
+    fetchConnectedImages(img.id).then((connected) => {
+      if (myGeneration !== openGeneration) return; // überholt, siehe oben
+      renderConnectedImages(connected);
+    });
   }
 
   function close() {
-    openGeneration += 1; // verwirft eine evtl. noch wartende open()-Anfrage (siehe preloadImage oben)
+    openGeneration += 1; // verwirft eine evtl. noch wartende open()-/Verbindungs-Anfrage (siehe oben)
     overlay.style.display = 'none';
-    unsubscribeViews();
+    // Bei einem connect-Vorgang ist die Einzelansicht selbst gerade
+    // ausgeblendet (isOpen('single-view') liefert also false) — eine externe
+    // Navigation weg von der Bildroute (z.B. physischer Zurück-Button, siehe
+    // main.js/syncViewToRoute) würde die connect-Ansichten sonst offen und
+    // verwaist zurücklassen. Harmlos, falls ohnehin schon geschlossen.
+    selectOverlay.style.display = 'none';
+    confirmOverlay.style.display = 'none';
+    connectSourceImage = null;
+    connectTargetImage = null;
     currentImage = null;
     currentImageRect = null;
     currentContextImages = null;
-    mode = 'view';
-    wasSilentOpen = false;
-    currentBrowsable = true;
-    controlsVisible = false;
-
-    const ownOpen = document.getElementById('own-gallery-view').style.display === 'block';
-    const foreignOpen = document.getElementById('foreign-profile-view').style.display === 'block';
-    const traceOpen = document.getElementById('trace-view').style.display === 'block';
-    if (!ownOpen && !foreignOpen && !traceOpen) {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = '';
   }
 
   function showRandom() {
-    // Aus trace.js geöffnete Bilder sind nicht browsable — sonst entstünde
-    // eine Endlosschleife trace -> single view -> trace -> ... (siehe open()).
-    // Doppelte Absicherung zum ausgeblendeten zBtn: greift auch, falls der
-    // Klick trotzdem irgendwie ausgelöst wird (z.B. Tastenkürzel).
-    if (!currentBrowsable) return;
     const images = currentContextImages || getImages();
     if (!images.length) return;
     const pick = images[Math.floor(Math.random() * images.length)];
-    // Silent-Zustand (aus trace.js geöffnet) bleibt beim Weiterbrowsen
-    // erhalten — sonst würde ein [z] mitten in einer stillen Sitzung
-    // plötzlich doch einen History-Eintrag erzeugen.
-    open(pick.id, null, { silent: wasSilentOpen });
+    open(pick.id, null);
   }
 
-  // Echte Nutzeraktion (Klick/Taste) — im Unterschied zu close()-Aufrufen,
-  // die intern vor einer Weiternavigation passieren (z.B. Puller-Chip-Klick),
-  // aktualisiert das hier zusätzlich die URL (siehe router.js). Ausnahme:
-  // wurde diese Sitzung still (aus trace.js) geöffnet, gibt es dafür keinen
-  // History-Eintrag — schließen legt einfach die trace-Ansicht darunter wieder frei.
+  // Echte Nutzeraktion (Klick/Taste) — aktualisiert zusätzlich die URL
+  // (siehe router.js).
   escBtn.addEventListener('click', () => {
-    const skipGoBack = wasSilentOpen;
     close();
-    if (!skipGoBack) goBack();
+    goBack();
   });
-  zBtn.addEventListener('click', showRandom);
+  randomBtn.addEventListener('click', showRandom);
+  connectBtn.addEventListener('click', () => openConnectSelect());
 
-  // Klick aufs Bild schaltet die "versteckte" Wortgruppe (reproduce/trace/
-  // collect-drop/note/report/Shoot-Wort) um — nur im normalen Betrachtungs-
-  // Zustand, nicht während des gedimmten Comment-/Report-Authorings (dort
-  // ist imageEl ohnehin per pointer-events:none unklickbar, siehe enterMode();
-  // die Prüfung hier ist eine zusätzliche, robuste Absicherung).
-  imageEl.addEventListener('click', () => {
-    if (mode !== 'view') return;
-    controlsVisible = !controlsVisible;
-    applyControlsVisibility();
-  });
+  // ─────────────────────────────────────────────
+  // "connect" — Schritt 3: Auswahl-Modus (Hauptgalerie im aktuellen
+  // Sortierzustand, Ausgangsbild ausgeschlossen, Klick führt zu Schritt 4).
+  // ─────────────────────────────────────────────
 
-  let pullAnimationRunning = false;
-
-  async function animatePullImage(username) {
-    if (pullAnimationRunning) return;
-    pullAnimationRunning = true;
-    try {
-      const startRect = imageEl.getBoundingClientRect();
-      const clone = document.createElement('img');
-      clone.src = imageEl.src;
-      clone.style.objectFit = 'contain';
-
-      await flyIntoCollection({
-        cloneEl: clone,
-        startRect,
-        applyRect: (el, r) => {
-          el.style.left = r.left + 'px';
-          el.style.top = r.top + 'px';
-          el.style.width = r.width + 'px';
-          el.style.height = r.height + 'px';
-        },
-        transitionCss: 'left 0.4s ease, top 0.4s ease, width 0.4s ease, height 0.4s ease',
-        getTargetRect: (labelRect) => getImageCornerRect(startRect, labelRect),
-        onOpenCollection: () => onOpenProfile && onOpenProfile(username),
-      });
-    } finally {
-      pullAnimationRunning = false;
-    }
-  }
-
-  pullBtn.addEventListener('click', async () => {
-    const user = getCurrentUser();
-    if (!user) {
-      onNeedsLogin(applyControlsVisibility);
-      return;
-    }
-    if (!currentImage) return;
-
-    if (isPulled) {
-      const { error } = await supabase
-        .from('pulls')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('image_id', currentImage.id);
-      if (error) {
-        console.error('Shove fehlgeschlagen:', error);
-        flashMessage('error: could not drop');
-        return;
-      }
-      isPulled = false;
-      updatePullButtonStyle();
-      showMessage('image dropped');
-      [...commentsLayer.querySelectorAll('.username-color')]
-        .filter((el) => el.textContent === user.username)
-        .forEach((el) => el.remove());
-    } else {
-      const { error } = await supabase
-        .from('pulls')
-        .insert({ user_id: user.id, image_id: currentImage.id });
-      if (error) {
-        console.error('Pull fehlgeschlagen:', error);
-        flashMessage('error: could not collect');
-        return;
-      }
-      isPulled = true;
-      updatePullButtonStyle();
-      showMessage('added to collection');
-      addPullerChip(user.username);
-      animatePullImage(user.username);
-    }
-
-    if (onPullToggled) onPullToggled(currentImage.id, isPulled);
-  });
-
-  function enterMode(newMode) {
-    mode = newMode;
-    const dim = mode !== 'view';
-
-    [imageEl, escBtn, zBtn, pullBtn, commentBtn, reportBtn, reproduceBtn, traceBtn, viewsEl].forEach((el) => {
-      el.style.opacity = dim ? '0.2' : '1';
-      el.style.pointerEvents = dim ? 'none' : 'auto';
+  function positionSelectWords() {
+    const taken = [];
+    [selectEsc, selectS, selectA].forEach((el) => {
+      const spot = randomSpot(taken, { margin: 60 });
+      taken.push(spot);
+      el.style.left = spot.x + 'px';
+      el.style.top = spot.y + 'px';
+      clampToViewport(el);
     });
-    commentsLayer.style.opacity = dim ? '0.2' : '1';
-    updateShootWordVisibility();
+  }
 
-    dimEsc.style.display = dim ? 'block' : 'none';
-    typeInput.style.display = dim ? 'block' : 'none';
-    submitBtn.style.display = dim ? 'block' : 'none';
-    thanksEl.style.display = 'none';
+  // "a" (zurück zur chronologischen Ordnung) nur sichtbar, solange der
+  // Auswahl-Modus NICHT bereits chronologisch ist -- dieselbe Regel wie auf
+  // der Hauptgalerie (siehe main.js), hier aber unabhängig von deren
+  // eigenem Sortierzustand, da dies eine eigenständige Galerie-Instanz ist.
+  function updateSelectAVisibility(mode) {
+    selectA.style.display = mode === 'random' ? 'block' : 'none';
+  }
 
-    if (dim) {
-      typeInput.value = '';
-      typeInput.placeholder = 'type';
-      typeInput.maxLength = CHAR_LIMIT;
-      typeInput.classList.toggle('field-yellow', mode === 'comment');
-      // Intern heißt der Modus weiterhin "comment" (siehe mode-Variable) —
-      // angezeigt wird dafür "note", wie beim comment-Button selbst.
-      submitBtn.textContent = mode === 'comment' ? 'note' : mode;
+  // Ausgangsbild bleibt in der Liste (nicht ausgeschlossen) -- dient als
+  // Scroll-Ankerpunkt (siehe openConnectSelect/confirmEsc unten), ist aber
+  // nicht auswählbar: onImageClick ignoriert einen Klick darauf, der Cursor
+  // wird auf "default" zurückgesetzt (statt des von gallery.js gesetzten
+  // "pointer"), damit es auch optisch nicht wie ein klickbares Bild wirkt.
+  //
+  // Nutzt bewusst eine eigene, vollständige Abfrage (fetchAllImages, ohne
+  // limit/Pagination) statt getImages() (die Hauptgalerie-Liste): die
+  // Hauptgalerie lädt nur häppchenweise nach (siehe main.js/maybeLoadMore)
+  // -- ohne eigene Abfrage stünden hier nur die bereits gescrollten Bilder
+  // zur Auswahl, nicht der vollständige Bestand.
+  async function buildSelectGallery() {
+    const sourceId = connectSourceImage.id;
+    const myGeneration = openGeneration; // siehe open()/close() -- verwirft ein überholtes Ergebnis
+    const pool = await fetchAllImages();
+    if (myGeneration !== openGeneration) return; // zwischenzeitlich geschlossen/weiternavigiert
 
-      const taken = [];
+    selectStage.innerHTML = '';
+    selectGallery = createGallery(selectStage, pool, {
+      onImageClick: (img) => {
+        if (img.id === sourceId) return;
+        openConnectConfirm(img);
+      },
+      initialSortMode: getSortMode(),
+      onSortModeChange: updateSelectAVisibility,
+    });
+    updateSelectAVisibility(selectGallery.getSortMode());
 
-      const spotEsc = randomSpot(taken, { margin: 60, avoidRect: currentImageRect });
-      taken.push(spotEsc);
-      dimEsc.style.left = spotEsc.x + 'px';
-      dimEsc.style.top = spotEsc.y + 'px';
-      clampFromRect(dimEsc, currentImageRect, IMAGE_SAFETY_PAD);
-      clampToViewport(dimEsc, EDGE_SAFETY_PAD);
-
-      const spotType = randomSpot(taken, { margin: 60, avoidRect: currentImageRect });
-      taken.push(spotType);
-      typeInput.style.left = spotType.x + 'px';
-      typeInput.style.top = spotType.y + 'px';
-      clampFromRect(typeInput, currentImageRect, IMAGE_SAFETY_PAD);
-      clampToViewport(typeInput, EDGE_SAFETY_PAD);
-
-      const spotSubmit = randomSpot(taken, {
-        margin: 60,
-        avoidRect: currentImageRect,
-        yRange: [0.6, 0.85],
-      });
-      taken.push(spotSubmit);
-      submitBtn.style.left = spotSubmit.x + 'px';
-      submitBtn.style.top = spotSubmit.y + 'px';
-      clampFromRect(submitBtn, currentImageRect, IMAGE_SAFETY_PAD);
-      clampToViewport(submitBtn, EDGE_SAFETY_PAD);
-
-      repositionClock(taken, currentImageRect);
-
-      requestAnimationFrame(() => typeInput.focus());
+    const sourceEl = selectGallery.elements.get(sourceId);
+    if (sourceEl) {
+      sourceEl.style.cursor = 'default';
+      sourceEl.scrollIntoView({ block: 'center', inline: 'nearest' });
     }
   }
 
-  commentBtn.addEventListener('click', () => {
-    if (!getCurrentUser()) {
-      onNeedsLogin(applyControlsVisibility);
-      return;
-    }
-    enterMode('comment');
-  });
-  reportBtn.addEventListener('click', () => {
-    if (!getCurrentUser()) {
-      onNeedsLogin(applyControlsVisibility);
-      return;
-    }
-    enterMode('report');
-  });
-  dimEsc.addEventListener('click', () => enterMode('view'));
-
-  let reproduceRunning = false;
-
-  reproduceBtn.addEventListener('click', async () => {
-    if (!getCurrentUser()) {
-      onNeedsLogin(applyControlsVisibility);
-      return;
-    }
-    if (!currentImage || reproduceRunning) return;
-    // Doppelte Absicherung zum ausgeblendeten Button (siehe updateReproduceVisibility).
-    if ((currentImage.generation || 0) >= MAX_REPRODUCE_GENERATION) return;
-    const sourceImage = currentImage; // vor close() sichern
-
-    reproduceRunning = true;
-    try {
-      const { blob, width, height } = await createReproduction(sourceImage.url);
-      // Einzelansicht verlassen wie bei [b] (kein neuer History-Eintrag für
-      // das Upload-Overlay selbst — das war schon bei normalem push so).
-      close();
-      goBack();
-      // Kein Tag-Übernehmen mehr: das Upload-Overlay startet komplett leer,
-      // wie bei einem regulären Push (siehe upload.js).
-      onReproduce && onReproduce(blob, {
-        width,
-        height,
-        reproducedFromId: sourceImage.id,
-        // sourceImage ist dieselbe Objekt-Referenz wie in der jeweiligen
-        // Galerie-Liste (kein Kopieren in open(), siehe dort) — diese Mutation
-        // aktualisiert daher automatisch auch den Galerie-Cache. Ohne das
-        // bliebe familyRootId dort veraltet und "trace" würde beim erneuten
-        // Öffnen dieses Bildes ohne Neuladen der Seite nicht erscheinen.
-        onGenealogyResolved: (familyRootId) => {
-          sourceImage.familyRootId = familyRootId;
-        },
-      });
-    } catch (err) {
-      console.error('Reproduce fehlgeschlagen:', err);
-      flashMessage('error: could not reproduce');
-    } finally {
-      reproduceRunning = false;
-    }
-  });
-
-  traceBtn.addEventListener('click', () => {
-    if (!currentImage || !currentImage.familyRootId) return;
-    const { familyRootId, id: returnImageId } = currentImage;
-    // Direkt schließen (kein goBack) — trace.js übernimmt die Ansicht, siehe
-    // dessen escBtn-Handler in main.js für den Rückweg zu diesem Bild.
-    close();
-    onOpenTrace && onOpenTrace(familyRootId, returnImageId);
-  });
-
-  let isSubmitting = false;
-
-  function flashThanks(text) {
-    thanksEl.textContent = text;
-    thanksEl.style.display = 'block';
-    thanksEl.style.transform = 'none';
-    const spot = randomSpot([], { margin: 60, avoidRect: currentImageRect });
-    thanksEl.style.left = spot.x + 'px';
-    thanksEl.style.top = spot.y + 'px';
-    clampFromRect(thanksEl, currentImageRect, IMAGE_SAFETY_PAD);
-    clampToViewport(thanksEl, EDGE_SAFETY_PAD);
+  async function openConnectSelect() {
+    if (!currentImage || connectCooldownRemaining() > 0) return; // doppelte Absicherung zum ausgeblendeten Button
+    connectSourceImage = currentImage;
+    connectTargetImage = null;
+    overlay.style.display = 'none';
+    confirmOverlay.style.display = 'none';
+    // ERST sichtbar schalten, DANN die Galerie bauen: createGallery() liest
+    // beim Layout stageEl.clientWidth aus -- bei einem noch display:none
+    // Overlay liefert das 0 (Fallback auf 680px), die Galerie füllte dadurch
+    // sichtbar nur einen Bruchteil der tatsächlichen Fensterbreite.
+    selectOverlay.style.display = 'block';
+    selectStage.innerHTML = ''; // alten Inhalt sofort weg, während neu geladen wird
+    positionSelectWords();
+    await buildSelectGallery();
   }
 
-  async function submit() {
-    const val = typeInput.value.trim();
-    const user = getCurrentUser();
-    if (!val || !currentImage || isSubmitting || !user) return;
+  selectEsc.addEventListener('click', () => {
+    // Abbruch von Schritt 3: zurück zur ursprünglichen Einzelansicht, ohne
+    // dass etwas verbunden wird.
+    selectOverlay.style.display = 'none';
+    open(connectSourceImage.id);
+  });
+  // [a]/[s] wirken ausschließlich auf diese eigenständige Auswahl-Galerie,
+  // nie auf die Hauptgalerie dahinter (siehe createGallery-Aufruf oben).
+  selectA.addEventListener('click', () => { if (selectGallery) selectGallery.sortChronological(); });
+  selectS.addEventListener('click', () => { if (selectGallery) selectGallery.shuffleRandom(); });
 
-    isSubmitting = true;
-    submitBtn.style.pointerEvents = 'none';
-    submitBtn.style.opacity = '0.3';
+  // ─────────────────────────────────────────────
+  // "connect" — Schritt 4: Bestätigungsansicht (beide Bilder nebeneinander).
+  // ─────────────────────────────────────────────
 
+  function positionConfirmWords() {
+    const rectA = confirmImageA.getBoundingClientRect();
+    const rectB = confirmImageB.getBoundingClientRect();
+    const avoidRect = unionRect(rectA, rectB);
+    const spot = randomSpot([], { margin: 60, avoidRect });
+    confirmEsc.style.left = spot.x + 'px';
+    confirmEsc.style.top = spot.y + 'px';
+    clampFromRect(confirmEsc, avoidRect, 24);
+    clampToViewport(confirmEsc);
+  }
+
+  function openConnectConfirm(targetImg) {
+    connectTargetImage = targetImg;
+    selectOverlay.style.display = 'none';
+    confirmImageA.src = connectSourceImage.url;
+    confirmImageB.src = targetImg.url;
+    confirmOverlay.style.display = 'block';
+    // Erst nach dem Sichtbar-Schalten messbar (getBoundingClientRect).
+    requestAnimationFrame(positionConfirmWords);
+  }
+
+  confirmEsc.addEventListener('click', () => {
+    // Abbruch von Schritt 4: zurück zu Schritt 3 (Auswahl-Modus), ohne dass
+    // etwas verbunden wird. Reihenfolge wie in openConnectSelect() (erst
+    // sichtbar schalten, dann bauen) -- siehe dortiger Kommentar.
+    confirmOverlay.style.display = 'none';
+    selectOverlay.style.display = 'block';
+    selectStage.innerHTML = '';
+    positionSelectWords();
+    buildSelectGallery();
+  });
+
+  // ─────────────────────────────────────────────
+  // "connect" — Schritt 5: Verbindung herstellen.
+  // ─────────────────────────────────────────────
+
+  async function confirmConnect() {
+    if (isConnecting || !connectSourceImage || !connectTargetImage) return;
+    isConnecting = true;
+    const sourceId = connectSourceImage.id;
     try {
-      if (mode === 'comment') {
-        const { data: inserted, error } = await supabase
-          .from('comments')
-          .insert({ image_id: currentImage.id, body: val, user_id: user.id })
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Kommentar fehlgeschlagen:', error);
-          flashMessage('error: note failed');
-          return;
-        }
-        addCommentToLayer(inserted);
-        enterMode('view');
-        showRandomHint();
-      } else if (mode === 'report') {
-        const { error } = await supabase
-          .from('reports')
-          .insert({ target_type: 'image', target_id: currentImage.id, reason: val });
-
-        if (error) {
-          console.error('Report fehlgeschlagen:', error);
-          flashMessage('error: report failed');
-          return;
-        }
-        typeInput.style.display = 'none';
-        submitBtn.style.display = 'none';
-        enterMode('view');
+      const { error, isDuplicate } = await createConnection(connectSourceImage.id, connectTargetImage.id);
+      if (error && !isDuplicate) {
+        console.error('Connect fehlgeschlagen:', error);
+        flashMessage('error: could not connect');
+        return; // auf der Bestätigungsseite bleiben, damit erneut versucht werden kann
       }
+      if (isDuplicate) {
+        flashMessage('already connected');
+      } else {
+        markConnectCooldown();
+      }
+      confirmOverlay.style.display = 'none';
+      connectSourceImage = null;
+      connectTargetImage = null;
+      await open(sourceId);
     } finally {
-      isSubmitting = false;
-      submitBtn.style.pointerEvents = 'auto';
-      submitBtn.style.opacity = '1';
+      isConnecting = false;
     }
   }
 
-  // Kommentare: Klick ODER Enter bestätigt. Reports bewusst nur per Klick —
-  // höhere Hürde, da nicht rückgängig machbar.
-  submitBtn.addEventListener('click', submit);
-  typeInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && mode === 'comment') submit();
+  confirmWord.addEventListener('click', confirmConnect);
+
+  // [c] und Enter lösen in der Bestätigungsansicht dieselbe Aktion aus wie
+  // der Klick auf "connect" -- ausschließlich, während sie aktiv ist; in der
+  // normalen Einzelansicht bleibt [c] der Auslöser für das Öffnen des
+  // Auswahl-Modus (siehe main.js, das [c] dort zentral auf connectBtn
+  // umleitet). Am document statt am Overlay selbst registriert, da Tasten-
+  // Events am jeweils fokussierten Element (i.d.R. <body>) ausgelöst werden
+  // und nicht in ein unfokussiertes div hinein bubbeln würden.
+  document.addEventListener('keydown', (e) => {
+    if (confirmOverlay.style.display !== 'block') return;
+    if (e.key === 'c' || e.key === 'C' || e.key === 'Enter') {
+      e.preventDefault();
+      confirmConnect();
+    }
   });
 
   return {
@@ -872,11 +467,19 @@ export function initSingleView(
     // von außen vorgibt, dass diese Ansicht zu schließen ist.
     close,
     showRandom,
+    connect: openConnectSelect,
     // Für Fenstergrößenänderungen: nur die frei positionierten Textelemente
     // zurück in den sichtbaren Bereich holen — das Bild behält seine
     // ursprüngliche Größe (wird nicht neu berechnet, soll nicht schrumpfen).
     reposition: () => {
       if (overlay.style.display === 'block') positionActionWords();
+      if (selectOverlay.style.display === 'block') {
+        positionSelectWords();
+        if (selectGallery) selectGallery.relayout();
+      }
+      if (confirmOverlay.style.display === 'block') positionConfirmWords();
     },
+    isSelectOpen: () => selectOverlay.style.display === 'block',
+    isConfirmOpen: () => confirmOverlay.style.display === 'block',
   };
 }

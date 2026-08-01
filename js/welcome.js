@@ -6,7 +6,6 @@
 
 import { randomSpot, clampToViewport } from './position-utils.js';
 import { setClockVisible } from './clock.js';
-import { setShootWordVisible } from './shoot.js';
 import { showMessage } from './notice-board.js';
 
 const STORAGE_KEY = 'push_visited';
@@ -60,7 +59,6 @@ export function initWelcome(refs, onReady) {
     setTimeout(() => {
       overlay.style.display = 'none';
       setClockVisible(true);
-      setShootWordVisible(true);
       if (onReady) onReady();
     }, TAGLINE_DURATION);
   }
@@ -75,6 +73,5 @@ export function initWelcome(refs, onReady) {
   overlay.style.display = 'block';
   pushEl.style.display = 'block';
   setClockVisible(false);
-  setShootWordVisible(false);
   positionPush();
 }

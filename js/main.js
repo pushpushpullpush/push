@@ -5,16 +5,10 @@ import { createGallery } from './gallery.js';
 import { initUpload } from './upload.js';
 import { initDragDrop } from './drag-drop.js';
 import { initSingleView } from './single-view.js';
-import { initAuth } from './auth.js';
-import { initOwnGallery } from './own-gallery.js';
-import { initForeignProfile } from './foreign-profile.js';
-import { initTrace } from './trace.js';
 import { initVrp } from './vrp.js';
-import { searchUsernames } from './profile-data.js';
 import { mountClock, setClockVisible } from './clock.js';
 import { mountNoticeConsole, showRandomHint } from './notice-board.js';
 import { initHideTextMode } from './star-toggle.js';
-import { mountShootWord, repositionShootWord, trigger as triggerShoot } from './shoot.js';
 import { clampToViewport, randomSpot as randomSpotUtil } from './position-utils.js';
 import { initWelcome } from './welcome.js';
 import {
@@ -28,22 +22,8 @@ const images = await fetchImages({ limit: 60 });
 
 // Kleiner Kreisverweis: gallery ruft singleView.open() auf, singleView braucht
 // gallery.getImages — beide werden daher über eine verzögerte Referenz verbunden.
-// Gleiches Prinzip für singleView <-> trace/upload (reproduce/trace rufen
-// jeweils die Öffnen-Funktion der anderen Seite auf, siehe unten).
 let singleView;
-let ownGallery;
-let foreignProfile;
-let trace;
 let upload;
-
-function openProfile(username) {
-  const user = auth.getCurrentUser();
-  if (user && user.username === username) {
-    ownGallery.open();
-  } else {
-    foreignProfile.open(username);
-  }
-}
 
 function isOpen(id) {
   return document.getElementById(id).style.display === 'block';
@@ -51,6 +31,11 @@ function isOpen(id) {
 
 const gallery = createGallery(stage, images, {
   onImageClick: (img) => singleView.open(img.id),
+  onSortModeChange: (mode) => {
+    // "a" (zurück zur chronologischen Ordnung) ist nur sichtbar, solange man
+    // NICHT bereits chronologisch ist — im Startzustand also ausgeblendet.
+    menuEls.a.style.display = mode === 'random' ? 'block' : 'none';
+  },
 });
 
 // ─────────────────────────────────────────────
@@ -94,9 +79,6 @@ supabase
       url: row.url,
       width,
       height,
-      tags: row.tags || [],
-      familyRootId: row.family_root_id,
-      generation: row.generation,
     }]);
   })
   .subscribe();
@@ -105,28 +87,26 @@ singleView = initSingleView({
   overlay: document.getElementById('single-view'),
   imageEl: document.getElementById('single-image'),
   escBtn: document.getElementById('single-esc'),
-  zBtn: document.getElementById('single-z'),
-  pullBtn: document.getElementById('single-pull'),
-  commentBtn: document.getElementById('single-comment'),
-  reportBtn: document.getElementById('single-report'),
-  reproduceBtn: document.getElementById('single-reproduce'),
-  traceBtn: document.getElementById('single-trace'),
-  viewsEl: document.getElementById('single-views'),
-  commentsLayer: document.getElementById('single-comments-layer'),
-  dimEsc: document.getElementById('single-dim-esc'),
-  typeInput: document.getElementById('single-type-input'),
-  submitBtn: document.getElementById('single-submit'),
-  thanksEl: document.getElementById('single-thanks'),
-}, gallery.getVisibleImages, () => auth.getCurrentUser(), (onClosed) => auth.open(onClosed), (imageId, pulled) => {
-  // Falls man von der eigenen Galerie aus "drop" drückt: Bild dort sofort entfernen.
-  if (!pulled && ownGallery) ownGallery.removeImageIfPresent(imageId);
-}, openProfile, (blob, opts) => upload.openWithBlob(blob, opts), (familyRootId, returnImageId) => trace.open(familyRootId, returnImageId));
+  randomBtn: document.getElementById('single-r'),
+  connectBtn: document.getElementById('single-connect'),
+  connectionsStage: document.getElementById('single-connections-stage'),
+  selectOverlay: document.getElementById('connect-select-view'),
+  selectStage: document.getElementById('connect-select-stage'),
+  selectEsc: document.getElementById('connect-select-esc'),
+  selectA: document.getElementById('connect-select-a'),
+  selectS: document.getElementById('connect-select-s'),
+  confirmOverlay: document.getElementById('connect-confirm-view'),
+  confirmImageA: document.getElementById('connect-confirm-image-a'),
+  confirmImageB: document.getElementById('connect-confirm-image-b'),
+  confirmWord: document.getElementById('connect-confirm-word'),
+  confirmEsc: document.getElementById('connect-confirm-esc'),
+}, gallery.getImages, gallery.getSortMode);
 
 // ─────────────────────────────────────────────
 // Fixe Menü-Textelemente: bei jedem vollen Laden neu platziert,
 // bleiben beim Scrollen an ihrer Position (position: fixed).
 // ─────────────────────────────────────────────
-const MENU_WORDS = ['push', 'pull', 'search', 'a', 'z'];
+const MENU_WORDS = ['push', 'a', 's', 'r'];
 const placed = [];
 
 function randomSpot() {
@@ -145,40 +125,20 @@ MENU_WORDS.forEach((word) => {
   const spot = randomSpot();
   placed.push(spot);
 
-  const el = document.createElement(word === 'search' ? 'input' : 'div');
-  el.className = word === 'search' ? 'menu-word italic-field field-yellow' : 'menu-word';
+  const el = document.createElement('div');
+  el.className = 'menu-word';
   el.style.left = spot.x + 'px';
   el.style.top = spot.y + 'px';
-
-  if (word === 'search') {
-    el.type = 'text';
-    el.placeholder = 'filter';
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        el.value = '';
-        el.placeholder = 'filter';
-        el.blur();
-        gallery.filterByTag('');
-        gallery.clearUsernameChips();
-      } else if (e.key === 'Enter') {
-        el.blur();
-      }
-    });
-    el.addEventListener('blur', () => {
-      if (el.value.trim() === '') {
-        el.placeholder = 'filter';
-      }
-    });
-  } else {
-    // Auf der Hauptseite heißt es "collection" — in der Einzelansicht
-    // bleibt es bei "pull", intern heißt der Schlüssel weiterhin "pull".
-    el.textContent = word === 'pull' ? 'collection' : word;
-  }
+  el.textContent = word;
 
   menuLayer.appendChild(el);
   menuEls[word] = el;
   clampToViewport(el);
 });
+
+// Startzustand der Hauptgalerie ist chronologisch — der Rückweg dorthin
+// ("a") ist daher erst nach einem Shuffle sichtbar.
+menuEls.a.style.display = 'none';
 
 // ─────────────────────────────────────────────
 // Datum/Uhrzeit — eigenes Modul, liegt über allem (auch über Overlays)
@@ -192,10 +152,6 @@ clampToViewport(clockEl);
 
 const hideTextMode = initHideTextMode();
 mountNoticeConsole();
-
-mountShootWord();
-const shootSpot = repositionShootWord(placed);
-if (shootSpot) placed.push(shootSpot);
 
 // ─────────────────────────────────────────────
 // v.r.p. — eigenständiges Element, nur auf der Hauptseite, kein Kurzbefehl
@@ -233,8 +189,6 @@ function repositionMainMenu() {
   vrpEl.style.top = vrpSpotNew.y + 'px';
   clampToViewport(vrpEl);
   taken.push(vrpSpotNew);
-  const shootSpotNew = repositionShootWord(taken);
-  if (shootSpotNew) taken.push(shootSpotNew);
 }
 
 function repositionClockForMain() {
@@ -245,180 +199,69 @@ function repositionClockForMain() {
   clampToViewport(clockEl);
 }
 document.getElementById('single-esc').addEventListener('click', () => {
-  if (document.getElementById('own-gallery-view').style.display === 'block') {
-    ownGallery.repositionWords();
-  } else if (document.getElementById('foreign-profile-view').style.display === 'block') {
-    foreignProfile.repositionWords();
-  } else if (document.getElementById('trace-view').style.display === 'block') {
-    trace.repositionWords();
-  } else {
-    repositionMainMenu();
-    repositionClockForMain();
-  }
+  repositionMainMenu();
+  repositionClockForMain();
 });
 document.getElementById('upload-esc').addEventListener('click', () => { repositionMainMenu(); repositionClockForMain(); });
-document.getElementById('auth-esc').addEventListener('click', () => { repositionMainMenu(); repositionClockForMain(); });
-document.getElementById('own-esc').addEventListener('click', () => { repositionMainMenu(); repositionClockForMain(); });
-document.getElementById('foreign-esc').addEventListener('click', () => { repositionMainMenu(); repositionClockForMain(); });
 document.getElementById('vrp-esc').addEventListener('click', () => { repositionMainMenu(); repositionClockForMain(); });
-document.getElementById('trace-esc').addEventListener('click', () => { repositionMainMenu(); repositionClockForMain(); });
 
 // ─────────────────────────────────────────────
 // Shortcuts — nur Tasten mit sichtbarem Element-Gegenstück
 // ─────────────────────────────────────────────
-menuEls.a.addEventListener('click', () => gallery.reshuffleImages());
-menuEls.z.addEventListener('click', () => singleView.showRandom());
-
-const auth = initAuth({
-  overlay: document.getElementById('auth-view'),
-  block: document.getElementById('auth-block'),
-  escBtn: document.getElementById('auth-esc'),
-  usernameInput: document.getElementById('auth-username'),
-  passwordInput: document.getElementById('auth-password'),
-  passwordToggle: document.getElementById('auth-password-toggle'),
-  enterBtn: document.getElementById('auth-enter'),
-  createToggle: document.getElementById('auth-create-toggle'),
-  signupFields: document.getElementById('auth-signup-fields'),
-  emailInput: document.getElementById('auth-email'),
-  newsletterToggle: document.getElementById('auth-newsletter-toggle'),
-  forgotEl: document.getElementById('auth-forgot'),
-}, (user) => {
-  // "enter" gibt es auf der Hauptseite nicht mehr — push/pull ohne Login
-  // führen jetzt direkt zum Login-Bildschirm.
-});
-
-menuEls.pull.addEventListener('click', () => {
-  const user = auth.getCurrentUser();
-  if (user) {
-    ownGallery.open();
-  } else {
-    auth.open();
-  }
-});
-
-ownGallery = initOwnGallery({
-  overlay: document.getElementById('own-gallery-view'),
-  stage: document.getElementById('own-gallery-stage'),
-  usernameEl: document.getElementById('own-username'),
-  searchEl: document.getElementById('own-search'),
-  zEl: document.getElementById('own-z'),
-  aEl: document.getElementById('own-a'),
-  escBtn: document.getElementById('own-esc'),
-  logoutEl: document.getElementById('own-logout'),
-  editEl: document.getElementById('own-edit'),
-  newsletterToggle: document.getElementById('own-newsletter-toggle'),
-  newsletterLine: document.getElementById('own-newsletter-line'),
-  editUsernameLabel: document.getElementById('edit-username-label'),
-  editUsernameInput: document.getElementById('edit-username-input'),
-  editUsernameConfirm: document.getElementById('edit-username-confirm'),
-  editEmailLabel: document.getElementById('edit-email-label'),
-  editEmailInput: document.getElementById('edit-email-input'),
-  editEmailConfirm: document.getElementById('edit-email-confirm'),
-  editPasswordLabel: document.getElementById('edit-password-label'),
-  editPasswordInput: document.getElementById('edit-password-input'),
-  editPasswordConfirm: document.getElementById('edit-password-confirm'),
-  editDeleteLabel: document.getElementById('edit-delete-label'),
-  editDeleteInput: document.getElementById('edit-delete-input'),
-  editDeleteConfirm: document.getElementById('edit-delete-confirm'),
-}, () => auth.getCurrentUser(), (imageId, list) => singleView.open(imageId, list), openProfile);
-
-foreignProfile = initForeignProfile({
-  overlay: document.getElementById('foreign-profile-view'),
-  stage: document.getElementById('foreign-profile-stage'),
-  usernameEl: document.getElementById('foreign-username'),
-  searchEl: document.getElementById('foreign-search'),
-  zEl: document.getElementById('foreign-z'),
-  aEl: document.getElementById('foreign-a'),
-  escBtn: document.getElementById('foreign-esc'),
-  pullBtn: document.getElementById('foreign-pull'),
-}, () => auth.getCurrentUser(), (imageId, list) => singleView.open(imageId, list), openProfile, () => auth.open());
-
-trace = initTrace({
-  overlay: document.getElementById('trace-view'),
-  stage: document.getElementById('trace-stage'),
-  zEl: document.getElementById('trace-z'),
-  aEl: document.getElementById('trace-a'),
-  escBtn: document.getElementById('trace-esc'),
-}, (imageId, list, opts) => singleView.open(imageId, list, opts));
+menuEls.a.addEventListener('click', () => gallery.sortChronological());
+menuEls.s.addEventListener('click', () => gallery.shuffleRandom());
+menuEls.r.addEventListener('click', () => singleView.showRandom());
 
 // ─────────────────────────────────────────────
-// Push-Upload — echt an Supabase angebunden
+// Push-Upload — echt an Supabase angebunden, kein Login nötig
 // ─────────────────────────────────────────────
 const fileInput = document.getElementById('file-input');
 menuEls.push.addEventListener('click', () => {
-  if (auth.getCurrentUser()) {
-    fileInput.click();
-  } else {
-    auth.open();
-  }
+  fileInput.click();
 });
 
 upload = initUpload({
   fileInput,
   overlay: document.getElementById('upload-overlay'),
   preview: document.getElementById('upload-preview'),
-  tagInput: document.getElementById('tag-input'),
-  tagChips: document.getElementById('tag-chips'),
   escBtn: document.getElementById('upload-esc'),
   submitBtn: document.getElementById('upload-push'),
 }, (img) => gallery.addImage(img));
 
 initDragDrop({
-  getCurrentUser: () => auth.getCurrentUser(),
-  onNeedsLogin: () => auth.open(),
   onFileDropped: (file) => upload.handleFile(file),
   // Dieselbe Bedingung wie beim [p]-Kurzbefehl für push: nicht auslösen,
   // während eine andere Vollbild-Ansicht offen ist (Überlagerung von
   // Overlays). Bereits offenes Upload-Fenster ist erlaubt — ein Drop
   // ersetzt dann einfach das aktuell ausgewählte Bild.
   isDropAllowed: () => {
-    const blocking = ['single-view', 'own-gallery-view', 'foreign-profile-view', 'trace-view', 'auth-view'];
+    const blocking = ['single-view', 'vrp-view', 'connect-select-view', 'connect-confirm-view'];
     return !blocking.some((id) => document.getElementById(id).style.display === 'block');
   },
 });
 
-let searchDebounce = null;
-menuEls.search.addEventListener('input', () => {
-  const q = menuEls.search.value;
-  gallery.filterByTag(q);
-  gallery.clearUsernameChips();
-
-  clearTimeout(searchDebounce);
-  if (!q.trim()) return;
-  searchDebounce = setTimeout(async () => {
-    const matches = await searchUsernames(q);
-    matches.forEach((username) => gallery.addUsernameChip(username, openProfile));
-  }, 300);
-});
-
-// [esc] ist in Safari nicht immer zuverlässig auslösbar — [b] ("back") macht
+// [esc] ist in Safari nicht immer zuverlässig auslösbar — [z] ("back") macht
 // dieselbe Funktion zusätzlich verfügbar, ersetzt [esc] aber nicht.
 function closeActiveOverlay() {
-  const dimEscEl = document.getElementById('single-dim-esc');
   const singleViewEl = document.getElementById('single-view');
   const uploadEl = document.getElementById('upload-overlay');
-  const authEl = document.getElementById('auth-view');
-  const ownGalleryEl = document.getElementById('own-gallery-view');
-  const foreignEl = document.getElementById('foreign-profile-view');
   const vrpViewEl = document.getElementById('vrp-view');
-  const traceViewEl = document.getElementById('trace-view');
+  const connectSelectEl = document.getElementById('connect-select-view');
+  const connectConfirmEl = document.getElementById('connect-confirm-view');
 
-  if (dimEscEl.style.display === 'block') {
-    dimEscEl.click();
+  // connect-Zwischenschritte zuerst prüfen: [z] dort führt zum jeweils
+  // vorherigen connect-Schritt zurück (siehe single-view.js), nicht zur
+  // Hauptgalerie — eigene, von der Einzelansicht abweichende Logik.
+  if (connectConfirmEl.style.display === 'block') {
+    document.getElementById('connect-confirm-esc').click();
+  } else if (connectSelectEl.style.display === 'block') {
+    document.getElementById('connect-select-esc').click();
   } else if (singleViewEl.style.display === 'block') {
     document.getElementById('single-esc').click();
   } else if (uploadEl.style.display === 'block') {
     document.getElementById('upload-esc').click();
-  } else if (authEl.style.display === 'block') {
-    document.getElementById('auth-esc').click();
-  } else if (ownGalleryEl.style.display === 'block') {
-    document.getElementById('own-esc').click();
-  } else if (foreignEl.style.display === 'block') {
-    document.getElementById('foreign-esc').click();
   } else if (vrpViewEl.style.display === 'block') {
     document.getElementById('vrp-esc').click();
-  } else if (traceViewEl.style.display === 'block') {
-    document.getElementById('trace-esc').click();
   }
 }
 
@@ -434,83 +277,45 @@ document.addEventListener('keydown', (e) => {
 
   const hidden = document.body.classList.contains('hide-text');
 
-  // [b] nur außerhalb von Texteingaben, sonst würde jedes getippte "b" die
+  // [z] nur außerhalb von Texteingaben, sonst würde jedes getippte "z" die
   // aktuelle Ansicht schließen.
-  if (e.key === 'b' || e.key === 'B') {
+  if (e.key === 'z' || e.key === 'Z') {
     closeActiveOverlay();
   }
 
+  const inConnectFlow = isOpen('connect-select-view') || isOpen('connect-confirm-view');
+
   if (e.key === 'a' || e.key === 'A') {
-    if (isOpen('single-view') || isOpen('vrp-view')) {
-      // "a" existiert in der Einzelansicht und auf v.r.p. nicht
-    } else if (isOpen('foreign-profile-view')) {
-      document.getElementById('foreign-a').click();
-    } else if (isOpen('own-gallery-view')) {
-      document.getElementById('own-a').click();
-    } else if (isOpen('trace-view')) {
-      document.getElementById('trace-a').click();
-    } else {
-      gallery.reshuffleImages();
+    if (isOpen('connect-select-view')) {
+      document.getElementById('connect-select-a').click();
+    } else if (!isOpen('single-view') && !isOpen('vrp-view') && !isOpen('upload-overlay') && !inConnectFlow) {
+      gallery.sortChronological();
     }
   }
-  if (e.key === 'z' || e.key === 'Z') {
-    if (isOpen('vrp-view')) {
-      // "z" existiert auf v.r.p. nicht
-    } else if (isOpen('single-view')) {
-      document.getElementById('single-z').click();
-    } else if (isOpen('foreign-profile-view')) {
-      document.getElementById('foreign-z').click();
-    } else if (isOpen('own-gallery-view')) {
-      document.getElementById('own-z').click();
-    } else if (isOpen('trace-view')) {
-      document.getElementById('trace-z').click();
-    } else {
-      menuEls.z.click();
+  if (e.key === 's' || e.key === 'S') {
+    if (isOpen('connect-select-view')) {
+      document.getElementById('connect-select-s').click();
+    } else if (!isOpen('single-view') && !isOpen('vrp-view') && !isOpen('upload-overlay') && !inConnectFlow) {
+      gallery.shuffleRandom();
+    }
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    if (isOpen('single-view')) {
+      document.getElementById('single-r').click();
+    } else if (!isOpen('vrp-view') && !isOpen('upload-overlay') && !inConnectFlow) {
+      menuEls.r.click();
+    }
+  }
+  if (e.key === 'c' || e.key === 'C') {
+    if (isOpen('single-view')) {
+      document.getElementById('single-connect').click();
     }
   }
   if ((e.key === 'p' || e.key === 'P') && !hidden) {
     if (isOpen('upload-overlay')) {
       document.getElementById('upload-push').click();
-    } else if (!isOpen('single-view') && !isOpen('own-gallery-view') && !isOpen('foreign-profile-view') && !isOpen('auth-view')) {
+    } else if (!isOpen('single-view') && !inConnectFlow) {
       menuEls.push.click();
-    }
-  }
-  if (e.key === 'c' || e.key === 'C') {
-    if (isOpen('single-view')) {
-      document.getElementById('single-pull').click();
-    } else if (isOpen('foreign-profile-view')) {
-      document.getElementById('foreign-pull').click();
-    } else if (!isOpen('own-gallery-view')) {
-      menuEls.pull.click();
-    }
-  }
-  if ((e.key === 'n' || e.key === 'N') && !hidden) {
-    if (isOpen('single-view')) {
-      document.getElementById('single-comment').click();
-    }
-  }
-  if (isOpen('single-view')) {
-    // Kein getComputedStyle-Sichtbarkeits-Check mehr nötig: beide Klick-
-    // Handler in single-view.js prüfen ihre Eignung (family_root_id bzw.
-    // Generationslimit) bereits selbst — die Shortcuts funktionieren damit
-    // absichtlich unabhängig vom controlsVisible-Sichtbarkeits-Zustand
-    // der Wortgruppe (siehe single-view.js).
-    if (e.key === 'r' || e.key === 'R') {
-      document.getElementById('single-reproduce').click();
-    }
-    if (e.key === 't' || e.key === 'T') {
-      document.getElementById('single-trace').click();
-    }
-  }
-  if ((e.key === 'f' || e.key === 'F') && !hidden) {
-    // Fokussiert direkt das filter-Feld der jeweils sichtbaren Galerie,
-    // damit man ohne extra Klick sofort tippen kann.
-    if (isOpen('foreign-profile-view')) {
-      document.getElementById('foreign-search').focus();
-    } else if (isOpen('own-gallery-view')) {
-      document.getElementById('own-search').focus();
-    } else if (!isOpen('single-view') && !isOpen('auth-view')) {
-      menuEls.search.focus();
     }
   }
   if ((e.key === 'j' || e.key === 'J') && isOpen('vrp-view')) {
@@ -519,69 +324,32 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === 'e' || e.key === 'E') && isOpen('vrp-view')) {
     vrp.filterEssay();
   }
-  if ((e.key === 's' || e.key === 'S') && !isOpen('upload-overlay')) triggerShoot();
   if ((e.key === 'i' || e.key === 'I') && !hidden) showRandomHint();
   if (e.key === '*' || e.key === '+' || (e.shiftKey && e.key === '=')) {
     // Einstieg in den *-Modus nur auf Seiten mit Bildern (Hauptgalerie,
-    // Einzelansicht, Upload, fremdes Profil, eigene Galerie im Bildmodus).
-    // Das Verlassen (bereits aktiv) geht immer.
-    const hasImages = isOpen('own-gallery-view')
-      ? ownGallery.hasImages()
-      : !isOpen('auth-view') && !isOpen('vrp-view');
+    // Einzelansicht, Upload). Das Verlassen (bereits aktiv) geht immer.
+    const hasImages = !isOpen('vrp-view');
     if (hidden || hasImages) hideTextMode.toggle();
   }
 });
 
 // ─────────────────────────────────────────────
-// URL-Routing: /image/:id, /u/:username, /vrp. Die eigentlichen
-// history.pushState()-Aufrufe passieren direkt in den open()-Funktionen der
-// jeweiligen Ansicht (siehe router.js) — hier wird nur die Gegenrichtung
-// behandelt: eine (neue oder per Vor-/Zurück erreichte) URL in den
-// passenden offenen/geschlossenen View-Zustand übersetzen.
+// URL-Routing: /image/:id, /vrp. Die eigentlichen history.pushState()-
+// Aufrufe passieren direkt in den open()-Funktionen der jeweiligen Ansicht
+// (siehe router.js) — hier wird nur die Gegenrichtung behandelt: eine (neue
+// oder per Vor-/Zurück erreichte) URL in den passenden offenen/geschlossenen
+// View-Zustand übersetzen.
 // ─────────────────────────────────────────────
-function closeProfileViews() {
-  if (isOpen('own-gallery-view')) ownGallery.close();
-  if (isOpen('foreign-profile-view')) foreignProfile.close();
-}
-
-function currentOpenUsername() {
-  if (isOpen('own-gallery-view')) {
-    const user = auth.getCurrentUser();
-    return user ? user.username : null;
-  }
-  if (isOpen('foreign-profile-view')) {
-    return document.getElementById('foreign-username').textContent || null;
-  }
-  return null;
-}
 
 // Schließt direkt über close() (nicht über einen Klick auf den esc-Button),
 // damit dabei nicht zusätzlich goBack() ausgelöst wird — die URL hat sich in
 // diesem Fall ja bereits geändert, das hier zieht nur den View-Zustand nach.
 async function syncViewToRoute(route) {
-  // trace ist nie Teil des URL-Schemas (rein lokale Navigation, siehe
-  // single-view.js/trace.js) — jede echte Routennavigation (z.B. der
-  // physische Zurück-Button des Browsers mitten in einem trace-Ausflug)
-  // beendet es einfach, statt in einem inkonsistenten Zustand zu bleiben.
-  if (isOpen('trace-view')) trace.close();
   if (route.type !== 'image' && isOpen('single-view')) singleView.close();
   if (route.type !== 'vrp' && isOpen('vrp-view')) vrp.close();
-  if (route.type !== 'user' && (isOpen('own-gallery-view') || isOpen('foreign-profile-view'))) {
-    closeProfileViews();
-  }
 
   if (route.type === 'image') {
     await singleView.open(route.id);
-  } else if (route.type === 'user') {
-    if (currentOpenUsername() !== route.username) {
-      closeProfileViews();
-      openProfile(route.username);
-    } else {
-      // Bereits die richtige Galerie offen (z.B. Bild darüber wieder
-      // geschlossen) — kein erneutes open() nötig, aber der Titel muss
-      // trotzdem zurückgesetzt werden, das passiert sonst nur in open().
-      document.title = `push v.r.p. — u/${route.username}`;
-    }
   } else if (route.type === 'vrp') {
     if (!isOpen('vrp-view')) vrp.open();
     else document.title = 'push v.r.p. — v.r.p.';
@@ -634,12 +402,10 @@ window.addEventListener('resize', () => {
     gallery.relayout();
     [...Object.values(menuEls), clockEl, vrpEl].forEach((el) => clampToViewport(el));
 
-    if (isOpen('single-view')) singleView.reposition();
+    // reposition() prüft selbst, welche seiner drei Ansichten (Einzelansicht,
+    // connect-Auswahl, connect-Bestätigung) gerade offen ist.
+    singleView.reposition();
     if (isOpen('upload-overlay')) upload.reposition();
-    if (isOpen('auth-view')) auth.reposition();
-    if (isOpen('own-gallery-view')) ownGallery.reflow();
-    if (isOpen('foreign-profile-view')) foreignProfile.reflow();
-    if (isOpen('trace-view')) trace.reflow();
     if (isOpen('vrp-view')) vrp.reposition();
   }, 250);
 });

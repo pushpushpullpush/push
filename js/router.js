@@ -3,8 +3,8 @@
 // Dieses Modul kennt keine Views, es kennt nur URLs/Titel und den
 // History-Zustand; main.js verbindet es mit den einzelnen open()/close().
 //
-// Adressierte Ansichten: /image/:id, /u/:username, /vrp — alles andere
-// (inkl. Upload/Auth) bleibt reiner Interaktionszustand ohne eigene URL.
+// Adressierte Ansichten: /image/:id, /vrp — alles andere (inkl. Upload)
+// bleibt reiner Interaktionszustand ohne eigene URL.
 
 // Manche Hosts (z.B. GitHub-Pages-Projektseiten: username.github.io/repo/)
 // servieren die Seite unter einem Unterordner statt der Domain-Wurzel. Ein
@@ -57,10 +57,6 @@ export function markOpenedFromDirectLoad() {
 
 export function imagePath(id) {
   return `${BASE_PATH}/image/${encodeURIComponent(id)}`;
-}
-
-export function userPath(username) {
-  return `${BASE_PATH}/u/${encodeURIComponent(username)}`;
 }
 
 /**
@@ -118,9 +114,6 @@ export function parseRoute(pathname) {
 
   const imageMatch = relative.match(/^\/image\/([^/]+)\/?$/);
   if (imageMatch) return { type: 'image', id: decodeURIComponent(imageMatch[1]) };
-
-  const userMatch = relative.match(/^\/u\/([^/]+)\/?$/);
-  if (userMatch) return { type: 'user', username: decodeURIComponent(userMatch[1]) };
 
   if (relative === '/vrp' || relative === '/vrp/') return { type: 'vrp' };
 

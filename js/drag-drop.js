@@ -7,7 +7,7 @@ function isFileDrag(e) {
   return !!types && Array.from(types).includes('Files');
 }
 
-export function initDragDrop({ getCurrentUser, onNeedsLogin, onFileDropped, isDropAllowed }) {
+export function initDragDrop({ onFileDropped, isDropAllowed }) {
   const overlay = document.getElementById('drop-overlay');
   let dragCounter = 0;
 
@@ -47,11 +47,6 @@ export function initDragDrop({ getCurrentUser, onNeedsLogin, onFileDropped, isDr
 
     const file = e.dataTransfer.files && e.dataTransfer.files[0];
     if (!file) return;
-
-    if (!getCurrentUser()) {
-      onNeedsLogin();
-      return;
-    }
 
     onFileDropped(file);
   });

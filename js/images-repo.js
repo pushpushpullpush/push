@@ -62,16 +62,27 @@ export async function fetchImageById(id) {
  * paginieren/virtualisieren -- für den aktuellen Umfang unproblematisch.
  */
 export async function fetchAllImages() {
-  const { data, error } = await supabase
-    .from('images')
-    .select(SELECT_COLS)
-    .eq('report_hidden', false)
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('images')
+      .select(SELECT_COLS)
+      .eq('report_hidden', false)
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Bilder laden fehlgeschlagen:', error);
+    if (error) {
+      console.error('Bilder laden fehlgeschlagen:', error);
+      return [];
+    }
+
+    return (data || []).map(mapRow);
+  } catch (err) {
+    // Anders als ein von Supabase selbst zurückgegebener {error} (siehe
+    // oben) landen echte Netzwerkfehler (Verbindungsabbruch, Timeout) hier
+    // als geworfene Exception -- ohne dieses try/catch bliebe die
+    // Promise unbehandelt abgelehnt und der Aufruf in single-view.js
+    // (connect-Auswahl) bricht mittendrin ab, statt geordnet mit []
+    // zurückzukehren.
+    console.error('Bilder laden fehlgeschlagen:', err);
     return [];
   }
-
-  return (data || []).map(mapRow);
 }

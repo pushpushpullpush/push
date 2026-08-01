@@ -385,6 +385,19 @@ export function initSingleView(refs, getImages, getSortMode) {
     const pool = await fetchAllImages();
     if (myGeneration !== openGeneration) return; // zwischenzeitlich geschlossen/weiternavigiert
 
+    // fetchAllImages() liefert bei einem Netzwerk-/Serverfehler [] zurück
+    // (wirft nie, siehe images-repo.js) -- ohne diese Prüfung bliebe die
+    // Auswahl-Ansicht sonst leer stehen (nur die bereits synchron
+    // positionierten Textelemente sichtbar, keine Bilder), ohne jede
+    // Rückmeldung. Ein echtes "0 Bilder in der DB" kommt hier praktisch
+    // nicht vor: das Ausgangsbild selbst müsste dafür ja existieren.
+    if (!pool.length) {
+      flashMessage('error: could not load images');
+      selectOverlay.style.display = 'none';
+      open(sourceId);
+      return;
+    }
+
     selectPreview.src = connectSourceImage.url;
     selectStage.innerHTML = '';
     selectGallery = createGallery(selectStage, pool, {

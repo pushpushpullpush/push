@@ -7,22 +7,20 @@
 // Hintergrund wie jedes andere Textelement der Seite.
 
 const TIPS = [
-  'press [z] for random single view',
-  'press [n] to note in single view',
-  'click your name to edit data',
-  'press [c] to see your collection',
-  'collect an image to save it to your collection',
-  'click a collection name to link it on yours',
+  'press [r] for random single view',
   'pushed images cannot be deleted',
   'all images will be online forever',
   'all pushs are anonymous',
-  'click your tags or notes to delete',
-  'press [=] or [*] for clean mode',
+  'press [=] or [*] for secret mode',
   'drag&drop to push image',
   'press [p] to push',
-  'tags are hidden and can be found through filter',
   'push is a visual research project',
-  'press [a] to change arrangement',
+  'press [a] to arrange chronologically',
+  'press [s] to shuffle',
+  'press [c] to connect two images',
+  'connections cannot be undone',
+  'press [z] to go back',
+  'get more info about the project on v.r.p.',
 ];
 
 let consoleEl = null;

@@ -74,7 +74,7 @@ export function createGallery(stageEl, initialImages, { onImageClick, onSortMode
     if (sortMode === 'chronological') return;
     sortMode = 'chronological';
     layoutAll();
-    showMessage('chronological', 1600);
+    showMessage('arrange chronologically', 1600);
     notifySortMode();
   }
 
@@ -85,7 +85,7 @@ export function createGallery(stageEl, initialImages, { onImageClick, onSortMode
   function shuffleRandom() {
     sortMode = 'random';
     layoutAll();
-    showMessage('random', 1600);
+    showMessage('shuffle', 1600);
     notifySortMode();
   }
 

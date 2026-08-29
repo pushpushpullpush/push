@@ -9,7 +9,7 @@ import { setClockVisible } from './clock.js';
 import { showMessage } from './notice-board.js';
 
 const STORAGE_KEY = 'push_visited';
-const TAGLINE = 'push is a visual research project. press [i] for information.';
+const TAGLINE = 'push v.r.p. – press [i] for information.';
 const TAGLINE_DURATION = 3000;
 
 function hasVisitedBefore() {

@@ -8,22 +8,20 @@
 
 const TIPS = [
   'press [p] to push.',
-  'press [r] to browse [single view] or [galleries].',
+  'press [r] to browse randomly.',
   'press [a] to arrange.',
   'press [s] to shuffle.',
   'press [z] to go back.',
-  'press [c] to connect two images.',
+  'press [c] to connect images.',
   'press [g] to create [gallery].',
-  'press [=] or [*] to enter and leave secret mode.',
+  'press [=] or [*] to enter and leave [secret mode].',
   'use your keyboard for shortcuts.',
   'drag&drop to push image.',
-  'click image in [main] to open [single view] or [gallery].',
-  'create [gallery] by clicking images below image in [single view].',
-  'create a [gallery] to add it to [main] permanently.',
+  'click connected images to create [gallery].',
   '[connections] are shown below image in [single view].',
   'all images will be online forever.',
   'all actions on push are anonymous.',
-  '[connections] and [galleries] cannot be undone.',
+  '[connections] and [galleries] are final.',
   'push is a visual research project.',
 ];
 

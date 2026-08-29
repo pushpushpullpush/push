@@ -13,7 +13,7 @@ import { initHideTextMode } from './star-toggle.js';
 import { clampToViewport, randomSpot as randomSpotUtil } from './position-utils.js';
 import { initWelcome } from './welcome.js';
 import {
-  parseRoute, runSilently, markOpenedFromDirectLoad,
+  parseRoute, runSilently, markOpenedFromDirectLoad, pushRoute, HOME_PATH, HOME_TITLE,
 } from './router.js';
 
 const stage = document.getElementById('stage');
@@ -105,6 +105,7 @@ singleView = initSingleView({
   escBtn: document.getElementById('single-esc'),
   randomBtn: document.getElementById('single-r'),
   connectBtn: document.getElementById('single-connect'),
+  pushBtn: document.getElementById('single-push'),
   connectionsStage: document.getElementById('single-connections-stage'),
   seriesOverlay: document.getElementById('connect-series-view'),
   seriesStage: document.getElementById('connect-series-stage'),
@@ -117,6 +118,7 @@ singleView = initSingleView({
   seriesSEl: document.getElementById('connect-series-s'),
   seriesAEl: document.getElementById('connect-series-a'),
   seriesRandomEl: document.getElementById('connect-series-r'),
+  seriesPushEl: document.getElementById('connect-series-push'),
 }, gallery.getImages, gallery.getSortMode, (entry) => gallery.addSeries(entry));
 
 // ─────────────────────────────────────────────
@@ -196,6 +198,11 @@ vrpEl.addEventListener('click', () => vrp.open());
 // das Wiedereinblenden später nur das Entfernen dieser einen Zeile braucht.
 vrpEl.style.display = 'none';
 
+// Gibt die belegten Positionen zurück (statt sie nur lokal zu verwenden) --
+// repositionClockForMain() braucht genau diese FRISCHEN Positionen, um die
+// Uhr nicht mit den gerade erst neu gewürfelten Wörtern zu überlagern
+// (siehe dort; vorher prüfte die Uhr stattdessen gegen das veraltete,
+// äußere "placed"-Array von der allerersten Platzierung beim Seitenaufbau).
 function repositionMainMenu() {
   const taken = [];
   MENU_WORDS.forEach((word) => {
@@ -211,21 +218,24 @@ function repositionMainMenu() {
   vrpEl.style.top = vrpSpotNew.y + 'px';
   clampToViewport(vrpEl);
   taken.push(vrpSpotNew);
+  return taken;
 }
 
-function repositionClockForMain() {
+// taken: die frisch belegten Positionen von repositionMainMenu() (siehe
+// dort) -- ohne die würde randomSpotUtil() die Uhr blind, ohne Kenntnis der
+// gerade erst neu platzierten Wörter, platzieren.
+function repositionClockForMain(taken = []) {
   setClockVisible(true);
-  const spot = randomSpot();
+  const spot = randomSpotUtil(taken, { margin: 60, minDist: 140 });
   clockEl.style.left = spot.x + 'px';
   clockEl.style.top = spot.y + 'px';
   clampToViewport(clockEl);
 }
 document.getElementById('single-esc').addEventListener('click', () => {
-  repositionMainMenu();
-  repositionClockForMain();
+  repositionClockForMain(repositionMainMenu());
 });
-document.getElementById('upload-esc').addEventListener('click', () => { repositionMainMenu(); repositionClockForMain(); });
-document.getElementById('vrp-esc').addEventListener('click', () => { repositionMainMenu(); repositionClockForMain(); });
+document.getElementById('upload-esc').addEventListener('click', () => { repositionClockForMain(repositionMainMenu()); });
+document.getElementById('vrp-esc').addEventListener('click', () => { repositionClockForMain(repositionMainMenu()); });
 
 // ─────────────────────────────────────────────
 // Shortcuts — nur Tasten mit sichtbarem Element-Gegenstück
@@ -242,6 +252,20 @@ const fileInput = document.getElementById('file-input');
 menuEls.push.addEventListener('click', () => {
   fileInput.click();
 });
+
+// "push" auch aus der Einzelansicht und der schreibgeschützten Gallery-
+// Ansicht heraus (nicht während einer aktiven Aktion, siehe Kommentar bei
+// isSeriesReadOnly in single-view.js): schließt die aktuelle Ansicht wie
+// ein "z", genau wie beim Wechsel zwischen anderen Ansichten dieser Seite
+// gibt es nie zwei offene Overlays gleichzeitig.
+function triggerPushFromView() {
+  singleView.close();
+  pushRoute(HOME_PATH, HOME_TITLE);
+  repositionClockForMain(repositionMainMenu());
+  fileInput.click();
+}
+document.getElementById('single-push').addEventListener('click', triggerPushFromView);
+document.getElementById('connect-series-push').addEventListener('click', triggerPushFromView);
 
 upload = initUpload({
   fileInput,
@@ -337,10 +361,11 @@ document.addEventListener('keydown', (e) => {
       document.getElementById('single-connect').click();
     }
   }
-  if (e.key === 'f' || e.key === 'F') {
-    // Zweistufige "f" -> "fix" -> Speichern-Aktion -- der eigentliche
-    // Klick-Handler in single-view.js ist self-guarded (Vorschau/
-    // schreibgeschützt/Länge < 3), unabhängig von der Sichtbarkeit hier.
+  if (e.key === 'g' || e.key === 'G') {
+    // Zweistufige "g" -> "create gallery" -> Speichern-Aktion -- der
+    // eigentliche Klick-Handler in single-view.js ist self-guarded
+    // (Vorschau/schreibgeschützt/Länge < 3), unabhängig von der
+    // Sichtbarkeit hier.
     if (isOpen('connect-series-view')) {
       document.getElementById('connect-series-fix').click();
     }
@@ -348,7 +373,13 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === 'p' || e.key === 'P') && !hidden) {
     if (isOpen('upload-overlay')) {
       document.getElementById('upload-push').click();
-    } else if (!isOpen('single-view') && !inConnectFlow) {
+    } else if (isOpen('single-view')) {
+      document.getElementById('single-push').click();
+    } else if (isOpen('connect-series-view')) {
+      // Nur in der schreibgeschützten Gallery-Ansicht erlaubt, nicht
+      // während einer aktiven Aktion (Connect-Auswahl, Reihe bauen).
+      if (singleView.isSeriesReadOnly()) document.getElementById('connect-series-push').click();
+    } else {
       menuEls.push.click();
     }
   }

@@ -67,6 +67,7 @@
     <div class="menu-word" id="single-esc">z</div>
     <div class="menu-word" id="single-r">r</div>
     <div class="menu-word" id="single-connect">c</div>
+    <div class="menu-word" id="single-push">push</div>
     <div id="single-connections-stage" class="connections-stage"></div>
   </div>
 
@@ -78,10 +79,14 @@
     <div id="connect-series-candidates"></div>
     <div class="menu-word" id="connect-series-esc">z</div>
     <div class="menu-word" id="connect-series-confirm" style="display:none;">connect</div>
-    <div class="menu-word" id="connect-series-fix" style="display:none;">f</div>
+    <div class="menu-word" id="connect-series-fix" style="display:none;">g</div>
     <div class="menu-word" id="connect-series-s" style="display:none;">s</div>
     <div class="menu-word" id="connect-series-a" style="display:none;">a</div>
     <div class="menu-word" id="connect-series-r" style="display:none;">r</div>
+    <!-- Nur in der schreibgeschützten Gallery-Ansicht sichtbar (siehe
+         updateSeriesPushVisibility in single-view.js) -- während aktiver
+         Aktionen (Connect-Auswahl, Reihe bauen) bleibt "push" ausgeblendet. -->
+    <div class="menu-word" id="connect-series-push" style="display:none;">push</div>
   </div>
 
   <script type="module" src="js/main.js"></script>

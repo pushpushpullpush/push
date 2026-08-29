@@ -193,6 +193,24 @@ html, body {
   width: 100%;
 }
 
+/* Smartphone-Ansicht (siehe CONNECT_PREVIEW_MOBILE_BREAKPOINT in
+   layout-engine.js, muss mit dieser Grenze übereinstimmen): das
+   Ausgangsbild steht dort oben (volle Breite statt linker Spalte, siehe
+   computeConnectPreviewLayout), die Auswahl-Galerie darunter über die
+   volle Breite statt in der rechten Spalte. "top" wird von single-view.js
+   dynamisch gesetzt (updatePickerTopOffset) -- unmittelbar unterhalb des
+   Ausgangsbildes, wie eine unsichtbare Linie, unter die beim Scrollen der
+   Galerie nichts hineinragt (overflow-y:auto oben schneidet dort ab). */
+@media (max-width: 767px) {
+  #connect-series-picker {
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: auto;
+    bottom: 0;
+  }
+}
+
 /* Bestehende Verbindungen des zuletzt bestätigten Bildes, unterhalb der
    gesamten Reihe -- gleiche organische Anordnung/Größe wie die verbundenen
    Bilder unter der normalen Einzelansicht (siehe renderImageCluster in

@@ -79,12 +79,19 @@ export async function fetchSeriesById(id) {
 }
 
 /**
- * Alle gespeicherten Reihen für die Hauptgalerie (main.js) -- jeweils nur
- * das erste Bild (als Bildinhalt) plus Anzahl (für den Zähler darunter,
- * siehe layout-engine.js/gallery.js). Ungepaginiert wie fetchAllImages() in
- * images-repo.js -- die Anzahl gespeicherter Reihen dürfte auf absehbare
- * Zeit deutlich kleiner bleiben als die Anzahl gepushter Bilder; bei
- * starkem Wachstum später ggf. selbst paginieren.
+ * Alle gespeicherten Reihen für die Hauptgalerie (main.js) -- jeweils ein
+ * zufällig gewähltes Bild der Reihe (als Anzeige-Bild) plus Anzahl (für den
+ * Zähler darunter, siehe layout-engine.js/gallery.js). Ungepaginiert wie
+ * fetchAllImages() in images-repo.js -- die Anzahl gespeicherter Reihen
+ * dürfte auf absehbare Zeit deutlich kleiner bleiben als die Anzahl
+ * gepushter Bilder; bei starkem Wachstum später ggf. selbst paginieren.
+ *
+ * Das Anzeige-Bild wird HIER, bei jedem Aufruf, neu zufällig gewählt --
+ * main.js ruft diese Funktion nur EINMAL pro Seitenaufbau auf (siehe dort),
+ * das Anzeige-Bild wechselt dadurch bei jedem neuen Laden von main, bleibt
+ * aber innerhalb einer Sitzung stabil: [s]/[a] sortieren nur die bereits
+ * geladenen Objekte um (siehe gallery.js), ohne diese Funktion erneut
+ * aufzurufen.
  */
 export async function fetchAllSeriesSummaries() {
   const { data, error } = await supabase
@@ -98,11 +105,11 @@ export async function fetchAllSeriesSummaries() {
   }
   if (!data.length) return [];
 
-  const firstIds = data.map((row) => row.image_ids[0]).filter(Boolean);
+  const coverIds = data.map((row) => row.image_ids[Math.floor(Math.random() * row.image_ids.length)]);
   const { data: imgRows, error: imgError } = await supabase
     .from('images')
     .select('id, url, natural_width, natural_height')
-    .in('id', firstIds);
+    .in('id', coverIds);
 
   if (imgError) {
     console.error('Reihen-Vorschaubilder laden fehlgeschlagen:', imgError);
@@ -111,13 +118,13 @@ export async function fetchAllSeriesSummaries() {
   const byId = new Map(imgRows.map((row) => [row.id, row]));
 
   return data
-    .map((row) => {
-      const firstImg = byId.get(row.image_ids[0]);
-      if (!firstImg) return null; // erstes Bild inzwischen nicht mehr auflösbar
-      const { width, height } = computeDisplaySize(firstImg.natural_width || 1, firstImg.natural_height || 1);
+    .map((row, i) => {
+      const coverImg = byId.get(coverIds[i]);
+      if (!coverImg) return null; // gewähltes Bild inzwischen nicht mehr auflösbar
+      const { width, height } = computeDisplaySize(coverImg.natural_width || 1, coverImg.natural_height || 1);
       return {
         id: row.id,
-        url: firstImg.url,
+        url: coverImg.url,
         width,
         height,
         count: row.image_ids.length,

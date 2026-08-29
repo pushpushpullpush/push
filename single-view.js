@@ -3,6 +3,7 @@ import { createConnection, fetchConnectedImages, fetchPoolForImages } from './co
 import { createSeries, fetchSeriesById } from './series-repo.js';
 import {
   computeChronologicalLayout, computeSeriesLayout, computeConnectPreviewLayout, EDGE_MARGIN,
+  CONNECT_PREVIEW_MOBILE_BREAKPOINT,
 } from './layout-engine.js';
 import { randomSpot, clampToViewport, clampFromRect, computeContainRect } from './position-utils.js';
 import { BASE_SIDE } from './image-config.js';
@@ -130,9 +131,9 @@ function preloadImage(url) {
 
 export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   const {
-    overlay, imageEl, escBtn, randomBtn, connectBtn, connectionsStage,
+    overlay, imageEl, escBtn, randomBtn, connectBtn, pushBtn, connectionsStage,
     seriesOverlay, seriesStage, seriesPickerEl, seriesPickerInnerEl, seriesCandidates, seriesEsc, seriesConfirmWord, seriesFixEl,
-    seriesSEl, seriesAEl, seriesRandomEl,
+    seriesSEl, seriesAEl, seriesRandomEl, seriesPushEl,
   } = refs;
 
   let currentImage = null;
@@ -167,7 +168,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   let pendingCandidate = null;
   let baseConnectionIds = null;
   let seriesReadOnly = false;
-  let fixArmed = false; // zweistufiges "f" -> "fix" -> Aktion (siehe seriesFixEl unten)
+  let fixArmed = false; // zweistufiges "g" -> "create gallery" -> Aktion (siehe seriesFixEl unten)
   let fixArmTimer = null; // setzt "fix" nach FIX_ARM_TIMEOUT_MS automatisch zurück, siehe armFix/disarmFix
 
   // Zuletzt tatsächlich gerenderte Anordnung im Bau-Modus ({ containerWidth,
@@ -223,14 +224,14 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   }
 
   function correctPositionsForImage() {
-    [escBtn, randomBtn, connectBtn].forEach(correctElementForImage);
+    [escBtn, randomBtn, connectBtn, pushBtn].forEach(correctElementForImage);
     const clockEl = document.getElementById('global-clock');
     if (clockEl) correctElementForImage(clockEl);
   }
 
   function positionActionWords() {
     const taken = [];
-    [escBtn, randomBtn, connectBtn].forEach((el) => {
+    [escBtn, randomBtn, connectBtn, pushBtn].forEach((el) => {
       const spot = randomColumnSpot(taken, currentImageRect);
       taken.push(spot);
       el.style.left = spot.x + 'px';
@@ -445,6 +446,27 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   // begrenzt. sourceId wird bei jedem Aufruf frisch aus seriesImages[0]
   // gelesen, nicht als Parameter erwartet -- die Basis kann sich durch
   // promotePendingCandidate() zwischenzeitlich geändert haben.
+  // Auf dem Smartphone (Containerbreite unter CONNECT_PREVIEW_MOBILE_BREAKPOINT,
+  // siehe layout-engine.js und die Media-Query in style.css) steht die
+  // Auswahl-Galerie unterhalb des Ausgangsbildes statt daneben -- "top" muss
+  // dafür dynamisch direkt unter das TATSÄCHLICH gerenderte Ausgangsbild
+  // gesetzt werden (dessen Höhe hängt vom Seitenverhältnis ab, siehe
+  // computeConnectPreviewLayout). Wirkt wie eine unsichtbare Linie: der
+  // Picker (position:fixed, overflow-y:auto) rendert/scrollt nie oberhalb
+  // dieser Grenze, das Ausgangsbild bleibt beim Scrollen der Galerie also
+  // immer unverdeckt. Auf dem Desktop wird "top" bewusst zurückgesetzt,
+  // damit dort wieder der CSS-Standard (0, rechte Spalte) gilt.
+  function updatePickerTopOffset() {
+    if (window.innerWidth >= CONNECT_PREVIEW_MOBILE_BREAKPOINT) {
+      seriesPickerEl.style.top = '';
+      return;
+    }
+    const baseEl = seriesStage.querySelector('[data-image-id]');
+    if (!baseEl) return;
+    const rect = baseEl.getBoundingClientRect();
+    seriesPickerEl.style.top = (rect.bottom + 24) + 'px';
+  }
+
   async function loadConnectPicker() {
     const sourceId = seriesImages[0].id;
     const myGeneration = openGeneration; // siehe open() -- verwirft ein überholtes Ergebnis
@@ -464,6 +486,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     }
 
     const candidates = pool.filter((img) => img.id !== sourceId);
+    updatePickerTopOffset();
     seriesPickerEl.style.display = 'block';
     renderImageCluster(seriesPickerInnerEl, candidates, (img) => selectCandidate(img), { width: 0, height: 0 });
   }
@@ -489,9 +512,20 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   // geprüft wird (siehe Kommentar bei CONNECT_COOLDOWN_MS oben).
   function openConnectSelect() {
     if (!currentImage || connectCooldownRemaining() > 0) return; // doppelte Absicherung zum ausgeblendeten Button
+    // Vollständiger Reset des Reihen-Zustands, nicht nur der drei Felder
+    // unten -- dieser Einstiegspunkt für eine komplett neue Connect-Sitzung
+    // soll sich nicht darauf verlassen, dass jeder mögliche vorherige Pfad
+    // baseConnectionIds/seriesReadOnly/etc. bereits korrekt zurückgesetzt hat.
     pendingCandidate = null;
     seriesIds = [currentImage.id];
     seriesImages = [currentImage];
+    seriesAddOrderIds = [];
+    baseConnectionIds = null;
+    seriesReadOnly = false;
+    fixArmed = false;
+    seriesSortMode = 'chronological';
+    lastSeriesRender = null;
+    seriesSavedLayout = null;
     overlay.style.display = 'none';
     seriesOverlay.style.display = 'block';
     seriesOverlay.scrollTop = 0;
@@ -565,11 +599,39 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   function positionSeriesWords() {
     const imageRects = [...seriesStage.querySelectorAll('[data-image-id]')].map((el) => el.getBoundingClientRect());
     const taken = [];
-    [seriesEsc, seriesConfirmWord, seriesFixEl, seriesSEl, seriesAEl, seriesRandomEl].forEach((el) => {
+    [seriesEsc, seriesConfirmWord, seriesFixEl, seriesSEl, seriesAEl, seriesRandomEl, seriesPushEl].forEach((el) => {
       const spot = randomSpot(taken, { margin: 90, avoidRects: imageRects });
       taken.push(spot);
       el.style.left = spot.x + 'px';
       el.style.top = spot.y + 'px';
+      clampToViewport(el);
+    });
+    // Die Uhr (siehe clock.js) wurde bisher hier nie einbezogen -- blieb
+    // beim Betreten von Diptychon/Reihe einfach an ihrer alten Position aus
+    // der vorherigen Ansicht stehen, ohne Rücksicht auf die neuen Bilder/
+    // Wörter hier.
+    repositionClock(taken, null, imageRects);
+  }
+
+  // Leichte Korrektur statt kompletter Neuplatzierung -- für den Wechsel
+  // zwischen bereits gespeicherten Reihen per [r] (siehe showRandomSeries):
+  // die Textelemente sollen dabei stabil stehen bleiben, genau wie [r] in
+  // der normalen Einzelansicht (dort correctPositionsForImage() statt
+  // positionActionWords(), siehe open()). Da eine Reihe -- anders als das
+  // eine Bild dort -- beliebig viele, über den ganzen Schirm verstreute
+  // Bilder haben kann, reicht ein einzelnes avoidRect nicht: stattdessen wird
+  // pro Bild einzeln herausgeschoben (clampFromRect), mehrfach durchlaufen,
+  // da das Ausweichen vor einem Bild in ein anderes hineinschieben kann --
+  // bestes Bemühen, keine harte Garantie (wie clampFromRect es generell ist).
+  function correctSeriesWordsForImages() {
+    const imageRects = [...seriesStage.querySelectorAll('[data-image-id]')].map((el) => el.getBoundingClientRect());
+    const els = [seriesEsc, seriesConfirmWord, seriesFixEl, seriesSEl, seriesAEl, seriesRandomEl, seriesPushEl];
+    const clockEl = document.getElementById('global-clock');
+    if (clockEl) els.push(clockEl);
+    els.forEach((el) => {
+      for (let pass = 0; pass < 3; pass++) {
+        imageRects.forEach((rect) => clampFromRect(el, rect, 20));
+      }
       clampToViewport(el);
     });
   }
@@ -687,7 +749,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     seriesStage.style.minHeight = totalHeight + 'px';
   }
 
-  // "f"/"fix" nur im Bau-Modus (nicht während der Vorschau vor der
+  // "g"/"create gallery" nur im Bau-Modus (nicht während der Vorschau vor der
   // allerersten Verbindung, nicht in der schreibgeschützten Ansicht) und
   // erst ab einer Reihenlänge von mindestens 3 Bildern -- ein Diptychon
   // (genau 2 Bilder, direkt nach dem Connect) ist noch keine "Reihe" und
@@ -702,6 +764,14 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   // bereits gespeicherten Reihe.
   function updateSeriesRandomVisibility() {
     seriesRandomEl.style.display = seriesReadOnly ? 'block' : 'none';
+  }
+
+  // "push" (öffnet die Datei-Auswahl, siehe main.js) -- nur in der
+  // schreibgeschützten Ansicht einer bereits gespeicherten Reihe, NICHT
+  // während einer aktiven Aktion (Connect-Auswahl vor der ersten
+  // Verbindung, Bau-Modus einer noch nicht gespeicherten Reihe).
+  function updateSeriesPushVisibility() {
+    seriesPushEl.style.display = seriesReadOnly ? 'block' : 'none';
   }
 
   // "s"/"a" -- wie auf der Hauptgalerie: "s" immer verfügbar (mischt bei
@@ -720,6 +790,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     seriesConfirmWord.style.display = pendingCandidate ? 'block' : 'none';
     updateFixVisibility();
     updateSeriesRandomVisibility();
+    updateSeriesPushVisibility();
     updateSeriesSortVisibility();
   }
 
@@ -888,7 +959,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     // bereits gesetzt (Basis-Paar), siehe openSeriesFromPair/
     // openSeriesFromRoute/confirmSeriesConnect.
     seriesAddOrderIds = [...seriesIds];
-    seriesFixEl.textContent = 'f';
+    seriesFixEl.textContent = 'g';
 
     openGeneration += 1;
     overlay.style.display = 'none';
@@ -941,6 +1012,14 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   // Direktaufruf/popstate der /series/:id-Route (main.js). pushRoute()
   // unbedingt, siehe Kommentar bei enterSeriesBuildMode oben.
   async function openSavedSeries(id) {
+    // Nur ein frischer Einstieg (aus main oder per Direktaufruf) bekommt eine
+    // neue zufällige Anordnung der Textelemente -- wechselt man dagegen
+    // zwischen bereits gespeicherten Reihen (per [r], siehe
+    // showRandomSeries), bleiben sie stabil stehen, genau wie [r] in der
+    // normalen Einzelansicht (siehe open()/wasAlreadyOpen dort). Muss VOR
+    // jeder Zustandsänderung erfasst werden.
+    const wasAlreadyOpen = seriesReadOnly && seriesOverlay.style.display === 'block';
+
     const result = await fetchSeriesById(id);
     if (!result) {
       flashMessage('error: could not load this gallery');
@@ -972,7 +1051,11 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     // Erst rendern, dann positionieren -- siehe Kommentar in
     // enterSeriesBuildMode.
     renderSeriesView();
-    positionSeriesWords();
+    if (wasAlreadyOpen) {
+      correctSeriesWordsForImages();
+    } else {
+      positionSeriesWords();
+    }
   }
 
   // "r" in der schreibgeschützten Ansicht einer gespeicherten Reihe --
@@ -1059,44 +1142,45 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
 
   seriesConfirmWord.addEventListener('click', confirmSeriesConnect);
 
-  // Wie lange "fix" scharf bleibt, bevor es sich von selbst wieder auf "f"
-  // zurücksetzt (siehe disarmFix) -- eine vergessene, scharf gestellte
-  // Bestätigung soll nicht unbegrenzt stehen bleiben.
+  // Wie lange "create gallery" scharf bleibt, bevor es sich von selbst
+  // wieder auf "g" zurücksetzt (siehe disarmFix) -- eine vergessene, scharf
+  // gestellte Bestätigung soll nicht unbegrenzt stehen bleiben.
   const FIX_ARM_TIMEOUT_MS = 8000;
 
-  // Stellt "fix" scharf: Pool wird ausgeblendet (siehe updatePoolVisibility)
-  // -- eine reine Kontroll-Ansicht der fertigen Reihe vor dem Speichern,
-  // kein weiteres Bearbeiten über den Pool mehr möglich. Setzt sich nach
-  // FIX_ARM_TIMEOUT_MS von selbst zurück, falls nicht vorher bestätigt wird.
+  // Stellt "create gallery" scharf: Pool wird ausgeblendet (siehe
+  // updatePoolVisibility) -- eine reine Kontroll-Ansicht der fertigen Reihe
+  // vor dem Speichern, kein weiteres Bearbeiten über den Pool mehr möglich.
+  // Setzt sich nach FIX_ARM_TIMEOUT_MS von selbst zurück, falls nicht vorher
+  // bestätigt wird.
   function armFix() {
     fixArmed = true;
-    seriesFixEl.textContent = 'fix';
+    seriesFixEl.textContent = 'create gallery';
     clearTimeout(fixArmTimer);
     fixArmTimer = setTimeout(disarmFix, FIX_ARM_TIMEOUT_MS);
     updatePoolVisibility();
   }
 
-  // Setzt eine scharf gestellte "fix"-Bestätigung zurück -- durch
+  // Setzt eine scharf gestellte "create gallery"-Bestätigung zurück -- durch
   // Zeitablauf, oder weil sich an der Reihe etwas geändert hat (Pool-
   // Hinzufügen/Entfernen, Shuffle/Order, siehe die jeweiligen
-  // Aufrufstellen): das Speichern muss dann mit einem frischen "f"-Klick neu
+  // Aufrufstellen): das Speichern muss dann mit einem frischen "g"-Klick neu
   // begonnen werden. No-op, falls ohnehin nicht scharf -- macht den Aufruf
   // an jeder Änderungsstelle bedenkenlos möglich, ohne den Pool dort
   // unnötig doppelt neu zu laden (renderSeriesView() lädt ihn ohnehin schon).
   function disarmFix() {
     if (!fixArmed) return;
     fixArmed = false;
-    seriesFixEl.textContent = 'f';
+    seriesFixEl.textContent = 'g';
     clearTimeout(fixArmTimer);
     fixArmTimer = null;
     updatePoolVisibility();
   }
 
-  // Zweistufig: erster Klick verwandelt "f" an derselben Stelle (keine
-  // Neupositionierung) in das ausgeschriebene "fix", erst ein zweiter Klick
-  // führt die eigentliche Speicherung aus. Self-guarded gegen den Zustand
-  // (nicht nur über die Sichtbarkeit, siehe updateFixVisibility) --
-  // konsistent mit dem übrigen Tastenkürzel-Muster dieser Seite.
+  // Zweistufig: erster Klick verwandelt "g" an derselben Stelle (keine
+  // Neupositionierung) in das ausgeschriebene "create gallery", erst ein
+  // zweiter Klick führt die eigentliche Speicherung aus. Self-guarded gegen
+  // den Zustand (nicht nur über die Sichtbarkeit, siehe updateFixVisibility)
+  // -- konsistent mit dem übrigen Tastenkürzel-Muster dieser Seite.
   async function handleFixClick() {
     if (pendingCandidate || seriesReadOnly || seriesIds.length < 3) return;
     if (!fixArmed) {
@@ -1175,14 +1259,15 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     }
   });
 
-  // [f] braucht hier KEINEN eigenen keydown-Listener: main.js leitet die
+  // [g] braucht hier KEINEN eigenen keydown-Listener: main.js leitet die
   // Taste bereits per .click() auf seriesFixEl um (wie bei "a"/"s", siehe
   // dort) -- ein zusätzlicher direkter Listener hier würde handleFixClick
   // bei einem einzigen Tastendruck ZWEIMAL auslösen (einmal direkt, einmal
-  // über den weitergeleiteten Klick) und damit die zweistufige "f"->"fix"
-  // Bestätigung in einen einzigen Tastendruck kollabieren lassen. [Enter]
-  // ist davon nicht betroffen (main.js leitet nur "f" weiter, keine andere
-  // Taste), daher oben direkt als zweite Bestätigung verdrahtet.
+  // über den weitergeleiteten Klick) und damit die zweistufige
+  // "g"->"create gallery" Bestätigung in einen einzigen Tastendruck
+  // kollabieren lassen. [Enter] ist davon nicht betroffen (main.js leitet
+  // nur "g" weiter, keine andere Taste), daher oben direkt als zweite
+  // Bestätigung verdrahtet.
 
   return {
     open,
@@ -1196,6 +1281,10 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     // /series/:id-Route.
     openSeriesFromRoute,
     openSavedSeries,
+    // Für main.js: unterscheidet beim "p"-Tastenkürzel zwischen einer
+    // schreibgeschützten Gallery-Ansicht (dort erlaubt) und einer aktiven
+    // Aktion (Connect-Auswahl, Reihe bauen -- dort weiterhin gesperrt).
+    isSeriesReadOnly: () => seriesReadOnly,
     // Für Fenstergrößenänderungen: prüft selbst, welche der beiden Ansichten
     // (Einzelansicht, connect-Reihe) gerade offen ist.
     reposition: () => {

@@ -145,8 +145,48 @@ export function computeFullLayout(images, containerWidth, reserved = DEFAULT_RES
 const CONNECT_PREVIEW_ROW_GAP = 32;
 const CONNECT_PREVIEW_COL_PADDING = 20;
 
+// Unter dieser Containerbreite gilt die Smartphone-Ansicht: Bilder
+// übereinander (jedes fast volle Breite) statt nebeneinander in zwei
+// Spalten -- dieselbe Grenze wird in style.css für #connect-series-picker
+// verwendet (dort als Media-Query, siehe Kommentar dort) und muss mit ihr
+// übereinstimmen, sonst laufen Bildgrößen-Berechnung und Picker-Platzierung
+// auseinander.
+export const CONNECT_PREVIEW_MOBILE_BREAKPOINT = 768;
+
 export function computeConnectPreviewLayout(images, containerWidth, maxImageHeight = 500) {
   const positions = new Map();
+
+  // Smartphone: alle Bilder übereinander, jedes (fast) volle Breite --
+  // dieselbe Anordnung gilt für die Vorschau vor der allerersten
+  // Bestätigung UND für das spätere Diptychon (computeConnectPreviewLayout
+  // wird für beide Zustände aufgerufen, siehe renderSeriesStage in
+  // single-view.js), da hier einfach jedes Element im images-Array der
+  // Reihe nach verarbeitet wird, unabhängig von dessen Länge.
+  if (containerWidth < CONNECT_PREVIEW_MOBILE_BREAKPOINT) {
+    const innerWidth = Math.max(0, containerWidth - CONNECT_PREVIEW_COL_PADDING * 2);
+    let yMobile = EDGE_MARGIN;
+
+    images.forEach((img) => {
+      const ratio = img.width / img.height;
+      let width = innerWidth;
+      let height = width / ratio;
+      if (height > maxImageHeight) {
+        height = maxImageHeight;
+        width = height * ratio;
+      }
+      positions.set(img.id, {
+        left: (containerWidth - width) / 2,
+        top: yMobile,
+        width,
+        height,
+      });
+      yMobile += height + CONNECT_PREVIEW_ROW_GAP;
+    });
+
+    const totalHeightMobile = images.length ? yMobile - CONNECT_PREVIEW_ROW_GAP + EDGE_MARGIN : EDGE_MARGIN;
+    return { positions, totalHeight: totalHeightMobile };
+  }
+
   const colWidth = containerWidth / 2;
   const colInnerWidth = Math.max(0, colWidth - CONNECT_PREVIEW_COL_PADDING * 2);
   let y = EDGE_MARGIN;

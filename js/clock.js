@@ -33,10 +33,10 @@ export function mountClock() {
  * Upload, Auth, Hauptseite) aufrufbar, damit sie sich wie andere
  * Textelemente verhält und nichts dauerhaft verdeckt.
  */
-export function repositionClock(taken = [], avoidRect = null) {
+export function repositionClock(taken = [], avoidRect = null, avoidRects = null) {
   const el = document.getElementById('global-clock');
   if (!el) return;
-  const spot = randomSpot(taken, { margin: 60, avoidRect });
+  const spot = randomSpot(taken, { margin: 60, avoidRect, avoidRects });
   el.style.left = spot.x + 'px';
   el.style.top = spot.y + 'px';
   clampFromRect(el, avoidRect);

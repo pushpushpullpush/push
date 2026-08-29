@@ -255,8 +255,10 @@ const SERIES_GAP_JITTER = 40;
 // Referenz-Seitenlänge (für ein quadratisches Bild) als Anteil der
 // Fensterbreite -- bestimmt die gemeinsame Ziel-Bildfläche, siehe sizeFor.
 // Nur noch der Default, falls der Aufrufer keinen eigenen targetSide-Wert
-// übergibt (siehe computeSeriesLayout) -- single-view.js steuert die
-// tatsächliche Größe über die "+"/"-"-Zoomstufen selbst.
+// übergibt (siehe computeSeriesLayout) -- single-view.js übergibt inzwischen
+// immer einen festen Wert (seriesTargetSide() dort, die frühere "+"/"-"-
+// Zoomfunktion wurde wieder entfernt), dieser Default greift daher nur noch
+// als Sicherheitsnetz für andere/künftige Aufrufer.
 const SERIES_TARGET_WIDTH_FRACTION = 0.3;
 
 /**
@@ -293,9 +295,8 @@ const SERIES_TARGET_WIDTH_FRACTION = 0.3;
  *
  * targetSide (Referenz-Seitenlänge für ein quadratisches Bild, bestimmt die
  * gemeinsame Ziel-Bildfläche) wird vom Aufrufer übergeben -- single-view.js
- * steuert darüber die "+"/"-"-Zoomstufen der Reihen-Ansicht. Ohne Angabe
- * gilt SERIES_TARGET_WIDTH_FRACTION als Default (die bisherige, mittlere
- * Standardgröße).
+ * übergibt dafür einen festen Wert (siehe seriesTargetSide() dort). Ohne
+ * Angabe gilt SERIES_TARGET_WIDTH_FRACTION als Default.
  */
 export function computeSeriesLayout(images, containerWidth, maxImageHeight = 500, targetSide) {
   const positions = new Map();

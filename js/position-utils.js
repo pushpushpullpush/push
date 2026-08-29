@@ -3,9 +3,14 @@
 
 /**
  * Schiebt ein bereits positioniertes Element zurück ins Sichtfeld,
- * falls es über einen Bildschirmrand hinausragt.
+ * falls es über einen Bildschirmrand hinausragt. pad-Default 32 (statt
+ * vorher 20) -- die initiale Platzierung per randomSpot() nutzt überall im
+ * Code 60-90px margin, ein deutlich kleinerer Clamp-Pad ließ lange
+ * Textelemente (z.B. "create gallery") nach dem Zurückziehen ins Sichtfeld
+ * wieder viel näher an den Rand rutschen als beabsichtigt, besonders auf
+ * schmalen Bildschirmen.
  */
-export function clampToViewport(el, pad = 20) {
+export function clampToViewport(el, pad = 32) {
   const rect = el.getBoundingClientRect();
   let dx = 0;
   let dy = 0;
@@ -117,6 +122,27 @@ export function randomSpot(existing, {
     if (avoidRects && avoidRects.some((rect) => pointInRect(x, y, rect))) continue;
     const farEnough = existing.every((p) => Math.hypot(p.x - x, p.y - y) > minDist);
     if (farEnough) return { x, y };
+  }
+  // Kein zufälliger Versuch hat gepasst (z.B. schmales Handy-Display mit
+  // vielen Bildern/bereits platzierten Wörtern) -- statt immer denselben
+  // Punkt zurückzugeben (das ließe mehrere so gescheiterte Wörter exakt
+  // übereinander landen), ein festes Raster von Kandidatenpunkten (4x4,
+  // inklusive der vier Ecken) der Reihe nach versuchen. Ignoriert dabei
+  // bewusst avoidRect/avoidRects (in dieser Notlage ist "irgendwo, aber
+  // nicht auf einem anderen Wort" wichtiger) -- bleibt aber weiterhin von
+  // existing (bereits platzierten Wörtern) fern, wenn möglich. Ein Raster
+  // statt nur vier Ecken, weil auf einem schmalen Bildschirm schon ein
+  // einzelnes, ungünstig platziertes Wort (großer minDist relativ zur
+  // Bildschirmgröße) alle vier Ecken gleichzeitig blockieren kann.
+  const GRID_STEPS = 4;
+  for (let gy = 0; gy < GRID_STEPS; gy++) {
+    for (let gx = 0; gx < GRID_STEPS; gx++) {
+      const gx0 = margin + (gx / (GRID_STEPS - 1)) * (window.innerWidth - margin * 2);
+      const gy0 = margin + (gy / (GRID_STEPS - 1)) * (window.innerHeight - margin * 2);
+      if (existing.every((p) => Math.hypot(p.x - gx0, p.y - gy0) > minDist)) {
+        return { x: gx0, y: gy0 };
+      }
+    }
   }
   return { x: margin, y: margin };
 }

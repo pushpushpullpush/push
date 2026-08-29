@@ -129,7 +129,7 @@ function preloadImage(url) {
   });
 }
 
-export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
+export function initSingleView(refs, getImages, onSeriesSaved) {
   const {
     overlay, imageEl, escBtn, randomBtn, connectBtn, pushBtn, connectionsStage,
     seriesOverlay, seriesStage, seriesPickerEl, seriesPickerInnerEl, seriesCandidates, seriesEsc, seriesConfirmWord, seriesFixEl,
@@ -138,7 +138,6 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
 
   let currentImage = null;
   let currentImageRect = null;
-  let currentContextImages = null; // welche Liste "r" gerade durchsucht
 
   // Erhöht sich bei jeder zustandsändernden Aktion (open()/close(), Reihe
   // betreten/bearbeiten/speichern) — eine asynchrone Anfrage, die
@@ -147,6 +146,25 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   // mehr an. Gemeinsamer Zähler für Einzelansicht UND Reihen-Ansicht, da nie
   // beide gleichzeitig aktiv sind.
   let openGeneration = 0;
+  // Eigener, feinerer Zähler nur für loadPool() -- openGeneration ändert sich
+  // NICHT bei addFromPool()/removeFromSeries() (kein neuer "Öffnen"-Vorgang),
+  // zwei sich überschneidende loadPool()-Aufrufe innerhalb derselben
+  // openGeneration könnten sich sonst gegenseitig überholen (siehe dort).
+  let poolGeneration = 0;
+  // Analog für loadConnectPicker() -- zwei sich überschneidende Aufrufe mit
+  // UNTERSCHIEDLICHEM Basisbild (z.B. schnell hintereinander gestartete
+  // Connect-Vorgänge, ohne dass sich openGeneration ändert) könnten sich
+  // sonst gegenseitig überholen: die ältere, zuletzt aufgelöste Antwort
+  // würde Kandidaten für das FALSCHE (nicht mehr aktuelle) Basisbild rendern
+  // -- inklusive des neuen Basisbilds selbst, das die neuere Anfrage bereits
+  // aus dem Pool herausgefiltert hätte. Ein Klick darauf würde das Bild mit
+  // sich selbst verbinden wollen.
+  let pickerGeneration = 0;
+  // Cache der zuletzt von loadConnectPicker() geladenen Kandidaten, geschlüsselt
+  // auf das Basisbild -- reposition() (Fenstergrößenänderung) braucht nur eine
+  // neue Spaltenbreite, keine neuen Daten, siehe dort. Vermeidet einen
+  // kompletten, ungepaginierten fetchAllImages() bei jeder Größenänderung.
+  let lastPickerCandidates = null;
 
   let connectCooldownTimer = null;
 
@@ -170,6 +188,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   let seriesReadOnly = false;
   let fixArmed = false; // zweistufiges "g" -> "create gallery" -> Aktion (siehe seriesFixEl unten)
   let fixArmTimer = null; // setzt "fix" nach FIX_ARM_TIMEOUT_MS automatisch zurück, siehe armFix/disarmFix
+  let isSavingSeries = false; // true während createSeries() läuft -- siehe handleFixClick
 
   // Zuletzt tatsächlich gerenderte Anordnung im Bau-Modus ({ containerWidth,
   // totalHeight, positions }, siehe renderSeriesStage) -- wird beim Fixieren
@@ -309,9 +328,14 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     renderImageCluster(connectionsStage, images, (img) => openSeriesFromPair(sourceImg, img));
   }
 
-  async function open(imageId, imagesList) {
-    if (imagesList) currentContextImages = imagesList;
-    const images = currentContextImages || getImages();
+  async function open(imageId) {
+    // Generation SOFORT beanspruchen, vor jedem await -- sonst könnten zwei
+    // sich überschneidende open()-Aufrufe, die BEIDE fetchImageById() weiter
+    // unten brauchen (Bild nicht in der bereits geladenen Liste), ihre
+    // Generation in der falschen (Netzwerk-Antwortzeit- statt Aufruf-)
+    // Reihenfolge zugewiesen bekommen.
+    const myGeneration = ++openGeneration;
+    const images = getImages();
     let img = images.find((i) => i.id === imageId);
     if (!img) {
       // Nicht in einer bereits geladenen Galerie-Liste (z.B. Direktaufruf
@@ -320,7 +344,6 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
       if (!img) return;
     }
 
-    const myGeneration = ++openGeneration;
     // Galerie-Bilder sind loading="lazy" — bei [r] auf ein Bild, das noch nie
     // im Sichtbereich war, hat der Browser die Daten oft noch gar nicht
     // geladen. Ohne dieses Warten würde die Größe/URL des <img> sofort
@@ -390,7 +413,6 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     seriesOverlay.style.display = 'none';
     currentImage = null;
     currentImageRect = null;
-    currentContextImages = null;
     seriesIds = [];
     seriesImages = [];
     seriesAddOrderIds = [];
@@ -406,11 +428,17 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     document.body.style.overflow = '';
   }
 
+  // Nur echte Bilder, keine gespeicherten Reihen/Galerien (isSeries) --
+  // dieselbe Filterung wie showRandomSeries() weiter unten, nur umgekehrt.
+  // Ohne diesen Filter könnte [r] eine Galerie treffen, deren id keine
+  // fetchConnectedImages()/fetchImageById()-Treffer in der images-Tabelle
+  // hat -- die Einzelansicht würde dann mit leerem Verbindungs-Cluster und
+  // einer /image/:id-Route öffnen, die nie wieder auflösbar ist.
   function showRandom() {
-    const images = currentContextImages || getImages();
+    const images = getImages().filter((img) => !img.isSeries);
     if (!images.length) return;
     const pick = images[Math.floor(Math.random() * images.length)];
-    open(pick.id, null);
+    open(pick.id);
   }
 
   // [z]/[esc] aus der normalen Einzelansicht führt IMMER direkt zur
@@ -470,8 +498,10 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   async function loadConnectPicker() {
     const sourceId = seriesImages[0].id;
     const myGeneration = openGeneration; // siehe open() -- verwirft ein überholtes Ergebnis
+    const myPickerGeneration = ++pickerGeneration;
     const pool = await fetchAllImages();
     if (myGeneration !== openGeneration) return; // zwischenzeitlich geschlossen/weiternavigiert
+    if (myPickerGeneration !== pickerGeneration) return; // ein neuerer loadConnectPicker()-Aufruf lief bereits durch
 
     // fetchAllImages() liefert bei einem Netzwerk-/Serverfehler [] zurück
     // (wirft nie, siehe images-repo.js) -- ohne diese Prüfung bliebe die
@@ -486,6 +516,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     }
 
     const candidates = pool.filter((img) => img.id !== sourceId);
+    lastPickerCandidates = { sourceId, candidates };
     updatePickerTopOffset();
     seriesPickerEl.style.display = 'block';
     renderImageCluster(seriesPickerInnerEl, candidates, (img) => selectCandidate(img), { width: 0, height: 0 });
@@ -588,29 +619,36 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   // Bild landen zu lassen (siehe avoidRects in randomSpot,
   // position-utils.js) -- deshalb bewusst NACH renderSeriesView()/
   // renderSeriesStage() aufgerufen, wenn die Bilder schon im DOM stehen
-  // (siehe Aufrufstellen). Bei einer dichten Reihe kann der Bildschirm
-  // dabei so vollständig belegt sein, dass kein bildfreier Platz mehr
-  // existiert -- randomSpot() fällt dann auf seinen normalen Fallback
-  // zurück, das bleibt der akzeptierte Ausnahmefall, keine harte Garantie.
-  // margin: 90 statt des randomSpot()-Standards -- consistent mit den
-  // übrigen, großzügigeren Rändern der Reihen-Ansicht (siehe
-  // SERIES_EDGE_MARGIN_* in layout-engine.js), damit Textelemente nie zu
-  // nah am Bildschirmrand kleben.
+  // (siehe Aufrufstellen). Bezieht AUCH die Auswahl-Galerie rechts/darunter
+  // (#connect-series-picker-inner) mit ein, nicht nur #connect-series-stage
+  // -- sonst könnten Wörter mit deren Bildern überlappen, besonders auf dem
+  // Smartphone, wo der Picker unterhalb des Ausgangsbildes über einen
+  // Großteil des Bildschirms reicht (siehe style.css). Bei einer dichten
+  // Reihe kann der Bildschirm dabei so vollständig belegt sein, dass kein
+  // bildfreier Platz mehr existiert -- randomSpot() fällt dann auf seinen
+  // Ecken-Fallback zurück, das bleibt der akzeptierte Ausnahmefall, keine
+  // harte Garantie. margin: 90 statt des randomSpot()-Standards --
+  // consistent mit den übrigen, großzügigeren Rändern der Reihen-Ansicht
+  // (siehe SERIES_EDGE_MARGIN_* in layout-engine.js), damit Textelemente nie
+  // zu nah am Bildschirmrand kleben.
   function positionSeriesWords() {
-    const imageRects = [...seriesStage.querySelectorAll('[data-image-id]')].map((el) => el.getBoundingClientRect());
+    const imageRects = [
+      ...seriesStage.querySelectorAll('[data-image-id]'),
+      ...seriesPickerInnerEl.querySelectorAll('[data-image-id]'),
+    ].map((el) => el.getBoundingClientRect());
     const taken = [];
     [seriesEsc, seriesConfirmWord, seriesFixEl, seriesSEl, seriesAEl, seriesRandomEl, seriesPushEl].forEach((el) => {
       const spot = randomSpot(taken, { margin: 90, avoidRects: imageRects });
       taken.push(spot);
       el.style.left = spot.x + 'px';
       el.style.top = spot.y + 'px';
-      clampToViewport(el);
+      clampToViewport(el, 90);
     });
     // Die Uhr (siehe clock.js) wurde bisher hier nie einbezogen -- blieb
     // beim Betreten von Diptychon/Reihe einfach an ihrer alten Position aus
     // der vorherigen Ansicht stehen, ohne Rücksicht auf die neuen Bilder/
-    // Wörter hier.
-    repositionClock(taken, null, imageRects);
+    // Wörter hier. margin: 90 wie die übrigen Wörter dieser Ansicht.
+    repositionClock(taken, null, imageRects, 90);
   }
 
   // Leichte Korrektur statt kompletter Neuplatzierung -- für den Wechsel
@@ -632,7 +670,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
       for (let pass = 0; pass < 3; pass++) {
         imageRects.forEach((rect) => clampFromRect(el, rect, 20));
       }
-      clampToViewport(el);
+      clampToViewport(el, 90);
     });
   }
 
@@ -842,8 +880,10 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   function loadPool() {
     seriesCandidates.innerHTML = '';
     const myGeneration = openGeneration;
+    const myPoolGeneration = ++poolGeneration;
     fetchPoolForImages(seriesIds).then((pool) => {
       if (myGeneration !== openGeneration) return; // überholt, siehe open()
+      if (myPoolGeneration !== poolGeneration) return; // ein neuerer loadPool()-Aufruf lief bereits durch
       renderImageCluster(seriesCandidates, pool, (img) => addFromPool(img));
     });
   }
@@ -891,6 +931,10 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   // (siehe disarmFix) -- eine Änderung an der Reihe soll erneut bestätigt
   // werden müssen, bevor gespeichert wird.
   function addFromPool(img) {
+    // Schutz gegen einen veralteten Pool-Klick (z.B. ein noch angezeigtes
+    // Kandidatenbild aus einem überholten loadPool()-Rendering, siehe dort)
+    // -- ohne diesen Check könnte dasselbe Bild doppelt in die Reihe rutschen.
+    if (seriesIds.includes(img.id)) return;
     seriesIds = [...seriesIds, img.id];
     seriesImages = [...seriesImages, img];
     // Zählt immer als zuletzt hinzugefügt in der echten Add-Reihenfolge,
@@ -1019,6 +1063,10 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
     // normalen Einzelansicht (siehe open()/wasAlreadyOpen dort). Muss VOR
     // jeder Zustandsänderung erfasst werden.
     const wasAlreadyOpen = seriesReadOnly && seriesOverlay.style.display === 'block';
+    // Generation VOR dem await beanspruchen (siehe open()) -- sonst könnte
+    // ein zwischenzeitliches close()/ein neueres open()/openSavedSeries()
+    // unbemerkt bleiben und diese überholte Antwort trotzdem anwenden.
+    const myGeneration = ++openGeneration;
 
     const result = await fetchSeriesById(id);
     if (!result) {
@@ -1026,8 +1074,8 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
       goBack();
       return;
     }
+    if (myGeneration !== openGeneration) return; // überholt, siehe open()
 
-    openGeneration += 1;
     overlay.style.display = 'none';
 
     seriesIds = result.images.map((img) => img.id);
@@ -1077,6 +1125,11 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   seriesRandomEl.addEventListener('click', showRandomSeries);
 
   seriesEsc.addEventListener('click', () => {
+    // Während createSeries() läuft (siehe handleFixClick) darf "z" die
+    // Reihen-Ansicht nicht schließen -- close() würde seriesIds/seriesImages
+    // zurücksetzen, bevor handleFixClick nach dem await noch darauf zugreift
+    // (savedFirstImage etc.), was dort zu einem TypeError führen würde.
+    if (isSavingSeries) return;
     if (pendingCandidate) {
       // Zurück zur Auswahl-Galerie, um ein anderes Bild zu wählen -- vor
       // der allerersten Verbindung wurde ja noch nichts geschrieben
@@ -1182,13 +1235,14 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
   // den Zustand (nicht nur über die Sichtbarkeit, siehe updateFixVisibility)
   // -- konsistent mit dem übrigen Tastenkürzel-Muster dieser Seite.
   async function handleFixClick() {
-    if (pendingCandidate || seriesReadOnly || seriesIds.length < 3) return;
+    if (pendingCandidate || seriesReadOnly || seriesIds.length < 3 || isSavingSeries) return;
     if (!fixArmed) {
       armFix();
       return;
     }
     clearTimeout(fixArmTimer);
     fixArmTimer = null;
+    isSavingSeries = true;
 
     seriesFixEl.style.pointerEvents = 'none';
     seriesFixEl.style.opacity = '0.3';
@@ -1231,6 +1285,7 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
         isSeries: true,
       });
     } finally {
+      isSavingSeries = false;
       seriesFixEl.style.pointerEvents = 'auto';
       seriesFixEl.style.opacity = '1';
     }
@@ -1293,9 +1348,23 @@ export function initSingleView(refs, getImages, getSortMode, onSeriesSaved) {
         renderSeriesStage();
         positionSeriesWords();
         // Auswahl-Galerie (vor der allerersten Verbindung, noch kein
-        // Kandidat gewählt) neu anordnen -- andere Spaltenbreite.
+        // Kandidat gewählt) neu anordnen -- andere Spaltenbreite. Nur die
+        // Anordnung ändert sich bei einer Fenstergrößenänderung, nicht die
+        // Kandidaten selbst -- daher aus dem Cache neu rendern statt jedes
+        // Mal komplett neu zu laden (siehe lastPickerCandidates).
         if (baseConnectionIds === null && !seriesReadOnly && !pendingCandidate) {
-          loadConnectPicker();
+          const sourceId = seriesImages[0].id;
+          if (lastPickerCandidates && lastPickerCandidates.sourceId === sourceId) {
+            updatePickerTopOffset();
+            renderImageCluster(
+              seriesPickerInnerEl,
+              lastPickerCandidates.candidates,
+              (img) => selectCandidate(img),
+              { width: 0, height: 0 },
+            );
+          } else {
+            loadConnectPicker();
+          }
         }
       }
     },

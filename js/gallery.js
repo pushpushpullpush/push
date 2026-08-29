@@ -236,7 +236,6 @@ export function createGallery(stageEl, initialImages, {
     appendImages,
     prependImages,
     getImages: () => images,
-    getSortMode: () => sortMode,
     elements: els,
     // Für Fenstergrößenänderungen: legt die Bilder anhand der aktuellen
     // Breite neu an (gleicher Modus wie zuvor, keine Umschaltung).

@@ -119,7 +119,7 @@ singleView = initSingleView({
   seriesAEl: document.getElementById('connect-series-a'),
   seriesRandomEl: document.getElementById('connect-series-r'),
   seriesPushEl: document.getElementById('connect-series-push'),
-}, gallery.getImages, gallery.getSortMode, (entry) => gallery.addSeries(entry));
+}, gallery.getImages, (entry) => gallery.addSeries(entry));
 
 // ─────────────────────────────────────────────
 // Fixe Menü-Textelemente: bei jedem vollen Laden neu platziert,

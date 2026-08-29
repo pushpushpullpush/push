@@ -31,16 +31,20 @@ export function mountClock() {
 /**
  * Gibt der Uhr eine neue Zufallsposition — von jeder Ansicht (Einzelansicht,
  * Upload, Auth, Hauptseite) aufrufbar, damit sie sich wie andere
- * Textelemente verhält und nichts dauerhaft verdeckt.
+ * Textelemente verhält und nichts dauerhaft verdeckt. margin gilt sowohl für
+ * die Platzierung selbst als auch für das anschließende clampToViewport --
+ * ohne diesen Gleichlauf konnte die Uhr nach dem Zurückziehen ins Sichtfeld
+ * wieder deutlich näher an den Rand rutschen, als der Aufrufer (z.B. die
+ * Reihen-Ansicht mit ihrem großzügigeren margin: 90) eigentlich vorsah.
  */
-export function repositionClock(taken = [], avoidRect = null, avoidRects = null) {
+export function repositionClock(taken = [], avoidRect = null, avoidRects = null, margin = 60) {
   const el = document.getElementById('global-clock');
   if (!el) return;
-  const spot = randomSpot(taken, { margin: 60, avoidRect, avoidRects });
+  const spot = randomSpot(taken, { margin, avoidRect, avoidRects });
   el.style.left = spot.x + 'px';
   el.style.top = spot.y + 'px';
   clampFromRect(el, avoidRect);
-  clampToViewport(el);
+  clampToViewport(el, margin);
   return spot;
 }
 

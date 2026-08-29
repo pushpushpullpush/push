@@ -62,6 +62,18 @@ html, body {
   margin: 0;
   caret-color: #ffffff;
   z-index: 2500;
+  /* Ohne dies berechnet der Browser die Breite eines position:fixed-
+     Elements mit gesetztem "left" (aber ohne "right"/"width") per
+     Shrink-to-fit anhand von (Fensterbreite - left) -- die gemessene
+     Breite (getBoundingClientRect) hängt dadurch von der aktuellen
+     Position ab, statt vom tatsächlichen Text. randomSpot()/
+     clampToViewport()/clampFromRect() (position-utils.js) verlassen sich
+     aber auf eine stabile, positionsunabhängige Breite -- ohne
+     white-space:nowrap wurde die Korrektur nahe des rechten/unteren Rands
+     dadurch systematisch zu schwach (das Element "entspannt" sich nach dem
+     Verschieben auf seine wahre, breitere Größe und ragt wieder zu nah an
+     den Rand).*/
+  white-space: nowrap;
 }
 
 .clock {

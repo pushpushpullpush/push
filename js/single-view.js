@@ -186,7 +186,7 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
   let pendingCandidate = null;
   let baseConnectionIds = null;
   let seriesReadOnly = false;
-  let fixArmed = false; // zweistufiges "g" -> "create gallery" -> Aktion (siehe seriesFixEl unten)
+  let fixArmed = false; // zweistufiges "g" -> "group" -> Aktion (siehe seriesFixEl unten)
   let fixArmTimer = null; // setzt "fix" nach FIX_ARM_TIMEOUT_MS automatisch zurück, siehe armFix/disarmFix
   let isSavingSeries = false; // true während createSeries() läuft -- siehe handleFixClick
 
@@ -787,7 +787,7 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
     seriesStage.style.minHeight = totalHeight + 'px';
   }
 
-  // "g"/"create gallery" nur im Bau-Modus (nicht während der Vorschau vor der
+  // "g"/"group" nur im Bau-Modus (nicht während der Vorschau vor der
   // allerersten Verbindung, nicht in der schreibgeschützten Ansicht) und
   // erst ab einer Reihenlänge von mindestens 3 Bildern -- ein Diptychon
   // (genau 2 Bilder, direkt nach dem Connect) ist noch keine "Reihe" und
@@ -1070,7 +1070,7 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
 
     const result = await fetchSeriesById(id);
     if (!result) {
-      flashMessage('error: could not load this gallery');
+      flashMessage('error: could not load this group');
       goBack();
       return;
     }
@@ -1195,25 +1195,25 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
 
   seriesConfirmWord.addEventListener('click', confirmSeriesConnect);
 
-  // Wie lange "create gallery" scharf bleibt, bevor es sich von selbst
+  // Wie lange "group" scharf bleibt, bevor es sich von selbst
   // wieder auf "g" zurücksetzt (siehe disarmFix) -- eine vergessene, scharf
   // gestellte Bestätigung soll nicht unbegrenzt stehen bleiben.
   const FIX_ARM_TIMEOUT_MS = 8000;
 
-  // Stellt "create gallery" scharf: Pool wird ausgeblendet (siehe
+  // Stellt "group" scharf: Pool wird ausgeblendet (siehe
   // updatePoolVisibility) -- eine reine Kontroll-Ansicht der fertigen Reihe
   // vor dem Speichern, kein weiteres Bearbeiten über den Pool mehr möglich.
   // Setzt sich nach FIX_ARM_TIMEOUT_MS von selbst zurück, falls nicht vorher
   // bestätigt wird.
   function armFix() {
     fixArmed = true;
-    seriesFixEl.textContent = 'create gallery';
+    seriesFixEl.textContent = 'group';
     clearTimeout(fixArmTimer);
     fixArmTimer = setTimeout(disarmFix, FIX_ARM_TIMEOUT_MS);
     updatePoolVisibility();
   }
 
-  // Setzt eine scharf gestellte "create gallery"-Bestätigung zurück -- durch
+  // Setzt eine scharf gestellte "group"-Bestätigung zurück -- durch
   // Zeitablauf, oder weil sich an der Reihe etwas geändert hat (Pool-
   // Hinzufügen/Entfernen, Shuffle/Order, siehe die jeweiligen
   // Aufrufstellen): das Speichern muss dann mit einem frischen "g"-Klick neu
@@ -1230,10 +1230,10 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
   }
 
   // Zweistufig: erster Klick verwandelt "g" an derselben Stelle (keine
-  // Neupositionierung) in das ausgeschriebene "create gallery", erst ein
-  // zweiter Klick führt die eigentliche Speicherung aus. Self-guarded gegen
-  // den Zustand (nicht nur über die Sichtbarkeit, siehe updateFixVisibility)
-  // -- konsistent mit dem übrigen Tastenkürzel-Muster dieser Seite.
+  // Neupositionierung) in "group", erst ein zweiter Klick führt die
+  // eigentliche Speicherung aus. Self-guarded gegen den Zustand (nicht nur
+  // über die Sichtbarkeit, siehe updateFixVisibility) -- konsistent mit dem
+  // übrigen Tastenkürzel-Muster dieser Seite.
   async function handleFixClick() {
     if (pendingCandidate || seriesReadOnly || seriesIds.length < 3 || isSavingSeries) return;
     if (!fixArmed) {
@@ -1263,7 +1263,7 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
       } : null;
       const { error, id } = await createSeries(seriesIds, layout);
       if (error) {
-        flashMessage('error: could not save gallery');
+        flashMessage('error: could not save group');
         disarmFix(); // setzt Text zurück UND zeigt den Pool wieder
         return;
       }
@@ -1275,7 +1275,7 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
       const savedCount = seriesIds.length;
       close();
       pushRoute(HOME_PATH, HOME_TITLE);
-      flashMessage('gallery fixed');
+      flashMessage('grouped');
       onSeriesSaved({
         id,
         url: savedFirstImage.url,
@@ -1319,7 +1319,7 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
   // dort) -- ein zusätzlicher direkter Listener hier würde handleFixClick
   // bei einem einzigen Tastendruck ZWEIMAL auslösen (einmal direkt, einmal
   // über den weitergeleiteten Klick) und damit die zweistufige
-  // "g"->"create gallery" Bestätigung in einen einzigen Tastendruck
+  // "g"->"group" Bestätigung in einen einzigen Tastendruck
   // kollabieren lassen. [Enter] ist davon nicht betroffen (main.js leitet
   // nur "g" weiter, keine andere Taste), daher oben direkt als zweite
   // Bestätigung verdrahtet.
@@ -1337,7 +1337,7 @@ export function initSingleView(refs, getImages, onSeriesSaved) {
     openSeriesFromRoute,
     openSavedSeries,
     // Für main.js: unterscheidet beim "p"-Tastenkürzel zwischen einer
-    // schreibgeschützten Gallery-Ansicht (dort erlaubt) und einer aktiven
+    // schreibgeschützten Group-Ansicht (dort erlaubt) und einer aktiven
     // Aktion (Connect-Auswahl, Reihe bauen -- dort weiterhin gesperrt).
     isSeriesReadOnly: () => seriesReadOnly,
     // Für Fenstergrößenänderungen: prüft selbst, welche der beiden Ansichten

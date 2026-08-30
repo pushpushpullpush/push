@@ -5,8 +5,8 @@
  * Schiebt ein bereits positioniertes Element zurück ins Sichtfeld,
  * falls es über einen Bildschirmrand hinausragt. pad-Default 32 (statt
  * vorher 20) -- die initiale Platzierung per randomSpot() nutzt überall im
- * Code 60-90px margin, ein deutlich kleinerer Clamp-Pad ließ lange
- * Textelemente (z.B. "create gallery") nach dem Zurückziehen ins Sichtfeld
+ * Code 60-90px margin, ein deutlich kleinerer Clamp-Pad ließ längere
+ * Textelemente (z.B. "group") nach dem Zurückziehen ins Sichtfeld
  * wieder viel näher an den Rand rutschen als beabsichtigt, besonders auf
  * schmalen Bildschirmen.
  */

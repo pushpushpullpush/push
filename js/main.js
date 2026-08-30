@@ -253,7 +253,7 @@ menuEls.push.addEventListener('click', () => {
   fileInput.click();
 });
 
-// "push" auch aus der Einzelansicht und der schreibgeschützten Gallery-
+// "push" auch aus der Einzelansicht und der schreibgeschützten Group-
 // Ansicht heraus (nicht während einer aktiven Aktion, siehe Kommentar bei
 // isSeriesReadOnly in single-view.js): schließt die aktuelle Ansicht wie
 // ein "z", genau wie beim Wechsel zwischen anderen Ansichten dieser Seite
@@ -362,7 +362,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (e.key === 'g' || e.key === 'G') {
-    // Zweistufige "g" -> "create gallery" -> Speichern-Aktion -- der
+    // Zweistufige "g" -> "group" -> Speichern-Aktion -- der
     // eigentliche Klick-Handler in single-view.js ist self-guarded
     // (Vorschau/schreibgeschützt/Länge < 3), unabhängig von der
     // Sichtbarkeit hier.
@@ -376,7 +376,7 @@ document.addEventListener('keydown', (e) => {
     } else if (isOpen('single-view')) {
       document.getElementById('single-push').click();
     } else if (isOpen('connect-series-view')) {
-      // Nur in der schreibgeschützten Gallery-Ansicht erlaubt, nicht
+      // Nur in der schreibgeschützten Group-Ansicht erlaubt, nicht
       // während einer aktiven Aktion (Connect-Auswahl, Reihe bauen).
       if (singleView.isSeriesReadOnly()) document.getElementById('connect-series-push').click();
     } else {

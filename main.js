@@ -1,5 +1,4 @@
 import { fetchImages } from './images-repo.js';
-import { fetchAllSeriesSummaries } from './series-repo.js';
 import { supabase } from './supabase-client.js';
 import { computeDisplaySize } from './image-config.js';
 import { createGallery } from './gallery.js';
@@ -19,18 +18,7 @@ import {
 const stage = document.getElementById('stage');
 const menuLayer = document.getElementById('menu-layer');
 
-// Gespeicherte Reihen (siehe series-repo.js/Ausbaustufe A2) laufen komplett
-// ungepaginiert mit -- ihre Anzahl dürfte auf absehbare Zeit deutlich
-// kleiner bleiben als die Anzahl gepushter Bilder (siehe fetchAllImages()-
-// Kommentar in images-repo.js für dieselbe Abwägung). Beide Listen tragen
-// ihr eigenes created_at (Zeitpunkt des Pushens bzw. Speicherns) und werden
-// hier zu EINER chronologisch korrekt sortierten Anfangsliste gemischt.
-const [images, seriesSummaries] = await Promise.all([
-  fetchImages({ limit: 60 }),
-  fetchAllSeriesSummaries(),
-]);
-const initialGalleryItems = [...images, ...seriesSummaries]
-  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+const images = await fetchImages({ limit: 60 });
 
 // Kleiner Kreisverweis: gallery ruft singleView.open() auf, singleView braucht
 // gallery.getImages — beide werden daher über eine verzögerte Referenz verbunden.
@@ -41,9 +29,8 @@ function isOpen(id) {
   return document.getElementById(id).style.display === 'block';
 }
 
-const gallery = createGallery(stage, initialGalleryItems, {
+const gallery = createGallery(stage, images, {
   onImageClick: (img) => singleView.open(img.id),
-  onSeriesClick: (img) => singleView.openSavedSeries(img.id),
   onSortModeChange: (mode) => {
     // "a" (zurück zur chronologischen Ordnung) ist nur sichtbar, solange man
     // NICHT bereits chronologisch ist — im Startzustand also ausgeblendet.
@@ -53,10 +40,7 @@ const gallery = createGallery(stage, initialGalleryItems, {
 
 // ─────────────────────────────────────────────
 // Nachladen beim Scrollen — löst die feste 300er-Grenze durch echtes,
-// endloses Nachladen in kleinen Häppchen ab. Bezieht sich bewusst nur auf
-// "images" (normale Bilder), nicht auf initialGalleryItems -- gespeicherte
-// Reihen sind ja bereits vollständig geladen (siehe oben) und wachsen beim
-// Scrollen nie nach.
+// endloses Nachladen in kleinen Häppchen ab.
 // ─────────────────────────────────────────────
 let oldestLoadedAt = images.length ? images[images.length - 1].createdAt : null;
 let loadingMore = false;
@@ -104,22 +88,12 @@ singleView = initSingleView({
   imageEl: document.getElementById('single-image'),
   escBtn: document.getElementById('single-esc'),
   randomBtn: document.getElementById('single-r'),
-  connectBtn: document.getElementById('single-connect'),
-  pushBtn: document.getElementById('single-push'),
-  connectionsStage: document.getElementById('single-connections-stage'),
-  seriesOverlay: document.getElementById('connect-series-view'),
-  seriesStage: document.getElementById('connect-series-stage'),
-  seriesPickerEl: document.getElementById('connect-series-picker'),
-  seriesPickerInnerEl: document.getElementById('connect-series-picker-inner'),
-  seriesCandidates: document.getElementById('connect-series-candidates'),
-  seriesEsc: document.getElementById('connect-series-esc'),
-  seriesConfirmWord: document.getElementById('connect-series-confirm'),
-  seriesFixEl: document.getElementById('connect-series-fix'),
-  seriesSEl: document.getElementById('connect-series-s'),
-  seriesAEl: document.getElementById('connect-series-a'),
-  seriesRandomEl: document.getElementById('connect-series-r'),
-  seriesPushEl: document.getElementById('connect-series-push'),
-}, gallery.getImages, (entry) => gallery.addSeries(entry));
+  infoViewsEl: document.getElementById('single-info-views'),
+  infoPushedEl: document.getElementById('single-info-pushed'),
+  infoSizeEl: document.getElementById('single-info-size'),
+  infoResolutionEl: document.getElementById('single-info-resolution'),
+  countdownEl: document.getElementById('single-countdown'),
+}, gallery.getImages);
 
 // ─────────────────────────────────────────────
 // Fixe Menü-Textelemente: bei jedem vollen Laden neu platziert,
@@ -253,26 +227,18 @@ menuEls.push.addEventListener('click', () => {
   fileInput.click();
 });
 
-// "push" auch aus der Einzelansicht und der schreibgeschützten Gallery-
-// Ansicht heraus (nicht während einer aktiven Aktion, siehe Kommentar bei
-// isSeriesReadOnly in single-view.js): schließt die aktuelle Ansicht wie
-// ein "z", genau wie beim Wechsel zwischen anderen Ansichten dieser Seite
-// gibt es nie zwei offene Overlays gleichzeitig.
-function triggerPushFromView() {
-  singleView.close();
-  pushRoute(HOME_PATH, HOME_TITLE);
-  repositionClockForMain(repositionMainMenu());
-  fileInput.click();
-}
-document.getElementById('single-push').addEventListener('click', triggerPushFromView);
-document.getElementById('connect-series-push').addEventListener('click', triggerPushFromView);
-
 upload = initUpload({
   fileInput,
   overlay: document.getElementById('upload-overlay'),
   preview: document.getElementById('upload-preview'),
   escBtn: document.getElementById('upload-esc'),
   submitBtn: document.getElementById('upload-push'),
+  consentHintEl: document.getElementById('upload-consent-hint'),
+  consentClaimEl: document.getElementById('upload-consent-claim'),
+  consentCirculateEl: document.getElementById('upload-consent-circulate'),
+  consentResponsibilityEl: document.getElementById('upload-consent-responsibility'),
+  countdownEl: document.getElementById('upload-countdown'),
+  copyrightEl: document.getElementById('upload-copyright'),
 }, (img) => gallery.addImage(img));
 
 initDragDrop({
@@ -282,7 +248,7 @@ initDragDrop({
   // Overlays). Bereits offenes Upload-Fenster ist erlaubt — ein Drop
   // ersetzt dann einfach das aktuell ausgewählte Bild.
   isDropAllowed: () => {
-    const blocking = ['single-view', 'vrp-view', 'connect-series-view'];
+    const blocking = ['single-view', 'vrp-view'];
     return !blocking.some((id) => document.getElementById(id).style.display === 'block');
   },
 });
@@ -293,15 +259,8 @@ function closeActiveOverlay() {
   const singleViewEl = document.getElementById('single-view');
   const uploadEl = document.getElementById('upload-overlay');
   const vrpViewEl = document.getElementById('vrp-view');
-  const connectSeriesEl = document.getElementById('connect-series-view');
 
-  // connect-Ansicht zuerst prüfen: [z] dort führt zum jeweils vorherigen
-  // Schritt zurück bzw. über goBack() zur Hauptgalerie (siehe
-  // single-view.js) — eigene, von der normalen Einzelansicht abweichende
-  // Logik.
-  if (connectSeriesEl.style.display === 'block') {
-    document.getElementById('connect-series-esc').click();
-  } else if (singleViewEl.style.display === 'block') {
+  if (singleViewEl.style.display === 'block') {
     document.getElementById('single-esc').click();
   } else if (uploadEl.style.display === 'block') {
     document.getElementById('upload-esc').click();
@@ -328,58 +287,27 @@ document.addEventListener('keydown', (e) => {
     closeActiveOverlay();
   }
 
-  const inConnectFlow = isOpen('connect-series-view');
-
   if (e.key === 'a' || e.key === 'A') {
-    if (isOpen('connect-series-view')) {
-      document.getElementById('connect-series-a').click();
-    } else if (!isOpen('single-view') && !isOpen('vrp-view') && !isOpen('upload-overlay') && !inConnectFlow) {
+    if (!isOpen('single-view') && !isOpen('vrp-view') && !isOpen('upload-overlay')) {
       gallery.sortChronological();
     }
   }
   if (e.key === 's' || e.key === 'S') {
-    if (isOpen('connect-series-view')) {
-      document.getElementById('connect-series-s').click();
-    } else if (!isOpen('single-view') && !isOpen('vrp-view') && !isOpen('upload-overlay') && !inConnectFlow) {
+    if (!isOpen('single-view') && !isOpen('vrp-view') && !isOpen('upload-overlay')) {
       gallery.shuffleRandom();
     }
   }
   if (e.key === 'r' || e.key === 'R') {
     if (isOpen('single-view')) {
       document.getElementById('single-r').click();
-    } else if (isOpen('connect-series-view')) {
-      // "r" (zufällig durch gespeicherte Reihen browsen) -- self-guarded in
-      // single-view.js (nur in der schreibgeschützten Ansicht wirksam,
-      // siehe showRandomSeries/updateSeriesRandomVisibility).
-      document.getElementById('connect-series-r').click();
-    } else if (!isOpen('vrp-view') && !isOpen('upload-overlay') && !inConnectFlow) {
+    } else if (!isOpen('vrp-view') && !isOpen('upload-overlay')) {
       menuEls.r.click();
-    }
-  }
-  if (e.key === 'c' || e.key === 'C') {
-    if (isOpen('single-view')) {
-      document.getElementById('single-connect').click();
-    }
-  }
-  if (e.key === 'g' || e.key === 'G') {
-    // Zweistufige "g" -> "create gallery" -> Speichern-Aktion -- der
-    // eigentliche Klick-Handler in single-view.js ist self-guarded
-    // (Vorschau/schreibgeschützt/Länge < 3), unabhängig von der
-    // Sichtbarkeit hier.
-    if (isOpen('connect-series-view')) {
-      document.getElementById('connect-series-fix').click();
     }
   }
   if ((e.key === 'p' || e.key === 'P') && !hidden) {
     if (isOpen('upload-overlay')) {
       document.getElementById('upload-push').click();
-    } else if (isOpen('single-view')) {
-      document.getElementById('single-push').click();
-    } else if (isOpen('connect-series-view')) {
-      // Nur in der schreibgeschützten Gallery-Ansicht erlaubt, nicht
-      // während einer aktiven Aktion (Connect-Auswahl, Reihe bauen).
-      if (singleView.isSeriesReadOnly()) document.getElementById('connect-series-push').click();
-    } else {
+    } else if (!isOpen('single-view')) {
       menuEls.push.click();
     }
   }
@@ -410,23 +338,13 @@ document.addEventListener('keydown', (e) => {
 // damit dabei nicht zusätzlich goBack() ausgelöst wird — die URL hat sich in
 // diesem Fall ja bereits geändert, das hier zieht nur den View-Zustand nach.
 async function syncViewToRoute(route) {
-  // singleView.close() räumt sowohl die normale Einzelansicht als auch eine
-  // evtl. offene Reihen-Ansicht (inkl. Auswahl-Zwischenschritt) auf -- open()
-  // bzw. openSeriesFromRoute()/openSavedSeries() übernehmen danach jeweils
-  // selbst, die jeweils andere Ansicht zusätzlich defensiv zu schließen
-  // (siehe dort).
-  const staysInSingleViewFamily = route.type === 'image' || route.type === 'connect' || route.type === 'series';
-  if (!staysInSingleViewFamily && (isOpen('single-view') || isOpen('connect-series-view'))) {
+  if (route.type !== 'image' && isOpen('single-view')) {
     singleView.close();
   }
   if (route.type !== 'vrp' && isOpen('vrp-view')) vrp.close();
 
   if (route.type === 'image') {
     await singleView.open(route.id);
-  } else if (route.type === 'connect') {
-    await singleView.openSeriesFromRoute(route.ids[0], route.ids[1]);
-  } else if (route.type === 'series') {
-    await singleView.openSavedSeries(route.id);
   } else if (route.type === 'vrp') {
     if (!isOpen('vrp-view')) vrp.open();
     else document.title = 'push v.r.p. — v.r.p.';
@@ -479,8 +397,6 @@ window.addEventListener('resize', () => {
     gallery.relayout();
     [...Object.values(menuEls), clockEl, vrpEl].forEach((el) => clampToViewport(el));
 
-    // reposition() prüft selbst, welche seiner drei Ansichten (Einzelansicht,
-    // connect-Auswahl, connect-Bestätigung) gerade offen ist.
     singleView.reposition();
     if (isOpen('upload-overlay')) upload.reposition();
     if (isOpen('vrp-view')) vrp.reposition();

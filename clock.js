@@ -34,17 +34,30 @@ export function mountClock() {
  * Textelemente verhält und nichts dauerhaft verdeckt. margin gilt sowohl für
  * die Platzierung selbst als auch für das anschließende clampToViewport --
  * ohne diesen Gleichlauf konnte die Uhr nach dem Zurückziehen ins Sichtfeld
- * wieder deutlich näher an den Rand rutschen, als der Aufrufer (z.B. die
- * Reihen-Ansicht mit ihrem großzügigeren margin: 90) eigentlich vorsah.
+ * wieder deutlich näher an den Rand rutschen, als der Aufrufer eigentlich
+ * vorsah.
+ *
+ * clampFromRect() und clampToViewport() mehrfach im Wechsel statt nur
+ * einmal: bei einer breiten Sperrzone (z.B. Bild + darunter zentrierte
+ * Consent-Liste, siehe upload.js) konnte ein einzelner Durchlauf sich
+ * gegenseitig aufheben -- clampFromRect schiebt Richtung Bildschirmrand
+ * hinaus, clampToViewport zieht von dort wieder zurück in die Sperrzone
+ * hinein, ohne dass beide je zu einer gemeinsam gültigen Position
+ * konvergieren. Mehrere Durchläufe lassen die Uhr stattdessen schrittweise
+ * dorthin wandern (bestes Bemühen, keine harte Garantie bei extrem engen
+ * Bildschirmen -- wie clampFromRect es generell ist).
  */
 export function repositionClock(taken = [], avoidRect = null, avoidRects = null, margin = 60) {
   const el = document.getElementById('global-clock');
   if (!el) return;
-  const spot = randomSpot(taken, { margin, avoidRect, avoidRects });
+  const rects = avoidRects || (avoidRect ? [avoidRect] : []);
+  const spot = randomSpot(taken, { margin, avoidRects: rects });
   el.style.left = spot.x + 'px';
   el.style.top = spot.y + 'px';
-  clampFromRect(el, avoidRect);
-  clampToViewport(el, margin);
+  for (let pass = 0; pass < 4; pass++) {
+    rects.forEach((r) => clampFromRect(el, r));
+    clampToViewport(el, margin);
+  }
   return spot;
 }
 

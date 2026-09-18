@@ -5,8 +5,8 @@
  * Schiebt ein bereits positioniertes Element zurück ins Sichtfeld,
  * falls es über einen Bildschirmrand hinausragt. pad-Default 32 (statt
  * vorher 20) -- die initiale Platzierung per randomSpot() nutzt überall im
- * Code 60-90px margin, ein deutlich kleinerer Clamp-Pad ließ lange
- * Textelemente (z.B. "create gallery") nach dem Zurückziehen ins Sichtfeld
+ * Code 60-90px margin, ein deutlich kleinerer Clamp-Pad ließ längere
+ * Textelemente (z.B. "push") nach dem Zurückziehen ins Sichtfeld
  * wieder viel näher an den Rand rutschen als beabsichtigt, besonders auf
  * schmalen Bildschirmen.
  */
@@ -86,6 +86,39 @@ export function clampFromRect(el, rect, pad = 40) {
   el.style.top = currentTop + dy + 'px';
 }
 
+/**
+ * Wie clampFromRect, aber gegen mehrere Sperrzonen gleichzeitig, über
+ * mehrere Durchläufe hinweg (Standard 4) -- eine einzelne Runde kann sich
+ * bei zwei sich überlappenden Sperrzonen selbst wieder aus dem Sichtfeld
+ * oder in die jeweils andere Zone schieben; mehrere Durchläufe plus ein
+ * abschließendes clampToViewport lassen das Element konvergieren, analog
+ * zum bestehenden Muster in repositionClock/repositionWords.
+ */
+export function clampFromRects(el, rects, { passes = 4, pad = 40, viewportPad = 32 } = {}) {
+  const list = (rects || []).filter(Boolean);
+  for (let i = 0; i < passes; i++) {
+    list.forEach((r) => clampFromRect(el, r, pad));
+    clampToViewport(el, viewportPad);
+  }
+}
+
+/**
+ * Erweitert ein Bild-Rechteck zu einer virtuellen "Spalte" mit derselben
+ * x-Spanne, aber über die GESAMTE Fensterhöhe (statt nur über die
+ * Bildhöhe) -- jede y-Koordinate innerhalb dieser x-Spanne gilt damit als
+ * gesperrt, nicht nur die y-Koordinaten, die das Bild tatsächlich einnimmt.
+ * Genutzt von single-view.js/upload.js, damit frei schwebende Textelemente
+ * (z, r, push, ...) nie über oder unter Inhalten landen, die absolut zum
+ * Bild positioniert sind (z.B. Views/Pushed-Zeile, Consent-Liste) --
+ * clampFromRect() wählt bei der Korrektur immer die kürzeste
+ * Ausweichrichtung, bei einer randlos hohen Sperrzone ist das automatisch
+ * immer links oder rechts, nie hoch/runter.
+ */
+export function imageColumnRect(rect) {
+  if (!rect) return null;
+  return { left: rect.left, right: rect.right, top: 0, bottom: window.innerHeight };
+}
+
 export function pointInRect(x, y, rect, pad = 32) {
   if (!rect) return false;
   return (
@@ -98,13 +131,14 @@ export function pointInRect(x, y, rect, pad = 32) {
 
 /**
  * Sucht eine zufällige Position, die genug Abstand zu bereits platzierten
- * Punkten hält UND nie im Bildbereich (avoidRect) landet. yRange schränkt
- * optional die Höhe ein, z. B. damit "push"/"comment" nie in einer
- * entlegenen Ecke landet.
+ * Punkten hält UND nie in einer Sperrzone (avoidRect und/oder avoidRects)
+ * landet. yRange schränkt optional die Höhe ein, z. B. damit
+ * "push"/"comment" nie in einer entlegenen Ecke landet.
  */
 export function randomSpot(existing, {
   margin = 80, minDist = 110, yRange = null, avoidRect = null, avoidRects = null,
 } = {}) {
+  const rects = avoidRects || (avoidRect ? [avoidRect] : []);
   for (let attempt = 0; attempt < 60; attempt++) {
     const x = margin + Math.random() * (window.innerWidth - margin * 2);
     let y;
@@ -115,11 +149,7 @@ export function randomSpot(existing, {
     } else {
       y = margin + Math.random() * (window.innerHeight - margin * 2);
     }
-    if (pointInRect(x, y, avoidRect)) continue;
-    // avoidRects: mehrere Sperrzonen statt nur einer (z.B. alle Bilder der
-    // Reihen-Ansicht, siehe positionSeriesWords in single-view.js) -- ein
-    // Treffer in IRGENDEINER davon verwirft den Versuch.
-    if (avoidRects && avoidRects.some((rect) => pointInRect(x, y, rect))) continue;
+    if (rects.some((r) => pointInRect(x, y, r))) continue;
     const farEnough = existing.every((p) => Math.hypot(p.x - x, p.y - y) > minDist);
     if (farEnough) return { x, y };
   }
@@ -128,12 +158,12 @@ export function randomSpot(existing, {
   // Punkt zurückzugeben (das ließe mehrere so gescheiterte Wörter exakt
   // übereinander landen), ein festes Raster von Kandidatenpunkten (4x4,
   // inklusive der vier Ecken) der Reihe nach versuchen. Ignoriert dabei
-  // bewusst avoidRect/avoidRects (in dieser Notlage ist "irgendwo, aber
-  // nicht auf einem anderen Wort" wichtiger) -- bleibt aber weiterhin von
-  // existing (bereits platzierten Wörtern) fern, wenn möglich. Ein Raster
-  // statt nur vier Ecken, weil auf einem schmalen Bildschirm schon ein
-  // einzelnes, ungünstig platziertes Wort (großer minDist relativ zur
-  // Bildschirmgröße) alle vier Ecken gleichzeitig blockieren kann.
+  // bewusst avoidRect (in dieser Notlage ist "irgendwo, aber nicht auf
+  // einem anderen Wort" wichtiger) -- bleibt aber weiterhin von existing
+  // (bereits platzierten Wörtern) fern, wenn möglich. Ein Raster statt nur
+  // vier Ecken, weil auf einem schmalen Bildschirm schon ein einzelnes,
+  // ungünstig platziertes Wort (großer minDist relativ zur Bildschirmgröße)
+  // alle vier Ecken gleichzeitig blockieren kann.
   const GRID_STEPS = 4;
   for (let gy = 0; gy < GRID_STEPS; gy++) {
     for (let gx = 0; gx < GRID_STEPS; gx++) {

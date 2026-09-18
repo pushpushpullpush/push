@@ -26,18 +26,6 @@ html, body {
   transition: left 0.3s ease, top 0.3s ease;
 }
 
-/* Zähler unter einem gespeicherten Reihen-Eintrag (siehe gallery.js,
-   img.isSeries) -- außerhalb der Bildfläche, rechtsbündig zur Bildbreite
-   (nicht zentriert). Position/Breite werden von gallery.js gesetzt. */
-.series-counter {
-  position: absolute;
-  color: #ffffff;
-  font-size: 16px;
-  text-align: right;
-  user-select: none;
-  transition: left 0.3s ease, top 0.3s ease;
-}
-
 #menu-layer {
   position: fixed;
   inset: 0;
@@ -79,6 +67,29 @@ html, body {
 .clock {
   font-size: 16px;
   cursor: default;
+}
+
+/* Gemeinsamer Basis-Stil für Bild-bezogene Textzeilen -- gleiche
+   Schriftgröße wie die Uhr (.clock). Default position:absolute: die
+   Consent-Liste im Upload-Fenster (upload.js) soll wie das Vorschaubild
+   selbst Teil des normalen Scroll-Flusses sein, nicht ortsfest im Viewport
+   (siehe Kommentar bei #single-image). */
+.image-info {
+  position: absolute;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* views/pushed in der Einzelansicht (single-view.js) sind dagegen frei
+   schwebende Textelemente wie z/r -- position:fixed statt absolute, damit
+   sie sich beim Scrollen genauso verhalten wie die anderen Textelemente
+   dort, statt mit dem Bild mitzuwandern. */
+#single-info-views,
+#single-info-pushed {
+  position: fixed;
 }
 
 .overlay {
@@ -133,8 +144,7 @@ html, body {
 /* position: absolute statt fixed — relativ zu #single-view (dessen eigene
    position: fixed via .overlay den Positionierungskontext liefert). Das Bild
    wird dadurch Teil des normalen Scroll-Flusses und wandert beim Scrollen
-   mit, statt oben stehen zu bleiben (siehe single-view.js -- der Abstand zur
-   Connections-Galerie darunter bleibt über deren marginTop erhalten). */
+   mit, statt oben stehen zu bleiben. */
 #single-image {
   position: absolute;
   top: 100px;
@@ -150,87 +160,46 @@ html, body {
   right: 28px;
 }
 
-#single-view {
+#single-view,
+#upload-overlay {
   overflow-y: auto;
 }
 
-.connections-stage {
-  position: relative;
-  width: 100%;
+/* Consent-Zeilen unter der Vorschau (upload.js) -- gleicher Stil wie
+   .image-info (Views/Pushed in der Einzelansicht). Die drei abschaltbaren
+   Aussagen bekommen zusätzlich .consent-toggle für den Zeiger-Cursor; die
+   vierte (nicht abschaltbare) bleibt bei .image-info's cursor:default. */
+.consent-toggle {
+  cursor: pointer;
 }
 
-#connect-series-view {
-  overflow-y: auto;
+/* Hinweiszeile über den Consent-Aussagen (upload.js) -- gleicher Stil wie
+   .image-info, nur kursiv und gelb (zur besseren Abgrenzung von den
+   Consent-Aussagen selbst). */
+.consent-hint {
+  font-style: italic;
+  color: #ffd400;
 }
 
-#connect-series-stage {
-  position: relative;
-  width: 100%;
+/* Countdown ("circulate" ausgeschaltet, siehe upload.js/single-view.js) --
+   gleicher Fontstil wie "push" auf main (.menu-word), aber position:absolute
+   statt fixed: soll wie das Bild selbst mitscrollen, nicht ortsfest im
+   Viewport stehen bleiben (siehe Kommentar bei #single-image). */
+.countdown-timer {
+  position: absolute;
+  color: #ffffff;
+  font-size: 28px;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
 }
 
-/* Auswahl-Galerie für die allererste Verbindung (single-view.js,
-   openConnectSelect/loadConnectPicker) -- fest auf die rechte Bildschirm-
-   hälfte begrenzt und unabhängig von #connect-series-stage scrollbar, damit
-   das Ausgangsbild links (in seiner künftigen Diptychon-Position, siehe
-   computeConnectPreviewLayout) davon unberührt bleibt. Bildgröße wie auf
-   main -- renderImageCluster() liest dafür schlicht clientWidth aus, kein
-   eigener Größen-Parameter nötig.
-
-   Zweistufig (äußerer Rahmen + #connect-series-picker-inner): renderImageCluster()
-   setzt min-height direkt auf das ihm übergebene Element, um es wachsen zu
-   lassen -- bei einem position:fixed-Element mit eigener Höhe würde das
-   das Element selbst über den Viewport hinaus wachsen lassen (fixed-Elemente
-   werden nie Teil des Dokumentflusses/-scrolls), statt intern zu scrollen.
-   Der äußere Rahmen behält daher eine feste height:100%, nur das innere,
-   normal fließende Element wächst und erzeugt so echten Overflow, den
-   overflow-y:auto am äußeren Rahmen abfangen kann.
-
-   display:none im Ruhezustand (siehe index.html) -- ein leerer, aber
-   weiterhin vorhandener Rahmen würde sonst (unsichtbar) über der rechten
-   Bildschirmhälfte liegen bleiben und dort Klicks auf das rechte
-   Diptychon-Bild abfangen, sobald ein Kandidat gewählt ist (siehe
-   updatePickerVisibility in single-view.js). */
-#connect-series-picker {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 50%;
-  height: 100%;
-  overflow-y: auto;
-  z-index: 500;
-}
-
-#connect-series-picker-inner {
-  position: relative;
-  width: 100%;
-}
-
-/* Smartphone-Ansicht (siehe CONNECT_PREVIEW_MOBILE_BREAKPOINT in
-   layout-engine.js, muss mit dieser Grenze übereinstimmen): das
-   Ausgangsbild steht dort oben (volle Breite statt linker Spalte, siehe
-   computeConnectPreviewLayout), die Auswahl-Galerie darunter über die
-   volle Breite statt in der rechten Spalte. "top" wird von single-view.js
-   dynamisch gesetzt (updatePickerTopOffset) -- unmittelbar unterhalb des
-   Ausgangsbildes, wie eine unsichtbare Linie, unter die beim Scrollen der
-   Galerie nichts hineinragt (overflow-y:auto oben schneidet dort ab). */
-@media (max-width: 767px) {
-  #connect-series-picker {
-    left: 0;
-    right: 0;
-    width: 100%;
-    height: auto;
-    bottom: 0;
-  }
-}
-
-/* Bestehende Verbindungen des zuletzt bestätigten Bildes, unterhalb der
-   gesamten Reihe -- gleiche organische Anordnung/Größe wie die verbundenen
-   Bilder unter der normalen Einzelansicht (siehe renderImageCluster in
-   single-view.js, wiederverwendet .connections-stage-Muster). */
-#connect-series-candidates {
-  position: relative;
-  width: 100%;
-  margin-top: 120px;
+/* Countdown-Anzeigen (Upload-Vorschau und Einzelansicht) sind gelb --
+   #upload-copyright teilt sich .countdown-timer mit ihnen, bleibt aber
+   weiß (kein Countdown, siehe upload.js). */
+#upload-countdown,
+#single-countdown {
+  color: #ffd400;
 }
 
 /* "*"-Modus: nur Bilder sichtbar. Gilt gezielt für die Bild-Ansichten —
@@ -238,8 +207,9 @@ html, body {
 body.hide-text #menu-layer .menu-word,
 body.hide-text #single-view .menu-word,
 body.hide-text #upload-overlay .menu-word,
-body.hide-text #connect-series-view .menu-word,
-body.hide-text .series-counter {
+body.hide-text #single-view .image-info,
+body.hide-text #upload-overlay .image-info,
+body.hide-text .countdown-timer {
   display: none !important;
 }
 

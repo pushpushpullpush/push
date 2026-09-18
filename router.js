@@ -3,11 +3,8 @@
 // Dieses Modul kennt keine Views, es kennt nur URLs/Titel und den
 // History-Zustand; main.js verbindet es mit den einzelnen open()/close().
 //
-// Adressierte Ansichten: /image/:id, /connect/:idA,:idB (nur die
-// permanente Basis-Verbindung zwischen genau zwei Bildern), /series/:id
-// (eine gespeicherte, schreibgeschützte Reihe), /vrp — alles andere (inkl.
-// Upload, das freie Bauen einer noch nicht gespeicherten Reihe über die
-// Basis-Verbindung hinaus) bleibt reiner Interaktionszustand ohne eigene URL.
+// Adressierte Ansichten: /image/:id, /vrp — alles andere (z.B. Upload)
+// bleibt reiner Interaktionszustand ohne eigene URL.
 
 // Manche Hosts (z.B. GitHub-Pages-Projektseiten: username.github.io/repo/)
 // servieren die Seite unter einem Unterordner statt der Domain-Wurzel. Ein
@@ -60,28 +57,6 @@ export function markOpenedFromDirectLoad() {
 
 export function imagePath(id) {
   return `${BASE_PATH}/image/${encodeURIComponent(id)}`;
-}
-
-/**
- * Pfad für die permanente Basis-Verbindung zwischen genau zwei Bildern
- * (single-view.js) -- sortiert wie sortedPair() in connections-repo.js,
- * damit A-B und B-A dieselbe Route ergeben. Komma statt Bindestrich als
- * Trenner -- Bild-IDs sind UUIDs und enthalten selbst Bindestriche, ein
- * Split an "-" wäre nicht eindeutig umkehrbar. Das Bauen einer Reihe über
- * diese zwei Bilder hinaus (Pool, Entfernen einzelner Bilder) ist reiner
- * Client-/Sitzungszustand ohne eigene Route -- erst das Speichern einer
- * Reihe bekommt wieder eine permanente Route, siehe seriesPath() unten.
- */
-export function connectPath(idA, idB) {
-  const [a, b] = idA < idB ? [idA, idB] : [idB, idA];
-  return `${BASE_PATH}/connect/${encodeURIComponent(a)},${encodeURIComponent(b)}`;
-}
-
-/**
- * Pfad für eine gespeicherte, schreibgeschützte Reihe (single-view.js).
- */
-export function seriesPath(id) {
-  return `${BASE_PATH}/series/${encodeURIComponent(id)}`;
 }
 
 /**
@@ -139,18 +114,6 @@ export function parseRoute(pathname) {
 
   const imageMatch = relative.match(/^\/image\/([^/]+)\/?$/);
   if (imageMatch) return { type: 'image', id: decodeURIComponent(imageMatch[1]) };
-
-  // Strikt genau zwei IDs -- die Basis-Verbindung ist ein reines
-  // Zweier-Schema, es gibt keine eigene Route für eine längere, noch nicht
-  // gespeicherte Reihe (siehe connectPath()).
-  const connectMatch = relative.match(/^\/connect\/([^/]+)\/?$/);
-  if (connectMatch) {
-    const ids = connectMatch[1].split(',').map(decodeURIComponent).filter(Boolean);
-    if (ids.length === 2) return { type: 'connect', ids };
-  }
-
-  const seriesMatch = relative.match(/^\/series\/([^/]+)\/?$/);
-  if (seriesMatch) return { type: 'series', id: decodeURIComponent(seriesMatch[1]) };
 
   if (relative === '/vrp' || relative === '/vrp/') return { type: 'vrp' };
 

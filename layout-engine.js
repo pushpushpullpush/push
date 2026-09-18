@@ -15,27 +15,53 @@ export const EDGE_MARGIN = 24;
 // containerWidth bekannt ist (ein fixes Element betrifft nur den sichtbaren
 // Anfang der Galerie). Aufrufer können über den reserved-Parameter (siehe
 // createHeightmap/placeImage/computeChronologicalLayout/computeFullLayout)
-// eine eigene Größe übergeben, z.B. für die connect-Auswahlgalerie in
-// single-view.js, die zusätzlich zum "connect"-Wort noch Vorschaubilder
-// oben links zeigt und daher mehr Höhe braucht als die normale Konsole.
+// eine eigene Größe übergeben.
 const CONSOLE_RESERVED_WIDTH = 480;
 const CONSOLE_RESERVED_HEIGHT = 90;
 const DEFAULT_RESERVED = { width: CONSOLE_RESERVED_WIDTH, height: CONSOLE_RESERVED_HEIGHT };
 
-function pickDelta(height) {
-  const r = Math.random();
-  if (r < 0.55) return -height * (0.05 + Math.random() * 0.15); // leichte Überlappung
-  if (r < 0.85) return Math.random() * 10; // fast berührend
-  return 8 + Math.random() * 36; // echte Lücke
+function pickDelta(height, rng) {
+  const r = rng();
+  if (r < 0.55) return -height * (0.05 + rng() * 0.15); // leichte Überlappung
+  if (r < 0.85) return rng() * 10; // fast berührend
+  return 8 + rng() * 36; // echte Lücke
+}
+
+// FNV-1a: leichtgewichtiger String-Hash, liefert einen 32-Bit-Seed für
+// mulberry32() unten. Nur zur Erzeugung eines deterministischen Seeds
+// gedacht, keine kryptografischen Ansprüche.
+function hashSeed(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+// mulberry32: kleiner, seedbarer Pseudozufallsgenerator -- liefert bei
+// gleichem Seed IMMER dieselbe Zahlenfolge. Genutzt von
+// computeChronologicalLayout (siehe dort), damit [a] jedes Mal exakt
+// dieselbe Anordnung zeigt, statt bei jedem Klick neu zu würfeln -- sonst
+// wirkt die chronologische Ordnung selbst wie ein weiterer Zufalls-Shuffle
+// und ist für Betrachtende nicht als Ordnung erkennbar. computeFullLayout
+// ([s], echtes Mischen) bleibt bewusst bei echtem Math.random.
+function mulberry32(seed) {
+  let a = seed;
+  return function rng() {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 // Anzahl der Spalten, die die reservierte Zone abdeckt — dieselbe Formel
 // wird beim Vorbelegen der Heightmap UND bei jeder einzelnen Platzierung
 // benutzt, damit beide exakt dieselben Spalten meinen. reserved.fullWidth:
 // reserviert ALLE Spalten (nicht auf ~60% gedeckelt) für reserved.height --
-// für eine Konsole, die die komplette Zeilenbreite freihalten soll (siehe
-// connect-Auswahlgalerie in single-view.js). reserved.width ist in diesem
-// Fall bedeutungslos und wird ignoriert.
+// für eine Konsole, die die komplette Zeilenbreite freihalten soll.
+// reserved.width ist in diesem Fall bedeutungslos und wird ignoriert.
 function reservedColumnCount(colWidth, reserved) {
   if (!colWidth) return 0;
   if (reserved.fullWidth) return RESOLUTION;
@@ -60,12 +86,15 @@ export function createHeightmap(containerWidth, reserved = DEFAULT_RESERVED) {
  * Platziert genau EIN Bild gegen eine bestehende Heightmap,
  * ohne andere bereits platzierte Bilder anzufassen.
  * Wird sowohl beim vollen Neumischen als auch bei einem einzelnen Push benutzt.
+ * rng: Zufallsquelle, Default echtes Math.random -- computeChronologicalLayout
+ * übergibt stattdessen einen pro Bild geseedeten mulberry32() (siehe dort),
+ * damit dieselbe Platzierung bei jedem Aufruf reproduzierbar herauskommt.
  */
-export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RESERVED) {
+export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RESERVED, rng = Math.random) {
   const usableWidth = Math.max(0, containerWidth - 2 * EDGE_MARGIN);
   const colWidth = usableWidth / RESOLUTION;
   const span = Math.min(RESOLUTION - 1, Math.max(1, Math.ceil(img.width / colWidth)));
-  const startCol = Math.floor(Math.random() * (RESOLUTION - span));
+  const startCol = Math.floor(rng() * (RESOLUTION - span));
 
   let base = 0;
   for (let c = startCol; c < startCol + span; c++) base = Math.max(base, heightmap[c]);
@@ -74,20 +103,15 @@ export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RE
   // Überlappung (pickDelta, oft stark negativ) davor haltmachen — sonst
   // zieht sie das Bild trotz reservierter Fläche wieder nach oben.
   const floor = startCol < reservedColumnCount(colWidth, reserved) ? reserved.height : EDGE_MARGIN;
-  const top = Math.max(base + pickDelta(img.height), floor);
+  const top = Math.max(base + pickDelta(img.height, rng), floor);
   const left = EDGE_MARGIN + startCol * colWidth;
-  // extraBottom: zusätzlicher, exklusiver Platz UNTER dem Bild (z.B. für den
-  // Zähler eines gespeicherten Reihen-Eintrags, siehe gallery.js) -- fließt
-  // in die Heightmap ein, damit nachfolgende Bilder nicht hineinragen,
-  // gehört aber NICHT zur pickDelta-Überlappungslogik des Bildes selbst
-  // (der reservierte Bereich soll nie überlappt werden, anders als das Bild).
-  const bottom = top + img.height + (img.extraBottom || 0);
+  const bottom = top + img.height;
 
   for (let c = startCol; c < startCol + span; c++) {
     heightmap[c] = Math.max(heightmap[c], bottom);
   }
 
-  return { left, top, z: Math.floor(Math.random() * 100) };
+  return { left, top, z: Math.floor(rng() * 100) };
 }
 
 /**
@@ -97,15 +121,23 @@ export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RE
  * wird in der übergebenen Reihenfolge (neueste zuerst) verarbeitet. Die
  * Bilder landen dadurch nicht stur exakt nacheinander, aber der höchste
  * Punkt jedes Bildes trendet mit seiner Position in der Liste — neuere
- * Bilder landen im Schnitt weiter oben, ohne dass die Anordnung starr
- * oder klar nachvollziehbar wirkt.
+ * Bilder landen im Schnitt weiter oben, ohne dass die Anordnung starr wirkt.
+ *
+ * Pro Bild wird ein eigener, aus seiner id geseedeter Zufallsgenerator
+ * verwendet (statt eines einzigen, fortlaufenden Math.random()) -- dieselbe
+ * Bild-Menge bei derselben Fensterbreite ergibt dadurch bei jedem Aufruf
+ * exakt dieselbe Anordnung (siehe mulberry32/hashSeed oben). Ohne das würde
+ * jeder erneute Klick auf [a] eine leicht andere, neu gewürfelte Anordnung
+ * zeigen -- die chronologische Ordnung wäre dadurch von einem Shuffle nicht
+ * unterscheidbar.
  */
 export function computeChronologicalLayout(images, containerWidth, reserved = DEFAULT_RESERVED) {
   const heightmap = createHeightmap(containerWidth, reserved);
   const positions = new Map();
 
   images.forEach((img) => {
-    positions.set(img.id, placeImage(img, heightmap, containerWidth, reserved));
+    const rng = mulberry32(hashSeed(String(img.id)));
+    positions.set(img.id, placeImage(img, heightmap, containerWidth, reserved, rng));
   });
 
   return { positions, heightmap };
@@ -132,239 +164,3 @@ export function computeFullLayout(images, containerWidth, reserved = DEFAULT_RES
   return { positions, totalHeight, heightmap };
 }
 
-// Statisches 2-Spalten-Layout für die Vorschau vor der allerersten
-// Bestätigung einer Verbindung (pendingCandidate in single-view.js: das
-// Ausgangsbild + der gewählte Kandidat, VOR dem Klick auf "connect") --
-// bewusst eigenständig und unverändert seit vor Einführung der Reihen-Logik,
-// nicht die organische, freie Streuung von computeSeriesLayout (die für das
-// tatsächliche Diptychon/die wachsende Reihe danach gedacht ist). Der
-// ruhige, feste Charakter passt besser zu diesem kurzen
-// Bestätigungsmoment vor dem eigentlichen Connect. Jedes Bild füllt seine
-// halbe Spalte möglichst groß aus (bis maxImageHeight), fest zentriert --
-// keine Zufallskomponente.
-const CONNECT_PREVIEW_ROW_GAP = 32;
-const CONNECT_PREVIEW_COL_PADDING = 20;
-
-// Unter dieser Containerbreite gilt die Smartphone-Ansicht: Bilder
-// übereinander (jedes fast volle Breite) statt nebeneinander in zwei
-// Spalten -- dieselbe Grenze wird in style.css für #connect-series-picker
-// verwendet (dort als Media-Query, siehe Kommentar dort) und muss mit ihr
-// übereinstimmen, sonst laufen Bildgrößen-Berechnung und Picker-Platzierung
-// auseinander.
-export const CONNECT_PREVIEW_MOBILE_BREAKPOINT = 768;
-
-export function computeConnectPreviewLayout(images, containerWidth, maxImageHeight = 500) {
-  const positions = new Map();
-
-  // Smartphone: alle Bilder übereinander, jedes (fast) volle Breite --
-  // dieselbe Anordnung gilt für die Vorschau vor der allerersten
-  // Bestätigung UND für das spätere Diptychon (computeConnectPreviewLayout
-  // wird für beide Zustände aufgerufen, siehe renderSeriesStage in
-  // single-view.js), da hier einfach jedes Element im images-Array der
-  // Reihe nach verarbeitet wird, unabhängig von dessen Länge.
-  if (containerWidth < CONNECT_PREVIEW_MOBILE_BREAKPOINT) {
-    const innerWidth = Math.max(0, containerWidth - CONNECT_PREVIEW_COL_PADDING * 2);
-    let yMobile = EDGE_MARGIN;
-
-    images.forEach((img) => {
-      const ratio = img.width / img.height;
-      let width = innerWidth;
-      let height = width / ratio;
-      if (height > maxImageHeight) {
-        height = maxImageHeight;
-        width = height * ratio;
-      }
-      positions.set(img.id, {
-        left: (containerWidth - width) / 2,
-        top: yMobile,
-        width,
-        height,
-      });
-      yMobile += height + CONNECT_PREVIEW_ROW_GAP;
-    });
-
-    const totalHeightMobile = images.length ? yMobile - CONNECT_PREVIEW_ROW_GAP + EDGE_MARGIN : EDGE_MARGIN;
-    return { positions, totalHeight: totalHeightMobile };
-  }
-
-  const colWidth = containerWidth / 2;
-  const colInnerWidth = Math.max(0, colWidth - CONNECT_PREVIEW_COL_PADDING * 2);
-  let y = EDGE_MARGIN;
-
-  function sizeFor(img) {
-    const ratio = img.width / img.height;
-    let width = colInnerWidth;
-    let height = width / ratio;
-    if (height > maxImageHeight) {
-      height = maxImageHeight;
-      width = height * ratio;
-    }
-    return { width, height };
-  }
-
-  for (let i = 0; i < images.length; i += 2) {
-    const left = images[i];
-    const right = images[i + 1] || null;
-    const leftSize = sizeFor(left);
-    const rightSize = right ? sizeFor(right) : null;
-    const rowHeight = Math.max(leftSize.height, rightSize ? rightSize.height : 0);
-
-    positions.set(left.id, {
-      left: (colWidth - leftSize.width) / 2,
-      top: y + (rowHeight - leftSize.height) / 2,
-      width: leftSize.width,
-      height: leftSize.height,
-    });
-    if (right) {
-      positions.set(right.id, {
-        left: colWidth + (colWidth - rightSize.width) / 2,
-        top: y + (rowHeight - rightSize.height) / 2,
-        width: rightSize.width,
-        height: rightSize.height,
-      });
-    }
-
-    y += rowHeight + CONNECT_PREVIEW_ROW_GAP;
-  }
-
-  const totalHeight = images.length ? y - CONNECT_PREVIEW_ROW_GAP + EDGE_MARGIN : EDGE_MARGIN;
-  return { positions, totalHeight };
-}
-
-// Rand der Reihen-Ansicht zum Bildschirmrand -- eigene, großzügigere Werte
-// als das allgemeine EDGE_MARGIN (das für das dichte Hauptgalerie-Streu-
-// Muster gedacht ist und dort unangetastet bleibt): mehr sichtbare rote
-// Fläche oben sowie links/rechts am Rand.
-const SERIES_EDGE_MARGIN_TOP = 90;
-const SERIES_EDGE_MARGIN_SIDE = 90;
-
-// Eigenes, feineres Spalten-Raster für die Streuung der Reihen-Ansicht --
-// unabhängig von RESOLUTION oben, damit beide Systeme (Hauptgalerie/Reihe)
-// vollständig entkoppelt bleiben, auch wenn der Wert zufällig gleich ist.
-const SERIES_RESOLUTION = 46;
-
-// Garantierter Mindestabstand -- sowohl horizontal (in die Spalten-
-// Reservierung eines Bildes eingerechnet, siehe computeSeriesLayout) als
-// auch vertikal (in dessen Heightmap-Eintrag eingerechnet). SERIES_GAP_JITTER
-// legt oben drauf einen zusätzlichen, rein organischen Zufalls-Anteil fest --
-// nie negativ, damit sich Bilder anders als in der Hauptgalerie (deren
-// pickDelta bewusst auch überlappt) nie überlappen.
-const SERIES_GAP = 24;
-const SERIES_GAP_JITTER = 40;
-
-// Referenz-Seitenlänge (für ein quadratisches Bild) als Anteil der
-// Fensterbreite -- bestimmt die gemeinsame Ziel-Bildfläche, siehe sizeFor.
-// Nur noch der Default, falls der Aufrufer keinen eigenen targetSide-Wert
-// übergibt (siehe computeSeriesLayout) -- single-view.js übergibt inzwischen
-// immer einen festen Wert (seriesTargetSide() dort, die frühere "+"/"-"-
-// Zoomfunktion wurde wieder entfernt), dieser Default greift daher nur noch
-// als Sicherheitsnetz für andere/künftige Aufrufer.
-const SERIES_TARGET_WIDTH_FRACTION = 0.3;
-
-/**
- * Freie, aber garantiert überlappungsfreie Anordnung für die connect-Reihen-
- * Ansicht (single-view.js) -- dieselbe Heightmap-/Spalten-Platzierung wie
- * die Hauptgalerie (siehe createHeightmap/placeImage oben), aber mit einem
- * rein positiven Abstands-Zufall statt deren pickDelta: kein Bild überlappt
- * je ein anderes, dafür wirkt die Anordnung deutlich freier als ein starres
- * Zeilen-Raster. Eigene Heightmap/Ränder (SERIES_RESOLUTION/
- * SERIES_EDGE_MARGIN_*) statt der oben exportierten -- vollständig entkoppelt
- * von der Hauptgalerie, deren organische Streu-Ästhetik unangetastet bleibt.
- *
- * Alle Bilder bekommen dieselbe BILDFLÄCHE (unabhängig vom Seitenverhältnis)
- * -- wichtiger als eine zur normalen Einzelansicht passende Höhe (ein Bild
- * ist dadurch in Diptychon/Reihe nicht mehr zwingend gleich groß wie dort).
- * maxImageHeight (vom Aufrufer übergeben, z.B. ein Anteil von
- * window.innerHeight) bleibt als Sicherheitsnetz erhalten: ein einzelnes
- * extrem lang gezogenes Bild (image-config.js erlaubt bis zu 1:5) wird
- * notfalls unter seine Ziel-Fläche verkleinert, statt die Ansicht zu
- * sprengen -- das bleibt die Ausnahme, nicht die Regel. maxImageHeight wird
- * bewusst als Parameter erwartet statt hier window.innerHeight zu lesen --
- * dieser Layer bleibt dadurch frei von Fenster-/DOM-Zugriffen und isoliert
- * testbar (siehe Datei-Kommentar oben).
- *
- * Bilder werden der Reihe nach (Hinzufüge-Reihenfolge) gegen die Heightmap
- * platziert, bevorzugt an der Spalten-Position mit der aktuell niedrigsten
- * Heightmap (noch unbenutzter Platz) -- ein Bild landet dadurch, wenn die
- * Breite es zulässt, immer NEBEN bereits platzierten Bildern statt darunter
- * (z.B. das Diptychon aus genau zwei Bildern: nebeneinander, solange Platz
- * reicht, erst darunter, wenn nicht). Bei mehreren gleich guten Positionen
- * wird zufällig unter ihnen gewählt -- dieselbe schwache Tendenz "frühere
- * Bilder trenden weiter oben" wie bei computeChronologicalLayout, ohne die
- * Anordnung starr zu machen.
- *
- * targetSide (Referenz-Seitenlänge für ein quadratisches Bild, bestimmt die
- * gemeinsame Ziel-Bildfläche) wird vom Aufrufer übergeben -- single-view.js
- * übergibt dafür einen festen Wert (siehe seriesTargetSide() dort). Ohne
- * Angabe gilt SERIES_TARGET_WIDTH_FRACTION als Default.
- */
-export function computeSeriesLayout(images, containerWidth, maxImageHeight = 500, targetSide) {
-  const positions = new Map();
-  const usableWidth = Math.max(0, containerWidth - 2 * SERIES_EDGE_MARGIN_SIDE);
-  const colWidth = usableWidth / SERIES_RESOLUTION;
-
-  const resolvedTargetSide = targetSide != null ? targetSide : containerWidth * SERIES_TARGET_WIDTH_FRACTION;
-  const targetArea = resolvedTargetSide * resolvedTargetSide;
-
-  function sizeFor(img) {
-    const ratio = img.width / img.height;
-    let width = Math.sqrt(targetArea * ratio);
-    let height = Math.sqrt(targetArea / ratio);
-    if (height > maxImageHeight) {
-      const scale = maxImageHeight / height;
-      width *= scale; height *= scale;
-    }
-    if (width > usableWidth) {
-      const scale = usableWidth / width;
-      width *= scale; height *= scale;
-    }
-    return { width, height };
-  }
-
-  const heightmap = new Array(SERIES_RESOLUTION).fill(SERIES_EDGE_MARGIN_TOP);
-
-  images.forEach((img) => {
-    const { width, height } = sizeFor(img);
-
-    // Spalten-Reservierung etwas breiter als das Bild selbst -- der
-    // überschüssige Teil bleibt als garantierter horizontaler Abstand zum
-    // nächsten Bild frei, auch wenn dessen Spalten direkt anschließen.
-    const span = Math.min(SERIES_RESOLUTION - 1, Math.max(1, Math.ceil((width + SERIES_GAP) / colWidth)));
-    const maxStartCol = SERIES_RESOLUTION - span;
-
-    // Bevorzugt die Spalten mit der aktuell niedrigsten Heightmap (noch
-    // unbenutzter Platz) statt eine rein zufällige Position -- ein Bild
-    // landet dadurch, wenn möglich, immer NEBEN bereits platzierten Bildern
-    // statt darunter (z.B. das Diptychon aus genau zwei Bildern: das zweite
-    // bekommt so lange noch komplett freie Spalten neben dem ersten, wie die
-    // Breite reicht). Erst wenn kein Platz auf der aktuellen Höhe mehr frei
-    // ist, rutscht ein Bild zwangsläufig darunter. Bei mehreren gleich guten
-    // Positionen wird zufällig unter ihnen gewählt, damit die Anordnung
-    // organisch bleibt statt immer exakt gleich (z.B. immer ganz links).
-    let bestBase = Infinity;
-    let candidates = [];
-    for (let start = 0; start <= maxStartCol; start++) {
-      let candidateBase = SERIES_EDGE_MARGIN_TOP;
-      for (let c = start; c < start + span; c++) candidateBase = Math.max(candidateBase, heightmap[c]);
-      if (candidateBase < bestBase - 0.01) {
-        bestBase = candidateBase;
-        candidates = [start];
-      } else if (candidateBase <= bestBase + 0.01) {
-        candidates.push(start);
-      }
-    }
-    const startCol = candidates[Math.floor(Math.random() * candidates.length)];
-
-    const base = bestBase;
-    const top = base + Math.random() * SERIES_GAP_JITTER;
-    const left = SERIES_EDGE_MARGIN_SIDE + startCol * colWidth;
-    const bottom = top + height + SERIES_GAP;
-
-    for (let c = startCol; c < startCol + span; c++) heightmap[c] = Math.max(heightmap[c], bottom);
-
-    positions.set(img.id, { left, top, width, height });
-  });
-
-  const totalHeight = images.length ? Math.max(...heightmap) + EDGE_MARGIN : SERIES_EDGE_MARGIN_TOP;
-  return { positions, totalHeight };
-}

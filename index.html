@@ -54,6 +54,25 @@
     <img id="upload-preview" alt="preview" />
     <div class="menu-word" id="upload-esc">z</div>
     <div class="menu-word" id="upload-push">push</div>
+    <!-- Einwilligungen vor dem Veröffentlichen (siehe upload.js) -- die
+         ersten beiden sind abschaltbar (Klick), jede hat einen eigenen
+         Effekt auf das Bild; die dritte ist bewusst nicht anklickbar. Der
+         Hinweis steht als letzte Zeile.
+         "I agree this image can be appropriated..." (Wasserzeichen/©-Namen-
+         Eingabe) ist vorläufig entfernt -- die zugehörige Logik in upload.js
+         (drawWatermark/copyrightEl/EXIF-Statement) bleibt bestehen, bleibt
+         aber inaktiv, solange kein Klick-Element sie umschalten kann
+         (consents.publish bleibt dadurch dauerhaft true). -->
+    <div class="image-info consent-toggle" id="upload-consent-claim">I claim this image as mine to publish.</div>
+    <div class="image-info consent-toggle" id="upload-consent-circulate">I understand this image may circulate online indefinetly.</div>
+    <div class="image-info" id="upload-consent-responsibility">I take responsibility for the image I share.</div>
+    <div class="image-info consent-hint" id="upload-consent-hint">(click to de-/activate)</div>
+    <!-- Nur sichtbar, solange "circulate" ausgeschaltet ist. -->
+    <div class="countdown-timer" id="upload-countdown" style="display:none;"></div>
+    <!-- Nur sichtbar, solange "publish" ausgeschaltet ist (siehe oben --
+         aktuell dauerhaft aus, daher unsichtbar) -- anklickbar, wird dann
+         editierbar (siehe startEditingCopyright in upload.js). -->
+    <div class="countdown-timer" id="upload-copyright" style="display:none; cursor:pointer;">©</div>
   </div>
 
   <div id="vrp-view" class="overlay" style="overflow-y:auto;">
@@ -66,27 +85,16 @@
     <img id="single-image" alt="" />
     <div class="menu-word" id="single-esc">z</div>
     <div class="menu-word" id="single-r">r</div>
-    <div class="menu-word" id="single-connect">c</div>
-    <div class="menu-word" id="single-push">push</div>
-    <div id="single-connections-stage" class="connections-stage"></div>
-  </div>
-
-  <div id="connect-series-view" class="overlay">
-    <div id="connect-series-stage"></div>
-    <div id="connect-series-picker" style="display:none;">
-      <div id="connect-series-picker-inner"></div>
-    </div>
-    <div id="connect-series-candidates"></div>
-    <div class="menu-word" id="connect-series-esc">z</div>
-    <div class="menu-word" id="connect-series-confirm" style="display:none;">connect</div>
-    <div class="menu-word" id="connect-series-fix" style="display:none;">g</div>
-    <div class="menu-word" id="connect-series-s" style="display:none;">s</div>
-    <div class="menu-word" id="connect-series-a" style="display:none;">a</div>
-    <div class="menu-word" id="connect-series-r" style="display:none;">r</div>
-    <!-- Nur in der schreibgeschützten Group-Ansicht sichtbar (siehe
-         updateSeriesPushVisibility in single-view.js) -- während aktiver
-         Aktionen (Connect-Auswahl, Reihe bauen) bleibt "push" ausgeblendet. -->
-    <div class="menu-word" id="connect-series-push" style="display:none;">push</div>
+    <!-- Nur nach Klick auf das Bild sichtbar (siehe toggleImageInfo in
+         single-view.js) -- Anzahl Aufrufe und Push-Zeitpunkt dieses Bildes. -->
+    <div class="image-info" id="single-info-views" style="display:none;"></div>
+    <div class="image-info" id="single-info-pushed" style="display:none;"></div>
+    <div class="image-info" id="single-info-size" style="display:none;"></div>
+    <div class="image-info" id="single-info-resolution" style="display:none;"></div>
+    <!-- Nur sichtbar, wenn dieses Bild eine aktive Ablauffrist hat (siehe
+         upload.js, Consent "circulate" ausgeschaltet) -- anders als die
+         Zeilen oben immer angezeigt, kein Bild-Klick nötig. -->
+    <div class="countdown-timer" id="single-countdown" style="display:none;"></div>
   </div>
 
   <script type="module" src="js/main.js"></script>

@@ -1,35 +1,15 @@
 import { computeFullLayout, placeImage, createHeightmap, computeChronologicalLayout, EDGE_MARGIN } from './layout-engine.js';
 import { showMessage } from './notice-board.js';
 
-// Zähler unter einem gespeicherten Reihen-Eintrag (siehe series-repo.js,
-// img.isSeries) -- Höhe des Zähler-Textes plus Abstand zum Bild darüber.
-// Fließt als extraBottom in die Heightmap-Berechnung ein (layout-engine.js),
-// damit die Layout-Engine dafür exklusiv Platz freihält.
-const SERIES_COUNTER_HEIGHT = 20;
-const SERIES_COUNTER_GAP = 6;
-const SERIES_EXTRA_BOTTOM = SERIES_COUNTER_HEIGHT + SERIES_COUNTER_GAP;
-
 export function createGallery(stageEl, initialImages, {
-  onImageClick, onSeriesClick, onSortModeChange, initialSortMode = 'chronological', reservedArea,
+  onImageClick, onSortModeChange, initialSortMode = 'chronological', reservedArea,
 } = {}) {
   const els = new Map();
-  const counterEls = new Map(); // nur für Reihen-Einträge (img.isSeries) belegt
   const images = [...initialImages];
   let heightmap = createHeightmap(stageEl.clientWidth || 680, reservedArea);
 
   // 'chronological' (Startzustand, neueste oben) oder 'random' ([s]-Shuffle).
-  // initialSortMode: für Galerien, die von Anfang an im aktuellen Modus der
-  // Hauptgalerie starten sollen (siehe "connect"-Auswahl in single-view.js)
-  // -- setzt den Modus lautlos, ohne die shuffleRandom()-Meldung auszulösen.
   let sortMode = initialSortMode === 'random' ? 'random' : 'chronological';
-
-  // Reihen-Einträge laufen durch dieselbe Layout-Engine wie normale Bilder
-  // (organische Streu-Anordnung, gleiche Flächen-Normierung), brauchen aber
-  // zusätzlichen reservierten Platz unter dem Bild für den Zähler -- ein
-  // eigenes, um extraBottom ergänztes Objekt statt das Original zu mutieren.
-  function withLayoutHints(img) {
-    return img.isSeries ? { ...img, extraBottom: SERIES_EXTRA_BOTTOM } : img;
-  }
 
   function makeEl(img) {
     const el = document.createElement(img.url ? 'img' : 'div');
@@ -44,32 +24,13 @@ export function createGallery(stageEl, initialImages, {
     } else {
       el.style.background = img.color;
     }
-    // Reihen-Einträge öffnen die gespeicherte Reihe (onSeriesClick), nicht
-    // die normale Einzelansicht (onImageClick) -- als Bildinhalt zeigen sie
-    // das erste Bild der Reihe, sonst kein visueller Unterschied im
-    // Bildfeld selbst (siehe Zähler darunter).
-    const handler = img.isSeries
-      ? (onSeriesClick ? () => onSeriesClick(img) : null)
-      : (onImageClick ? () => onImageClick(img) : null);
+    const handler = onImageClick ? () => onImageClick(img) : null;
     if (handler) {
       el.style.cursor = 'pointer';
       el.addEventListener('click', handler);
     }
     stageEl.appendChild(el);
     els.set(img.id, el);
-
-    if (img.isSeries) {
-      const counter = document.createElement('div');
-      counter.className = 'series-counter';
-      counter.textContent = String(img.count);
-      counter.style.width = img.width + 'px';
-      if (handler) {
-        counter.style.cursor = 'pointer';
-        counter.addEventListener('click', handler);
-      }
-      stageEl.appendChild(counter);
-      counterEls.set(img.id, counter);
-    }
     return el;
   }
 
@@ -81,31 +42,16 @@ export function createGallery(stageEl, initialImages, {
   }
 
   function computeLayoutFor(imgList, width) {
-    const hinted = imgList.map(withLayoutHints);
     return sortMode === 'random'
-      ? computeFullLayout(hinted, width, reservedArea)
-      : computeChronologicalLayout(hinted, width, reservedArea);
+      ? computeFullLayout(imgList, width, reservedArea)
+      : computeChronologicalLayout(imgList, width, reservedArea);
   }
 
-  // Fester z-index über jedem möglichen Bild-z-index (placeImage in
-  // layout-engine.js würfelt dort 0-99) -- Reihen haben in diesem Sinn
-  // Priorität: ihr Bild UND ihr Zähler sollen nie unter einem normalen
-  // (zufällig höher liegenden) Bild versteckt sein.
-  const SERIES_Z_INDEX = 100;
-
-  // Positioniert Bild + (falls vorhanden) seinen Zähler direkt darunter,
-  // rechtsbündig zur Bildbreite (siehe .series-counter in style.css).
   function applyPosition(img, pos) {
     const el = els.get(img.id);
     el.style.left = pos.left + 'px';
     el.style.top = pos.top + 'px';
-    el.style.zIndex = img.isSeries ? SERIES_Z_INDEX : pos.z;
-    const counter = counterEls.get(img.id);
-    if (counter) {
-      counter.style.left = pos.left + 'px';
-      counter.style.top = (pos.top + img.height + SERIES_COUNTER_GAP) + 'px';
-      counter.style.zIndex = SERIES_Z_INDEX;
-    }
+    el.style.zIndex = pos.z;
   }
 
   function layoutAll() {
@@ -174,29 +120,9 @@ export function createGallery(stageEl, initialImages, {
   }
 
   /**
-   * Fügt eine frisch gespeicherte Reihe hinzu (siehe "fix" in single-view.js)
-   * -- analog zu addImage: schaltet auf chronologische Anzeige um und
-   * scrollt dorthin, damit die Reihe wie ein gerade gepushtes Bild sichtbar
-   * oben erscheint, statt in der schreibgeschützten Reihen-Ansicht zu landen.
-   */
-  function addSeries(entry) {
-    if (!els.has(entry.id)) {
-      images.unshift(entry);
-      makeEl(entry);
-      sortMode = 'chronological';
-      layoutAll();
-      notifySortMode();
-    }
-    els.get(entry.id).scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  /**
    * Ältere Bilder beim Nachladen (Scrollen) — gehören chronologisch ans
    * Ende und werden dort inkrementell platziert, ohne die bestehende
-   * Anordnung anzufassen (kein Voll-Relayout nötig). Reihen-Einträge sind
-   * hier nie dabei -- sie werden vollständig und ungepaginiert beim Start
-   * geladen (siehe series-repo.js/main.js), nur normale Bilder wachsen
-   * beim Scrollen nach.
+   * Anordnung anzufassen (kein Voll-Relayout nötig).
    */
   function appendImages(newImages) {
     const width = stageEl.clientWidth || 680;
@@ -204,7 +130,7 @@ export function createGallery(stageEl, initialImages, {
       if (els.has(img.id)) return; // schon vorhanden, überspringen
       images.push(img);
       makeEl(img);
-      const pos = placeImage(withLayoutHints(img), heightmap, width, reservedArea);
+      const pos = placeImage(img, heightmap, width, reservedArea);
       applyPosition(img, pos);
     });
     updateStageHeight();
@@ -232,7 +158,6 @@ export function createGallery(stageEl, initialImages, {
     sortChronological,
     shuffleRandom,
     addImage,
-    addSeries,
     appendImages,
     prependImages,
     getImages: () => images,

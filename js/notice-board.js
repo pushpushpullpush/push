@@ -12,16 +12,11 @@ const TIPS = [
   'press [a] to arrange.',
   'press [s] to shuffle.',
   'press [z] to go back.',
-  'press [c] to create [connection].',
-  'press [g] to create [group].',
   'press [=] or [*] to enter and leave [secret mode].',
   'use your keyboard for shortcuts.',
   'drag&drop to push image.',
-  'click [connections] to create [group].',
-  '[connections] are shown below image in [single view].',
   'all images will be online forever.',
   'push is anonymous.',
-  '[connections] and [groups] cannot be deleted.',
   'push is a visual research project.',
 ];
 
@@ -84,7 +79,7 @@ function pickRandomTip() {
 
 // Hinweise: niedrigere Priorität, werden ignoriert solange eine Meldung
 // gerade sichtbar ist. Verschwinden immer nach einem Moment.
-export function showRandomHint(durationMs = 2200) {
+export function showRandomHint(durationMs = 4400) {
   if (messageActive) return;
   show(pickRandomTip(), durationMs, false);
 }

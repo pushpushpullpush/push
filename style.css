@@ -10,6 +10,44 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Übersicht der im connect-Modus ausgewählten Bilder (siehe [c], main.js) --
+   fest oben (bleibt beim Scrollen der Hauptgalerie stehen, die dadurch
+   "dahinter verschwindet"). Der deckende Hintergrund spannt bewusst die
+   GESAMTE Breite (left:0, Platz für die Konsole kommt über padding-left,
+   nicht über einen linken Versatz des Elements selbst) -- sonst bliebe
+   zwischen Bildschirmrand/Konsole und dem Bereich eine Lücke, durch die
+   gescrollte Galerie-Bilder weiterhin sichtbar wären. Die Konsole
+   (#notice-console) und "connect"/"z" (siehe main.js, eigener höherer
+   z-index bzw. Ausweich-Logik) bleiben trotzdem sichtbar oben auf. Erst mit
+   der ersten Auswahl sichtbar (display wird dann per JS auf "flex"
+   gesetzt), sonst nicht vorhanden. */
+#connect-selection-bar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: 90px;
+  padding: 16px 16px 16px 280px;
+  background: #f00000;
+  z-index: 2600;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Höhe fest (wie bisher), Breite frei nach Seitenverhältnis -- zeigt so
+   immer das GANZE Bild (kein Zuschnitt wie bei object-fit:cover), statt nur
+   einen quadratischen Ausschnitt. */
+.connect-selection-thumb {
+  height: 60px;
+  width: auto;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 #stage {
   position: relative;
   width: 100%;
@@ -24,6 +62,47 @@ html, body {
   position: absolute;
   display: block;
   transition: left 0.3s ease, top 0.3s ease;
+  /* Zusätzlich zu img.draggable=false (gallery.js) -- Chrome-spezifische
+     Eigenschaft, die natives Bild-Drag unterbindet, das sonst den
+     nachfolgenden Klick verschlucken kann. */
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* Ausgewählt im connect-Auswahlmodus (main.js, [c]) -- box-sizing:border-box
+   (siehe oben) lässt den Rahmen nach innen wachsen, ändert also nicht die
+   Layout-Größe/-Position des Elements. */
+.push-image.connect-selected {
+  border: 3px solid #ffffff;
+}
+
+/* Bühne für die connect-Galerie-Ansicht (connect-view.js) -- gleicher
+   Aufbau wie #stage (main.js), createGallery() setzt die Mindesthöhe
+   selbst inline (siehe updateStageHeight in gallery.js). */
+#connect-stage {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+}
+
+/* Vorschau-Sammlung der connect-Galerien unter dem single-view-Bild (siehe
+   single-view.js) -- normaler Teil des single-view-Seitenflusses (position:
+   absolute wie das Bild selbst), kein eigener Scroll-Bereich: "top" wird
+   per JS auf Bildunterkante + Freiraum gesetzt, das Scrollen übernimmt
+   #single-view selbst (siehe die geteilte overflow-y-Regel weiter unten) --
+   die ganze Seite bewegt sich beim Scrollen nach unten, statt Vorschau-
+   Bilder hinter einer festen Kante verschwinden zu lassen. Die frei
+   schwebenden Textelemente (z, r, views, ...) bleiben trotzdem immer davor
+   sichtbar (siehe deren eigener, höherer z-index). */
+#single-connect-previews {
+  position: absolute;
+  left: 0;
+  width: 100%;
+}
+
+#single-connect-previews-stage {
+  position: relative;
+  width: 100%;
 }
 
 #menu-layer {
@@ -66,7 +145,7 @@ html, body {
 
 .clock {
   font-size: 16px;
-  cursor: default;
+  cursor: pointer;
 }
 
 /* Gemeinsamer Basis-Stil für Bild-bezogene Textzeilen -- gleiche
@@ -83,13 +162,20 @@ html, body {
   white-space: nowrap;
 }
 
-/* views/pushed in der Einzelansicht (single-view.js) sind dagegen frei
-   schwebende Textelemente wie z/r -- position:fixed statt absolute, damit
-   sie sich beim Scrollen genauso verhalten wie die anderen Textelemente
-   dort, statt mit dem Bild mitzuwandern. */
+/* views/pushed/size/resolution in der Einzelansicht (single-view.js) sind
+   dagegen frei schwebende Textelemente wie z/r -- position:fixed statt
+   absolute, damit sie sich beim Scrollen genauso verhalten wie die anderen
+   Textelemente dort, statt mit dem Bild mitzuwandern. Höherer z-index als
+   die (ebenfalls scrollende) Vorschau-Sammlung der connect-Galerien
+   (#single-connect-previews, kein eigener z-index, siehe dort) -- so bleiben
+   sie beim Scrollen immer lesbar obenauf, statt von einem vorbeiziehenden
+   Vorschaubild verdeckt zu werden. Gleicher Wert wie .menu-word (z/r).*/
 #single-info-views,
-#single-info-pushed {
+#single-info-pushed,
+#single-info-size,
+#single-info-resolution {
   position: fixed;
+  z-index: 2500;
 }
 
 .overlay {
@@ -161,7 +247,8 @@ html, body {
 }
 
 #single-view,
-#upload-overlay {
+#upload-overlay,
+#connect-view {
   overflow-y: auto;
 }
 

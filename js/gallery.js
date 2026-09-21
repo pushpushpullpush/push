@@ -3,6 +3,13 @@ import { showMessage } from './notice-board.js';
 
 export function createGallery(stageEl, initialImages, {
   onImageClick, onSortModeChange, initialSortMode = 'chronological', reservedArea,
+  // fillViewport: die Bühne ist mindestens einen vollen Bildschirm hoch,
+  // auch bei wenigen Bildern -- sinnvoll für main/connect-view (eigenständige
+  // Seiten), aber nicht für eine kompakte Vorschau-Sammlung unter einem
+  // Bild (single-view.js), die sonst riesigen leeren Platz erzeugen würde.
+  // noOverlap: siehe layout-engine.js/pickDelta -- für die Ansicht einer
+  // einzelnen connect-Galerie, deren Bilder sich nie überlappen sollen.
+  fillViewport = true, noOverlap = false,
 } = {}) {
   const els = new Map();
   const images = [...initialImages];
@@ -18,6 +25,20 @@ export function createGallery(stageEl, initialImages, {
     el.style.width = img.width + 'px';
     el.style.height = img.height + 'px';
     if (img.url) {
+      // <img> ist in Chrome standardmäßig per natives HTML5-Drag ziehbar --
+      // schon eine winzige Mausbewegung zwischen Drücken und Loslassen (bei
+      // echten Nutzenden normal, anders als bei automatisierten Klicks)
+      // startet dann einen Drag STATT eines "click", der Klick-Handler
+      // unten feuert in dem Fall nie. Betrifft kleine Kacheln (z.B. die
+      // Vorschau-Sammlung in single-view.js) besonders, da dort präziseres
+      // Zielen nötig ist.
+      el.draggable = false;
+      // Zusätzlich zu draggable=false: verhindert das native Drag auch dann
+      // zuverlässig, wenn ein Browser die draggable-Eigenschaft (als
+      // JS-Property statt HTML-Attribut gesetzt) nicht in jedem Fall
+      // respektiert -- preventDefault() auf dragstart ist der robusteste,
+      // browserübergreifend zuverlässige Weg, natives Bild-Drag zu stoppen.
+      el.addEventListener('dragstart', (e) => e.preventDefault());
       el.loading = 'lazy';
       el.decoding = 'async';
       el.src = img.url;
@@ -38,13 +59,13 @@ export function createGallery(stageEl, initialImages, {
 
   function updateStageHeight() {
     const tallest = Math.max(...heightmap) + EDGE_MARGIN;
-    stageEl.style.minHeight = Math.max(tallest, window.innerHeight) + 'px';
+    stageEl.style.minHeight = (fillViewport ? Math.max(tallest, window.innerHeight) : tallest) + 'px';
   }
 
   function computeLayoutFor(imgList, width) {
     return sortMode === 'random'
-      ? computeFullLayout(imgList, width, reservedArea)
-      : computeChronologicalLayout(imgList, width, reservedArea);
+      ? computeFullLayout(imgList, width, reservedArea, { noOverlap })
+      : computeChronologicalLayout(imgList, width, reservedArea, { noOverlap });
   }
 
   function applyPosition(img, pos) {
@@ -67,9 +88,10 @@ export function createGallery(stageEl, initialImages, {
   }
 
   /**
-   * [a]: zurück zur chronologischen Reihenfolge (Startzustand) — no-op,
-   * falls bereits chronologisch (computeChronologicalLayout würfelt intern
-   * ebenfalls leicht, ein erneuter Aufruf würde sonst unnötig umsortieren).
+   * Klick auf die Uhr (main.js): zurück zur chronologischen Reihenfolge
+   * (Startzustand) — no-op, falls bereits chronologisch
+   * (computeChronologicalLayout würfelt intern ebenfalls leicht, ein
+   * erneuter Aufruf würde sonst unnötig umsortieren).
    */
   function sortChronological() {
     if (sortMode === 'chronological') return;
@@ -130,7 +152,7 @@ export function createGallery(stageEl, initialImages, {
       if (els.has(img.id)) return; // schon vorhanden, überspringen
       images.push(img);
       makeEl(img);
-      const pos = placeImage(img, heightmap, width, reservedArea);
+      const pos = placeImage(img, heightmap, width, reservedArea, Math.random, noOverlap);
       applyPosition(img, pos);
     });
     updateStageHeight();

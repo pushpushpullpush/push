@@ -9,9 +9,10 @@
 const TIPS = [
   'press [p] to push.',
   'press [r] to browse.',
-  'press [a] to arrange.',
+  'click the clock to arrange.',
   'press [s] to shuffle.',
   'press [z] to go back.',
+  'press [c] to connect.',
   'press [=] or [*] to enter and leave [secret mode].',
   'use your keyboard for shortcuts.',
   'drag&drop to push image.',
@@ -24,6 +25,12 @@ let consoleEl = null;
 let hideTimeout = null;
 let messageActive = false;
 let lastTipIndex = -1;
+
+// Statische Meldung (z.B. "connect", solange der Auswahl-Modus aktiv ist,
+// siehe main.js) -- bleibt stehen, bis clearStickyMessage() sie aufhebt.
+// Eine zwischenzeitliche showMessage() (z.B. ein Fehler) überdeckt sie
+// vorübergehend und render() stellt sie danach automatisch wieder her.
+let stickyText = null;
 
 function ensureEl() {
   if (consoleEl) return consoleEl;
@@ -42,6 +49,19 @@ function ensureEl() {
   return consoleEl;
 }
 
+// Zeigt die sticky-Meldung (falls aktiv) wieder an, sonst blendet aus --
+// Rücksprungpunkt sowohl für den Ablauf einer show()-Meldung als auch für
+// clearStickyMessage() selbst.
+function render() {
+  const el = ensureEl();
+  if (stickyText !== null) {
+    el.textContent = stickyText;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
 function show(text, durationMs, isMessage) {
   const el = ensureEl();
   if (hideTimeout) clearTimeout(hideTimeout);
@@ -49,9 +69,29 @@ function show(text, durationMs, isMessage) {
   el.style.display = 'block';
   messageActive = isMessage;
   hideTimeout = setTimeout(() => {
-    el.style.display = 'none';
+    hideTimeout = null;
     if (isMessage) messageActive = false;
+    render();
   }, durationMs);
+}
+
+// Statische Meldung ohne automatisches Ausblenden (siehe stickyText oben).
+export function showStickyMessage(text) {
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+    hideTimeout = null;
+  }
+  stickyText = text;
+  messageActive = true;
+  render();
+}
+
+export function clearStickyMessage() {
+  stickyText = null;
+  if (!hideTimeout) {
+    messageActive = false;
+    render();
+  }
 }
 
 // Mountet die Konsole schon beim Seitenaufbau (wie die Uhr), muss aber

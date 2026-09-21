@@ -40,6 +40,11 @@
   <div id="stage"></div>
   <div id="menu-layer"></div>
 
+  <!-- Übersicht der im connect-Modus ausgewählten Bilder (siehe [c],
+       main.js) -- fest oben, neben der Konsole, erscheint erst mit der
+       ersten Auswahl. -->
+  <div id="connect-selection-bar"></div>
+
   <div id="welcome-view" class="overlay">
     <div class="menu-word" id="welcome-push">push</div>
   </div>
@@ -54,10 +59,16 @@
     <img id="upload-preview" alt="preview" />
     <div class="menu-word" id="upload-esc">z</div>
     <div class="menu-word" id="upload-push">push</div>
+    <!-- Steht anstelle der (zunächst ausgeblendeten) Einwilligungen unten --
+         erst ein Klick darauf blendet sie ein (siehe revealConsents in
+         upload.js). Gleicher Fontstil/Position wie die Einwilligungen
+         selbst (siehe positionConsents). -->
+    <div class="image-info consent-toggle" id="upload-consent-toggle">terms of agreement</div>
     <!-- Einwilligungen vor dem Veröffentlichen (siehe upload.js) -- die
          ersten beiden sind abschaltbar (Klick), jede hat einen eigenen
          Effekt auf das Bild; die dritte ist bewusst nicht anklickbar. Der
-         Hinweis steht als letzte Zeile.
+         Hinweis steht als letzte Zeile. Zunächst ausgeblendet (siehe oben),
+         bis auf "terms of agreement" geklickt wurde.
          "I agree this image can be appropriated..." (Wasserzeichen/©-Namen-
          Eingabe) ist vorläufig entfernt -- die zugehörige Logik in upload.js
          (drawWatermark/copyrightEl/EXIF-Statement) bleibt bestehen, bleibt
@@ -81,6 +92,20 @@
     <div id="vrp-text"></div>
   </div>
 
+  <!-- Ansicht einer einzelnen connect-Galerie (siehe [c] auf main,
+       connect-view.js) -- Bilder werden per createGallery() (wie main)
+       direkt in #connect-stage gerendert. Steht bewusst VOR #single-view im
+       DOM: ein Bild innerhalb einer geöffneten connect-Galerie öffnet beim
+       Klick das normale single view OBEN DRAUF (siehe main.js), ohne die
+       connect-Galerie dabei zu schließen -- bei gleichem z-index (beide
+       .overlay) entscheidet die DOM-Reihenfolge, welches der beiden
+       Overlays sichtbar obenauf liegt. -->
+  <div id="connect-view" class="overlay">
+    <div id="connect-stage"></div>
+    <div class="menu-word" id="connect-esc">z</div>
+    <div class="menu-word" id="connect-r">r</div>
+  </div>
+
   <div id="single-view" class="overlay">
     <img id="single-image" alt="" />
     <div class="menu-word" id="single-esc">z</div>
@@ -95,6 +120,17 @@
          upload.js, Consent "circulate" ausgeschaltet) -- anders als die
          Zeilen oben immer angezeigt, kein Bild-Klick nötig. -->
     <div class="countdown-timer" id="single-countdown" style="display:none;"></div>
+    <!-- Vorschau-Sammlung der connect-Galerien, die dieses Bild enthalten
+         (siehe single-view.js/connect-repo.js) -- eine Kachel pro Galerie,
+         je nach Bild-Anzahl nur einige oder scrollbar viele. Eigener,
+         fixierter Scroll-Bereich (siehe #single-connect-previews in
+         style.css): so verschwinden weiter gescrollte Vorschaubilder hinter
+         der oberen Kante dieses Bereichs, statt über das single-view-Bild
+         selbst zu rutschen. Nur sichtbar, wenn mindestens eine Galerie
+         gefunden wurde. -->
+    <div id="single-connect-previews" style="display:none;">
+      <div id="single-connect-previews-stage"></div>
+    </div>
   </div>
 
   <script type="module" src="js/main.js"></script>

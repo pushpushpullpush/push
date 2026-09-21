@@ -20,7 +20,17 @@ const CONSOLE_RESERVED_WIDTH = 480;
 const CONSOLE_RESERVED_HEIGHT = 90;
 const DEFAULT_RESERVED = { width: CONSOLE_RESERVED_WIDTH, height: CONSOLE_RESERVED_HEIGHT };
 
-function pickDelta(height, rng) {
+// Mindestabstand im noOverlap-Modus (siehe unten) -- "mindestens ein
+// bisschen Luft", nie 0 oder negativ.
+const NO_OVERLAP_MIN_GAP = 16;
+
+function pickDelta(height, rng, noOverlap) {
+  // Erzwingt eine echte Lücke (nie Überlappung, nie Berühren) -- für die
+  // Ansicht einer einzelnen connect-Galerie (connect-view.js), anders als
+  // main/die Vorschau-Sammlung im single view, die bewusst überlappen dürfen
+  // (siehe pickDelta-Standardverhalten unten).
+  if (noOverlap) return NO_OVERLAP_MIN_GAP + rng() * 24;
+
   const r = rng();
   if (r < 0.55) return -height * (0.05 + rng() * 0.15); // leichte Überlappung
   if (r < 0.85) return rng() * 10; // fast berührend
@@ -90,7 +100,7 @@ export function createHeightmap(containerWidth, reserved = DEFAULT_RESERVED) {
  * übergibt stattdessen einen pro Bild geseedeten mulberry32() (siehe dort),
  * damit dieselbe Platzierung bei jedem Aufruf reproduzierbar herauskommt.
  */
-export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RESERVED, rng = Math.random) {
+export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RESERVED, rng = Math.random, noOverlap = false) {
   const usableWidth = Math.max(0, containerWidth - 2 * EDGE_MARGIN);
   const colWidth = usableWidth / RESOLUTION;
   const span = Math.min(RESOLUTION - 1, Math.max(1, Math.ceil(img.width / colWidth)));
@@ -103,7 +113,7 @@ export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RE
   // Überlappung (pickDelta, oft stark negativ) davor haltmachen — sonst
   // zieht sie das Bild trotz reservierter Fläche wieder nach oben.
   const floor = startCol < reservedColumnCount(colWidth, reserved) ? reserved.height : EDGE_MARGIN;
-  const top = Math.max(base + pickDelta(img.height, rng), floor);
+  const top = Math.max(base + pickDelta(img.height, rng, noOverlap), floor);
   const left = EDGE_MARGIN + startCol * colWidth;
   const bottom = top + img.height;
 
@@ -131,22 +141,25 @@ export function placeImage(img, heightmap, containerWidth, reserved = DEFAULT_RE
  * zeigen -- die chronologische Ordnung wäre dadurch von einem Shuffle nicht
  * unterscheidbar.
  */
-export function computeChronologicalLayout(images, containerWidth, reserved = DEFAULT_RESERVED) {
+export function computeChronologicalLayout(images, containerWidth, reserved = DEFAULT_RESERVED, { noOverlap = false } = {}) {
   const heightmap = createHeightmap(containerWidth, reserved);
   const positions = new Map();
 
   images.forEach((img) => {
     const rng = mulberry32(hashSeed(String(img.id)));
-    positions.set(img.id, placeImage(img, heightmap, containerWidth, reserved, rng));
+    positions.set(img.id, placeImage(img, heightmap, containerWidth, reserved, rng, noOverlap));
   });
 
   return { positions, heightmap };
 }
 
 /**
- * Volles Neumischen aller Bilder — genutzt vom "s"-Befehl.
+ * Volles Neumischen aller Bilder — genutzt vom "s"-Befehl (main) bzw. bei
+ * jedem Öffnen einer connect-Galerie (connect-view.js, dort mit
+ * noOverlap:true -- Bilder innerhalb einer connect-Galerie sollen sich nie
+ * überlappen, siehe pickDelta).
  */
-export function computeFullLayout(images, containerWidth, reserved = DEFAULT_RESERVED) {
+export function computeFullLayout(images, containerWidth, reserved = DEFAULT_RESERVED, { noOverlap = false } = {}) {
   const heightmap = createHeightmap(containerWidth, reserved);
   const positions = new Map();
 
@@ -157,7 +170,7 @@ export function computeFullLayout(images, containerWidth, reserved = DEFAULT_RES
   }
 
   order.forEach((idx) => {
-    positions.set(images[idx].id, placeImage(images[idx], heightmap, containerWidth, reserved));
+    positions.set(images[idx].id, placeImage(images[idx], heightmap, containerWidth, reserved, Math.random, noOverlap));
   });
 
   const totalHeight = Math.max(...heightmap) + EDGE_MARGIN;

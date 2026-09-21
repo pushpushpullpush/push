@@ -1,4 +1,6 @@
 import { fetchImageById, fetchRandomImage, incrementImageViews } from './images-repo.js';
+import { fetchConnectGalleriesForImage, toConnectGalleryPreviewItem } from './connect-repo.js';
+import { createGallery } from './gallery.js';
 import {
   clampToViewport, clampFromRect, computeContainRect, imageColumnRect,
 } from './position-utils.js';
@@ -12,6 +14,11 @@ import {
 // damit in der Einzelansicht nichts ins Bild hineinragt.
 const IMAGE_SAFETY_PAD = 40;
 const EDGE_SAFETY_PAD = 32;
+
+// Abstand zwischen dem single-view-Bild und der darunter beginnenden
+// Vorschau-Sammlung der connect-Galerien (siehe loadConnectPreviews) --
+// der "Freiraum" aus der Vorgabe.
+const CONNECT_PREVIEWS_GAP = 40;
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -48,30 +55,46 @@ function formatFileSize(bytes) {
   return `${Math.round(bytes / 1024)}KB`;
 }
 
+// Ab dieser freien Breite gilt eine Seite (links/rechts vom Bild) als
+// nutzbar für die frei platzierten Textelemente (z, r, views, pushed, size,
+// resolution) -- deutlich mehr als ein reiner Sicherheitsabstand, damit auch
+// längere Label (z.B. "pushed: dd/mm/yyyy hh:mm:ss") dort nicht schon beim
+// ersten Versuch ins Bild hineinragen. Reicht auf KEINER Seite so viel Platz
+// (v.a. Smartphone-Hochformat, Bild nimmt fast die volle Breite ein), weichen
+// die Textelemente stattdessen nach oben/unten aus (siehe randomBandSpot) --
+// dort steht in aller Regel deutlich mehr zusammenhängender Platz zur
+// Verfügung als in den dann sehr schmalen Seitenrändern.
+const MIN_SIDE_ZONE = 100;
+
+function hasSideRoom(imageRect, margin = 24) {
+  const leftSpace = imageRect.left - margin * 2;
+  const rightSpace = window.innerWidth - imageRect.right - margin * 2;
+  return leftSpace >= MIN_SIDE_ZONE || rightSpace >= MIN_SIDE_ZONE;
+}
+
 /**
- * Erste Platzierung eines Textelements ausschließlich links oder rechts vom
- * Bild. Bewusst NICHT über randomSpot(avoidRect: imageColumnRect(...)):
- * randomSpot samplet x über die GESAMTE Fensterbreite und verwirft Treffer
- * in der Sperrzone -- auf schmalen Bildschirmen (Smartphone) nimmt das Bild
- * oft fast die ganze Breite ein, sodass der erlaubte Rest so schmal wird,
- * dass praktisch jeder Versuch scheitert und alle Elemente im selben
- * Fallback-Punkt kollidieren (beobachtet als "Textelemente überlagern sich
- * oben links"). Hier wird x stattdessen direkt aus der jeweils verfügbaren
- * Seiten-Zone gezogen -- bleibt dadurch auch bei sehr wenig seitlichem Platz
+ * Platzierung ausschließlich links oder rechts vom Bild -- nur genutzt, wenn
+ * mindestens eine Seite genug Platz bietet (siehe hasSideRoom/randomWordSpot
+ * weiter unten). Bewusst NICHT über randomSpot(avoidRect: imageColumnRect
+ * (...)): randomSpot samplet x über die GESAMTE Fensterbreite und verwirft
+ * Treffer in der Sperrzone -- bei wenig seitlichem Platz würde praktisch
+ * jeder Versuch scheitern und alle Elemente im selben Fallback-Punkt
+ * kollidieren. Hier wird x stattdessen direkt aus der jeweils verfügbaren
+ * Seiten-Zone gezogen -- bleibt dadurch auch bei wenig seitlichem Platz
  * zuverlässig gültig.
  */
 function randomColumnSpot(taken, imageRect, { margin = 24, minDist = 90 } = {}) {
   const sides = [];
-  if (imageRect.left - margin * 2 > 4) {
+  if (imageRect.left - margin * 2 >= MIN_SIDE_ZONE) {
     sides.push({ from: margin, to: imageRect.left - margin });
   }
-  if (window.innerWidth - imageRect.right - margin * 2 > 4) {
+  if (window.innerWidth - imageRect.right - margin * 2 >= MIN_SIDE_ZONE) {
     sides.push({ from: imageRect.right + margin, to: window.innerWidth - margin });
   }
-  // Extremfall: kein Fenster ohne nennenswerte seitliche Restfläche (Bild
-  // nimmt praktisch die volle Breite ein) -- notgedrungen ganz am Rand
-  // platzieren, bleibt aber weiterhin über minDist im y voneinander getrennt
-  // (siehe unten), statt komplett zu kollidieren.
+  // Sollte trotz hasSideRoom()-Prüfung durch den Aufrufer keine Seite mehr
+  // gültig sein (z.B. Fenstergrößenänderung zwischen den beiden Checks) --
+  // notgedrungen ganz am Rand platzieren, bleibt aber weiterhin über minDist
+  // im y voneinander getrennt (siehe unten), statt komplett zu kollidieren.
   if (!sides.length) sides.push({ from: margin, to: margin });
 
   for (let attempt = 0; attempt < 40; attempt++) {
@@ -92,6 +115,57 @@ function randomColumnSpot(taken, imageRect, { margin = 24, minDist = 90 } = {}) 
     if (Math.abs(usedY - y) < minDist) y = usedY + minDist;
   });
   return { x, y: Math.min(y, window.innerHeight - margin) };
+}
+
+/**
+ * Platzierung über oder unter dem Bild -- Ausweichlösung für Bildschirme,
+ * auf denen keine Seite genug Platz bietet (siehe hasSideRoom/
+ * randomWordSpot), typischerweise ein Smartphone im Hochformat. x wird über
+ * die GESAMTE Fensterbreite gestreut (dort ist meist reichlich Platz), y
+ * bleibt auf die schmalen Streifen über bzw. unter dem Bild beschränkt --
+ * genau umgekehrt zu randomColumnSpot, aus demselben Grund (die jeweils
+ * lange Achse trägt die Streuung, die kurze nur die grobe Zuordnung).
+ */
+function randomBandSpot(taken, imageRect, { margin = 24, minDist = 90 } = {}) {
+  const bands = [];
+  if (imageRect.top - margin * 2 > 4) {
+    bands.push({ from: margin, to: imageRect.top - margin });
+  }
+  if (window.innerHeight - imageRect.bottom - margin * 2 > 4) {
+    bands.push({ from: imageRect.bottom + margin, to: window.innerHeight - margin });
+  }
+  // Extremfall: Bild nimmt praktisch die volle Höhe UND Breite ein --
+  // notgedrungen ganz am Rand platzieren (siehe randomColumnSpot-Fallback).
+  if (!bands.length) bands.push({ from: margin, to: margin });
+
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const band = bands[Math.floor(Math.random() * bands.length)];
+    const y = band.from + Math.random() * Math.max(0, band.to - band.from);
+    const x = margin + Math.random() * (window.innerWidth - margin * 2);
+    const farEnough = taken.every((p) => Math.hypot(p.x - x, p.y - y) > minDist);
+    if (farEnough) return { x, y };
+  }
+
+  // Kein Punkt mit vollem Mindestabstand gefunden -- wenigstens im x nicht
+  // mit bereits vergebenen Punkten kollidieren (y bleibt innerhalb des
+  // Streifens, aber ohne Abstandsprüfung).
+  const band = bands[0];
+  let x = margin;
+  taken.map((p) => p.x).sort((a, b) => a - b).forEach((usedX) => {
+    if (Math.abs(usedX - x) < minDist) x = usedX + minDist;
+  });
+  const y = band.from + Math.random() * Math.max(0, band.to - band.from);
+  return { x: Math.min(x, window.innerWidth - margin), y };
+}
+
+// Wählt zwischen links/rechts (Desktop/Tablet, genug seitlicher Platz) und
+// über/unter dem Bild (Smartphone-Hochformat u.ä., siehe hasSideRoom) --
+// verhindert, dass Textelemente auf schmalen Bildschirmen in einen zu engen
+// Seitenrand gezwängt werden und dadurch ins Bild hineinragen.
+function randomWordSpot(taken, imageRect, opts = {}) {
+  return hasSideRoom(imageRect, opts.margin)
+    ? randomColumnSpot(taken, imageRect, opts)
+    : randomBandSpot(taken, imageRect, opts);
 }
 
 // Bilder in der Galerie sind loading="lazy" — ein per [r] gezeigtes Bild
@@ -122,14 +196,20 @@ function preloadImage(url) {
   });
 }
 
-export function initSingleView(refs, getImages) {
+export function initSingleView(refs, getImages, onConnectGalleryClick) {
   const {
     overlay, imageEl, escBtn, randomBtn, infoViewsEl, infoPushedEl,
     infoSizeEl, infoResolutionEl, countdownEl,
+    connectPreviewsEl, connectPreviewsStageEl,
   } = refs;
 
   let currentImage = null;
   let currentImageRect = null;
+
+  // Referenz auf die aktuell gerenderte Vorschau-Mini-Galerie (siehe
+  // loadConnectPreviews) -- reposition() braucht sie für ein relayout() bei
+  // Fenstergrößenänderung (die Bildbreiten hängen von der Fensterbreite ab).
+  let connectPreviewsGallery = null;
 
   // Bild-Info (views/pushed, siehe imageEl-Klick-Listener unten) -- taucht
   // erst nach einem Klick auf das Bild auf und verschwindet bei erneutem
@@ -151,13 +231,45 @@ export function initSingleView(refs, getImages) {
   let openGeneration = 0;
 
   // Schiebt ein bereits positioniertes Element notfalls vom aktuellen Bild
+  // UND (falls others übergeben) von anderen bereits platzierten Elementen
   // weg — ohne es komplett neu zu würfeln. Genutzt, wenn die Position
-  // eigentlich gehalten werden soll (z.B. beim Bildwechsel per [r]). Nutzt
-  // die volle Spalte (siehe imageColumnRect), nicht nur die Bildfläche
-  // selbst -- landet dadurch nie oberhalb/unterhalb des Bildes.
-  function correctElementForImage(el) {
-    clampFromRect(el, imageColumnRect(currentImageRect), IMAGE_SAFETY_PAD);
-    clampToViewport(el, EDGE_SAFETY_PAD);
+  // eigentlich gehalten werden soll (z.B. beim Bildwechsel per [r]) oder
+  // wenn ein Element gerade erst sichtbar wird (siehe updateInfoVisibility).
+  // Mehrere Durchläufe (wie bei repositionClock/repositionWords in
+  // clock.js/upload.js): eine Sperrzone allein pusht das Element sonst
+  // ggf. direkt in eine andere hinein, bevor auch die geprüft wurde.
+  //
+  // Sperrzone der Vorschau-Sammlung (siehe loadConnectPreviews) -- ein
+  // bildschirmbreiter Streifen von ihrer Oberkante bis zum unteren
+  // Bildschirmrand, analog zur Consent-Zone in upload.js. null, solange sie
+  // nicht sichtbar ist (kein Bild in irgendeiner connect-Galerie).
+  function getConnectPreviewsAvoidRect() {
+    if (connectPreviewsEl.style.display !== 'block') return null;
+    const top = parseFloat(connectPreviewsEl.style.top) || 0;
+    return { left: 0, right: window.innerWidth, top, bottom: window.innerHeight };
+  }
+
+  // Bei genug seitlichem Platz (hasSideRoom) meidet die Bild-Sperrzone die
+  // volle Spalte (siehe imageColumnRect) -- landet dadurch nie oberhalb/
+  // unterhalb des Bildes. Auf schmalen Bildschirmen dagegen nur die reine
+  // Bildfläche, damit die kürzeste Ausweichrichtung (clampFromRect) nach
+  // oben/unten zeigen kann, statt in einen zu engen Seitenrand hinein --
+  // derselbe Grund wie bei randomWordSpot oben. Meidet zusätzlich immer die
+  // Vorschau-Sammlung (falls sichtbar), sonst könnte im "hasSideRoom"-Fall
+  // ein Wort seitlich neben dem Bild, aber auf Höhe der (bildschirmbreiten)
+  // Vorschau-Sammlung landen.
+  function correctElementForImage(el, others = []) {
+    const avoidRects = [
+      hasSideRoom(currentImageRect) ? imageColumnRect(currentImageRect) : currentImageRect,
+      getConnectPreviewsAvoidRect(),
+    ].filter(Boolean);
+    for (let pass = 0; pass < 4; pass++) {
+      avoidRects.forEach((r) => clampFromRect(el, r, IMAGE_SAFETY_PAD));
+      others.forEach((otherEl) => {
+        if (otherEl !== el) clampFromRect(el, otherEl.getBoundingClientRect(), 10);
+      });
+      clampToViewport(el, EDGE_SAFETY_PAD);
+    }
   }
 
   // views/pushed/size/resolution sind Teil derselben frei schwebenden
@@ -166,16 +278,21 @@ export function initSingleView(refs, getImages) {
   // verankert.
   const infoWords = [escBtn, randomBtn, infoViewsEl, infoPushedEl, infoSizeEl, infoResolutionEl];
 
+  // Nur die vier reinen Info-Zeilen (ohne z/r) -- bekommen bei jedem
+  // Bildwechsel (auch währenddessen offen, siehe open()/repositionInfoWords)
+  // eine frische Zufallsposition. z/r bleiben davon bewusst unberührt.
+  const floatingInfoWords = [infoViewsEl, infoPushedEl, infoSizeEl, infoResolutionEl];
+
   function correctPositionsForImage() {
-    infoWords.forEach(correctElementForImage);
+    infoWords.forEach((el) => correctElementForImage(el, infoWords));
     const clockEl = document.getElementById('global-clock');
-    if (clockEl) correctElementForImage(clockEl);
+    if (clockEl) correctElementForImage(clockEl, infoWords);
   }
 
   function positionActionWords() {
     const taken = [];
     infoWords.forEach((el) => {
-      const spot = randomColumnSpot(taken, currentImageRect);
+      const spot = randomWordSpot(taken, currentImageRect);
       taken.push(spot);
       el.style.left = spot.x + 'px';
       el.style.top = spot.y + 'px';
@@ -186,6 +303,30 @@ export function initSingleView(refs, getImages) {
     if (clockEl) correctElementForImage(clockEl);
   }
 
+  // Für einen Bildwechsel WÄHREND die Einzelansicht bereits offen ist (z.B.
+  // mehrfaches [r]): z/r/Uhr behalten ihre Position (nur Korrektur gegen das
+  // neue Bild, wie bisher) -- die vier Info-Zeilen bekommen dagegen jedes
+  // Mal eine frische Zufallsposition, statt an ihrer alten Stelle stehen zu
+  // bleiben.
+  function repositionForImageChangeWhileOpen() {
+    correctElementForImage(escBtn, infoWords);
+    correctElementForImage(randomBtn, infoWords);
+    const clockEl = document.getElementById('global-clock');
+    if (clockEl) correctElementForImage(clockEl, infoWords);
+
+    const taken = [escBtn, randomBtn].map((el) => ({
+      x: parseFloat(el.style.left) || 0,
+      y: parseFloat(el.style.top) || 0,
+    }));
+    floatingInfoWords.forEach((el) => {
+      const spot = randomWordSpot(taken, currentImageRect);
+      taken.push(spot);
+      el.style.left = spot.x + 'px';
+      el.style.top = spot.y + 'px';
+      correctElementForImage(el, infoWords);
+    });
+  }
+
   function updateInfoVisibility() {
     const display = infoVisible ? 'block' : 'none';
     infoViewsEl.style.display = display;
@@ -193,12 +334,18 @@ export function initSingleView(refs, getImages) {
     infoSizeEl.style.display = display;
     infoResolutionEl.style.display = display;
     // Während sie ausgeblendet sind, liefert getBoundingClientRect() ein
-    // leeres Rechteck -- die Fein-Korrektur gegen Bild/Bildschirmrand
-    // (correctElementForImage) konnte ihre tatsächliche Größe beim
-    // ursprünglichen Platzieren also nicht kennen. Erst sobald sie sichtbar
-    // werden, hier noch einmal gegen die jetzt echte Größe nachkorrigieren.
+    // leeres Rechteck -- die Fein-Korrektur gegen Bild/Bildschirmrand UND
+    // gegen die anderen Wörter (correctElementForImage/infoWords) konnte
+    // ihre tatsächliche Größe beim ursprünglichen Platzieren also nicht
+    // kennen (insbesondere im Über/Unter-dem-Bild-Modus, randomBandSpot,
+    // wo unterschiedlich breite Label wie "pushed: ..." trotz eingehaltenem
+    // Mindestabstand der Ankerpunkte überlappen können). Erst sobald sie
+    // sichtbar werden, hier noch einmal gegen die jetzt echten Größen
+    // nachkorrigieren.
     if (infoVisible) {
-      [infoViewsEl, infoPushedEl, infoSizeEl, infoResolutionEl].forEach(correctElementForImage);
+      [infoViewsEl, infoPushedEl, infoSizeEl, infoResolutionEl].forEach((el) => {
+        correctElementForImage(el, infoWords);
+      });
     }
   }
 
@@ -262,6 +409,52 @@ export function initSingleView(refs, getImages) {
     }
   }
 
+  // Oberkante = Bildunterkante + Freiraum (siehe CONNECT_PREVIEWS_GAP) --
+  // die restliche Positionierung (left/right/bottom, Scrollverhalten)
+  // übernimmt #single-connect-previews in style.css.
+  function positionConnectPreviews() {
+    if (!currentImageRect) return;
+    connectPreviewsEl.style.top = (currentImageRect.bottom + CONNECT_PREVIEWS_GAP) + 'px';
+  }
+
+  // Lädt und zeigt eine Kachel pro connect-Galerie, die dieses Bild enthält
+  // -- gleiche Bildgröße/Anordnungslogik wie main (toConnectGalleryPreviewItem/
+  // createGallery, initialSortMode 'random'), daher bei jedem Aufruf frisch
+  // neu gemischt UND mit jeweils neu ausgewürfeltem Vorschaubild pro Galerie.
+  // Läuft nebenläufig zum restlichen open() (nicht awaited dort) -- das Bild
+  // selbst soll nicht auf diesen zusätzlichen Netzwerk-Roundtrip warten.
+  async function loadConnectPreviews(imageId, myGeneration) {
+    const galleries = await fetchConnectGalleriesForImage(imageId);
+    if (myGeneration !== openGeneration) return; // überholt (neueres [r] oder geschlossen)
+
+    connectPreviewsStageEl.innerHTML = '';
+    connectPreviewsGallery = null;
+    if (!galleries.length) {
+      connectPreviewsEl.style.display = 'none';
+      return;
+    }
+
+    positionConnectPreviews();
+    connectPreviewsEl.style.display = 'block';
+    connectPreviewsGallery = createGallery(
+      connectPreviewsStageEl,
+      galleries.map((cg) => toConnectGalleryPreviewItem(cg, { excludeId: imageId })),
+      {
+        onImageClick: (item) => onConnectGalleryClick(item.id),
+        initialSortMode: 'random',
+        // Kompakte Sammlung direkt unter dem Bild, kein eigenständiger
+        // vollflächiger Bereich (siehe fillViewport in gallery.js) -- sonst
+        // entstünde bei wenigen Vorschau-Bildern viel leerer Scroll-Raum.
+        fillViewport: false,
+      },
+    );
+    // Jetzt, wo Sichtbarkeit/Position der Vorschau-Sammlung feststehen, die
+    // frei schwebenden Textelemente ggf. aus ihrer (jetzt bekannten)
+    // Sperrzone herauskorrigieren (siehe getConnectPreviewsAvoidRect) --
+    // ohne sie komplett neu zu platzieren.
+    correctPositionsForImage();
+  }
+
   async function open(imageId) {
     // Generation SOFORT beanspruchen, vor jedem await -- sonst könnten zwei
     // sich überschneidende open()-Aufrufe, die BEIDE fetchImageById() weiter
@@ -294,6 +487,13 @@ export function initSingleView(refs, getImages) {
 
     currentImage = img;
     currentImageRect = computeContainRect(img.width, img.height);
+
+    // Sofort ausblenden, bevor der Fetch für DIESES Bild zurück ist -- sonst
+    // bliebe kurz die Vorschau-Sammlung des VORHERIGEN Bildes sichtbar,
+    // obwohl dieses Bild z.B. in gar keiner connect-Galerie steckt.
+    connectPreviewsStageEl.innerHTML = '';
+    connectPreviewsEl.style.display = 'none';
+    connectPreviewsGallery = null;
 
     imageEl.src = img.url;
     imageEl.style.width = currentImageRect.width + 'px';
@@ -346,10 +546,14 @@ export function initSingleView(refs, getImages) {
     if (!wasAlreadyOpen) {
       positionActionWords();
     } else {
-      // Position halten (siehe [r]-Verhalten), aber vor Überlappung mit dem
-      // neuen — möglicherweise anders geformten — Bild schützen.
-      correctPositionsForImage();
+      // z/r halten ihre Position (nur Korrektur), die vier Info-Zeilen
+      // bekommen dagegen bei jedem Bildwechsel eine neue Zufallsposition.
+      repositionForImageChangeWhileOpen();
     }
+
+    // Nicht awaited: das Bild selbst soll nicht auf diesen zusätzlichen
+    // Netzwerk-Roundtrip warten (siehe loadConnectPreviews).
+    loadConnectPreviews(img.id, myGeneration);
   }
 
   function close() {
@@ -360,6 +564,9 @@ export function initSingleView(refs, getImages) {
     infoVisible = false;
     updateInfoVisibility();
     stopCountdown();
+    connectPreviewsStageEl.innerHTML = '';
+    connectPreviewsEl.style.display = 'none';
+    connectPreviewsGallery = null;
     document.body.style.overflow = '';
   }
 
@@ -391,6 +598,8 @@ export function initSingleView(refs, getImages) {
       if (overlay.style.display === 'block') {
         positionActionWords();
         positionCountdown();
+        positionConnectPreviews();
+        if (connectPreviewsGallery) connectPreviewsGallery.relayout();
       }
     },
   };

@@ -244,14 +244,21 @@ function drawWatermark(ctx, width, height) {
 export function initUpload(refs, onUploaded) {
   const {
     fileInput, overlay, preview, escBtn, submitBtn,
-    consentHintEl, consentClaimEl, consentCirculateEl, consentResponsibilityEl, countdownEl,
-    copyrightEl,
+    consentToggleEl, consentHintEl, consentClaimEl, consentCirculateEl, consentResponsibilityEl,
+    countdownEl, copyrightEl,
   } = refs;
 
   // Reihenfolge der Consent-Zeilen für die Positionierung (siehe
   // positionConsents/getConsentBlockBottom) -- der Hinweis steht bewusst
   // zuletzt, nach den eigentlichen Aussagen.
   const consentOrder = [consentClaimEl, consentCirculateEl, consentResponsibilityEl, consentHintEl];
+
+  // Die Einwilligungen stehen zunächst NICHT da -- an ihrer Stelle nur die
+  // einzeilige "terms of agreement", ein Klick darauf blendet sie ein (siehe
+  // revealConsents). Einmal eingeblendet, bleiben sie es für den Rest dieses
+  // Upload-Vorgangs (kein Zurück-Klick vorgesehen) -- erst ein neues Bild
+  // (startUpload) oder das Schließen (closeOverlay) setzt das zurück.
+  let consentsRevealed = false;
 
   let pendingBlob = null;
   let pendingDisplaySize = null;
@@ -421,6 +428,11 @@ export function initUpload(refs, onUploaded) {
     // Länge über der Bildschirmmitte, auch mit white-space:nowrap (siehe
     // .image-info): eine längere Zeile ragt dann symmetrisch links/rechts
     // über die Mitte hinaus, statt nur nach rechts.
+    consentToggleEl.style.left = '0px';
+    consentToggleEl.style.width = window.innerWidth + 'px';
+    consentToggleEl.style.textAlign = 'center';
+    consentToggleEl.style.top = (baseImageRect.bottom + CONSENT_GAP) + 'px';
+
     consentOrder.forEach((el, i) => {
       el.style.left = '0px';
       el.style.width = window.innerWidth + 'px';
@@ -434,13 +446,37 @@ export function initUpload(refs, onUploaded) {
     copyrightEl.style.top = (baseImageRect.top - 44) + 'px';
   }
 
-  // Untere Kante der Consent-Liste (letzte Zeile, siehe consentOrder) --
-  // "push" wird direkt darunter zentriert (siehe positionSubmitBtn). Am
-  // unveränderlichen baseImageRect verankert, aus demselben Grund wie
-  // positionConsents.
+  // Zeigt zunächst nur "terms of agreement" an ihrer statt (siehe
+  // positionConsents) -- erst ein Klick darauf blendet die eigentlichen
+  // Einwilligungen ein, siehe consentToggleEl-Klick-Listener unten.
+  function updateConsentRevealVisibility() {
+    consentToggleEl.style.display = consentsRevealed ? 'none' : 'block';
+    consentOrder.forEach((el) => {
+      el.style.display = consentsRevealed ? 'block' : 'none';
+    });
+  }
+
+  function revealConsents() {
+    if (consentsRevealed) return;
+    consentsRevealed = true;
+    updateConsentRevealVisibility();
+    // Die Consent-Liste ist jetzt vier statt einer Zeile hoch -- "push"
+    // direkt darunter muss entsprechend nachrücken (siehe
+    // getConsentBlockBottom/positionSubmitBtn).
+    positionSubmitBtn();
+  }
+
+  consentToggleEl.addEventListener('click', revealConsents);
+
+  // Untere Kante der Consent-Liste -- "push" wird direkt darunter zentriert
+  // (siehe positionSubmitBtn). Solange die Einwilligungen noch nicht
+  // eingeblendet sind (siehe revealConsents), nimmt nur die einzeilige
+  // "terms of agreement" diesen Platz ein. Am unveränderlichen
+  // baseImageRect verankert, aus demselben Grund wie positionConsents.
   function getConsentBlockBottom() {
     if (!baseImageRect) return 0;
-    return baseImageRect.bottom + CONSENT_GAP + consentOrder.length * CONSENT_LINE_HEIGHT;
+    const lines = consentsRevealed ? consentOrder.length : 1;
+    return baseImageRect.bottom + CONSENT_GAP + lines * CONSENT_LINE_HEIGHT;
   }
 
   function setConsentOpacity(el, on) {
@@ -717,6 +753,8 @@ export function initUpload(refs, onUploaded) {
         claimEffect = null;
         distortFactors = null;
         [consentClaimEl, consentCirculateEl].forEach((el) => setConsentOpacity(el, true));
+        consentsRevealed = false;
+        updateConsentRevealVisibility();
         stopCountdown();
         resetCopyright();
 
@@ -752,6 +790,8 @@ export function initUpload(refs, onUploaded) {
     claimEffect = null;
     distortFactors = null;
     [consentClaimEl, consentCirculateEl].forEach((el) => setConsentOpacity(el, true));
+    consentsRevealed = false;
+    updateConsentRevealVisibility();
     stopCountdown();
     resetCopyright();
   }

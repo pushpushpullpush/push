@@ -69,11 +69,17 @@ export function initConnectView(refs, onImageClick) {
     repositionWords();
   }
 
+  // Liefert true/false zurück -- main.js braucht das Erfolgssignal, um beim
+  // Öffnen aus der single view heraus deren Overlay erst NACH erfolgreichem
+  // Laden zu schließen (siehe initSingleView-Callback in main.js). false bei
+  // nicht gefundener Galerie oder wenn ein neueres open()/close() diesen
+  // Aufruf zwischenzeitlich überholt hat (myGeneration-Check).
   async function open(id) {
     const myGeneration = ++openGeneration;
     const galleryData = await fetchConnectGalleryById(id);
-    if (!galleryData || myGeneration !== openGeneration) return;
+    if (!galleryData || myGeneration !== openGeneration) return false;
     showGallery(galleryData);
+    return true;
   }
 
   function close() {

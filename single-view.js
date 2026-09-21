@@ -249,29 +249,6 @@ export function initSingleView(refs, getImages, onConnectGalleryClick) {
     return { left: 0, right: window.innerWidth, top, bottom: window.innerHeight };
   }
 
-  // Bei genug seitlichem Platz (hasSideRoom) meidet die Bild-Sperrzone die
-  // volle Spalte (siehe imageColumnRect) -- landet dadurch nie oberhalb/
-  // unterhalb des Bildes. Auf schmalen Bildschirmen dagegen nur die reine
-  // Bildfläche, damit die kürzeste Ausweichrichtung (clampFromRect) nach
-  // oben/unten zeigen kann, statt in einen zu engen Seitenrand hinein --
-  // derselbe Grund wie bei randomWordSpot oben. Meidet zusätzlich immer die
-  // Vorschau-Sammlung (falls sichtbar), sonst könnte im "hasSideRoom"-Fall
-  // ein Wort seitlich neben dem Bild, aber auf Höhe der (bildschirmbreiten)
-  // Vorschau-Sammlung landen.
-  function correctElementForImage(el, others = []) {
-    const avoidRects = [
-      hasSideRoom(currentImageRect) ? imageColumnRect(currentImageRect) : currentImageRect,
-      getConnectPreviewsAvoidRect(),
-    ].filter(Boolean);
-    for (let pass = 0; pass < 4; pass++) {
-      avoidRects.forEach((r) => clampFromRect(el, r, IMAGE_SAFETY_PAD));
-      others.forEach((otherEl) => {
-        if (otherEl !== el) clampFromRect(el, otherEl.getBoundingClientRect(), 10);
-      });
-      clampToViewport(el, EDGE_SAFETY_PAD);
-    }
-  }
-
   // views/pushed/size/resolution sind Teil derselben frei schwebenden
   // Wortgruppe wie z/r -- eigener Font (siehe .image-info in style.css),
   // aber gleiche Platzierungslogik, nicht mehr fest unter dem Bild
@@ -283,10 +260,48 @@ export function initSingleView(refs, getImages, onConnectGalleryClick) {
   // eine frische Zufallsposition. z/r bleiben davon bewusst unberührt.
   const floatingInfoWords = [infoViewsEl, infoPushedEl, infoSizeEl, infoResolutionEl];
 
-  function correctPositionsForImage() {
-    infoWords.forEach((el) => correctElementForImage(el, infoWords));
+  // Vereinigte Fein-Korrektur für ALLE frei schwebenden Textelemente (z, r,
+  // views, pushed, size, resolution, Uhr) -- garantiert sowohl, dass keines
+  // ins Bild/die Vorschau-Sammlung hineinragt, ALS AUCH, dass sich keine
+  // zwei davon gegenseitig überlappen. Arbeitet mit den tatsächlich
+  // gerenderten Bounding Boxes (nicht nur Ankerpunkten wie randomWordSpot),
+  // da unterschiedlich breite Label (z.B. "pushed: dd/mm/yyyy hh:mm:ss" vs.
+  // "z") trotz eingehaltenem Mindestabstand der Ankerpunkte überlappen
+  // können.
+  //
+  // Mehrere volle Durchläufe über ALLE Elemente (nicht nur einer pro
+  // Element): eine einzelne Korrektur kann ein Element sonst in ein
+  // drittes hineinschieben, das in diesem Durchlauf schon "erledigt" war.
+  // Ausgeblendete Info-Zeilen (infoVisible=false) werden übersprungen --
+  // ihre Bounding Box ist ohnehin leer und lieferte höchstens Störrauschen.
+  function correctAllWordsForImage() {
+    const avoidRects = [
+      hasSideRoom(currentImageRect) ? imageColumnRect(currentImageRect) : currentImageRect,
+      getConnectPreviewsAvoidRect(),
+    ].filter(Boolean);
     const clockEl = document.getElementById('global-clock');
-    if (clockEl) correctElementForImage(clockEl, infoWords);
+    const visible = infoWords.filter((el) => el.style.display !== 'none');
+    const all = clockEl ? [...visible, clockEl] : visible;
+
+    for (let sweep = 0; sweep < 4; sweep++) {
+      all.forEach((el) => {
+        avoidRects.forEach((r) => clampFromRect(el, r, IMAGE_SAFETY_PAD));
+        all.forEach((otherEl) => {
+          if (otherEl !== el) clampFromRect(el, otherEl.getBoundingClientRect(), 10);
+        });
+        clampToViewport(el, EDGE_SAFETY_PAD);
+      });
+    }
+  }
+
+  // Sperrzone der Vorschau-Sammlung (siehe loadConnectPreviews) -- ein
+  // bildschirmbreiter Streifen von ihrer Oberkante bis zum unteren
+  // Bildschirmrand, analog zur Consent-Zone in upload.js. null, solange sie
+  // nicht sichtbar ist (kein Bild in irgendeiner connect-Galerie).
+  function getConnectPreviewsAvoidRect() {
+    if (connectPreviewsEl.style.display !== 'block') return null;
+    const top = parseFloat(connectPreviewsEl.style.top) || 0;
+    return { left: 0, right: window.innerWidth, top, bottom: window.innerHeight };
   }
 
   function positionActionWords() {
@@ -296,11 +311,9 @@ export function initSingleView(refs, getImages, onConnectGalleryClick) {
       taken.push(spot);
       el.style.left = spot.x + 'px';
       el.style.top = spot.y + 'px';
-      correctElementForImage(el);
     });
     repositionClock(taken, currentImageRect);
-    const clockEl = document.getElementById('global-clock');
-    if (clockEl) correctElementForImage(clockEl);
+    correctAllWordsForImage();
   }
 
   // Für einen Bildwechsel WÄHREND die Einzelansicht bereits offen ist (z.B.
@@ -309,11 +322,6 @@ export function initSingleView(refs, getImages, onConnectGalleryClick) {
   // Mal eine frische Zufallsposition, statt an ihrer alten Stelle stehen zu
   // bleiben.
   function repositionForImageChangeWhileOpen() {
-    correctElementForImage(escBtn, infoWords);
-    correctElementForImage(randomBtn, infoWords);
-    const clockEl = document.getElementById('global-clock');
-    if (clockEl) correctElementForImage(clockEl, infoWords);
-
     const taken = [escBtn, randomBtn].map((el) => ({
       x: parseFloat(el.style.left) || 0,
       y: parseFloat(el.style.top) || 0,
@@ -323,8 +331,8 @@ export function initSingleView(refs, getImages, onConnectGalleryClick) {
       taken.push(spot);
       el.style.left = spot.x + 'px';
       el.style.top = spot.y + 'px';
-      correctElementForImage(el, infoWords);
     });
+    correctAllWordsForImage();
   }
 
   function updateInfoVisibility() {
@@ -334,19 +342,11 @@ export function initSingleView(refs, getImages, onConnectGalleryClick) {
     infoSizeEl.style.display = display;
     infoResolutionEl.style.display = display;
     // Während sie ausgeblendet sind, liefert getBoundingClientRect() ein
-    // leeres Rechteck -- die Fein-Korrektur gegen Bild/Bildschirmrand UND
-    // gegen die anderen Wörter (correctElementForImage/infoWords) konnte
+    // leeres Rechteck -- die Fein-Korrektur (correctAllWordsForImage) konnte
     // ihre tatsächliche Größe beim ursprünglichen Platzieren also nicht
-    // kennen (insbesondere im Über/Unter-dem-Bild-Modus, randomBandSpot,
-    // wo unterschiedlich breite Label wie "pushed: ..." trotz eingehaltenem
-    // Mindestabstand der Ankerpunkte überlappen können). Erst sobald sie
-    // sichtbar werden, hier noch einmal gegen die jetzt echten Größen
-    // nachkorrigieren.
-    if (infoVisible) {
-      [infoViewsEl, infoPushedEl, infoSizeEl, infoResolutionEl].forEach((el) => {
-        correctElementForImage(el, infoWords);
-      });
-    }
+    // kennen. Erst sobald sie sichtbar werden, hier noch einmal gegen die
+    // jetzt echten Größen (und die anderen Wörter) nachkorrigieren.
+    if (infoVisible) correctAllWordsForImage();
   }
 
   // Klick auf das Bild selbst schaltet die Info ein/aus -- kein separates
@@ -452,7 +452,7 @@ export function initSingleView(refs, getImages, onConnectGalleryClick) {
     // frei schwebenden Textelemente ggf. aus ihrer (jetzt bekannten)
     // Sperrzone herauskorrigieren (siehe getConnectPreviewsAvoidRect) --
     // ohne sie komplett neu zu platzieren.
-    correctPositionsForImage();
+    correctAllWordsForImage();
   }
 
   async function open(imageId) {
@@ -528,7 +528,7 @@ export function initSingleView(refs, getImages, onConnectGalleryClick) {
     document.body.style.overflow = 'hidden';
     // Die globale Uhr (Datum/Uhrzeit oben links) wird in der Einzelansicht
     // bewusst nicht gezeigt -- an ihrer Stelle stehen hier stattdessen
-    // views/pushed (jetzt Teil von positionActionWords/correctPositionsForImage
+    // views/pushed (jetzt Teil von positionActionWords/correctAllWordsForImage
     // oben) und ggf. der Countdown (positionCountdown).
     setClockVisible(false);
     // Nur der frische Einstieg in die Einzelansicht ist ein eigener Schritt

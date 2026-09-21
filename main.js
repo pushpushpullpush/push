@@ -19,7 +19,7 @@ import { initHideTextMode } from './star-toggle.js';
 import { clampToViewport, clampFromRect, randomSpot as randomSpotUtil } from './position-utils.js';
 import { initWelcome } from './welcome.js';
 import {
-  parseRoute, runSilently, markOpenedFromDirectLoad, pushRoute, HOME_PATH, HOME_TITLE,
+  parseRoute, runSilently, markOpenedFromDirectLoad, pushRoute, replaceRoute, HOME_PATH, HOME_TITLE,
 } from './router.js';
 
 const stage = document.getElementById('stage');
@@ -67,6 +67,9 @@ const gallery = createGallery(stage, images, {
       singleView.open(img.id);
     }
   },
+  // Startzustand ist immer zufällig gemischt (auch beim allerersten
+  // Besuch) -- chronologisch bleibt weiterhin über die Uhr/[t] erreichbar.
+  initialSortMode: 'random',
 });
 
 // ─────────────────────────────────────────────
@@ -131,7 +134,23 @@ singleView = initSingleView({
   // connectView wird direkt im Anschluss zugewiesen (siehe unten) -- dieser
   // Callback wird erst bei einem tatsächlichen Klick aufgerufen, also lange
   // danach.
-}, gallery.getImages, (id) => connectView.open(id));
+}, gallery.getImages, async (id) => {
+  // #connect-view und #single-view sind beide .overlay mit z-index 3000;
+  // connect-view steht bewusst VOR single-view im DOM (siehe index.html),
+  // damit ein Bild INNERHALB einer connect-Galerie die single view darüber
+  // öffnen kann. Eine aus der single view heraus geöffnete connect-Galerie
+  // läge dadurch aber selbst verdeckt DARUNTER -- daher hier stattdessen
+  // die single view schließen, sobald feststeht, dass die Galerie
+  // tatsächlich geladen wurde (false z.B. bei nicht mehr existierender
+  // Galerie -- dann bleibt die single view einfach offen).
+  const opened = await connectView.open(id);
+  if (!opened) return;
+  singleView.close();
+  // connect-Galerien haben keine eigene Route -- /image/:id soll nicht in
+  // der URL stehen bleiben. replaceRoute (nicht pushRoute), damit die
+  // single-view-Sitzung keinen zusätzlichen History-Eintrag hinterlässt.
+  replaceRoute(HOME_PATH, HOME_TITLE);
+});
 
 // Bilder INNERHALB einer geöffneten connect-Galerie verhalten sich beim
 // Klick wie überall sonst: normales single view, mit [r] dort ausschließlich
